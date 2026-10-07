@@ -6,12 +6,16 @@ from aiogram import Bot, Dispatcher
 from bot.config import Config
 from bot.handlers import create_router
 from bot.services import Services
+from bot.db import Database
+from sqlalchemy.exc import SQLAlchemyError
 
 logger = logging.getLogger(__name__)
 
 
 async def run(config: Config) -> None:
-    dispatcher = Dispatcher(config=config, services=Services.demo())
+    database = Database(config.database_url) if config.database_url else None
+    services = Services.persistent(database.sessions) if database else Services.demo()
+    dispatcher = Dispatcher(config=config, services=services)
     dispatcher.include_router(create_router())
     ready = False
 
@@ -19,10 +23,20 @@ async def run(config: Config) -> None:
         return web.json_response({"status": "alive"})
 
     async def readiness(request: web.Request) -> web.Response:
-        return web.json_response({"ready": ready}, status=200 if ready else 503)
+        available = ready
+        if available and database:
+            try:
+                await asyncio.wait_for(database.check(), timeout=3)
+            except Exception:
+                available = False
+        return web.json_response({"ready": available}, status=200 if available else 503)
 
     async def startup(bot: Bot) -> None:
         nonlocal ready
+        if database:
+            await database.check()
+        else:
+            logger.warning("DATABASE_URL not set: demo mode, data is not persistent")
         me = await bot.get_me()
         dispatcher["bot_username"] = me.username or "KudaVpnBot"
         ready = True
@@ -50,6 +64,8 @@ async def run(config: Config) -> None:
             ready = False
             await runner.cleanup()
             await dispatcher.storage.close()
+            if database:
+                await database.close()
 
 
 def main() -> None:
@@ -64,6 +80,9 @@ def main() -> None:
         asyncio.run(run(config))
     except (KeyboardInterrupt, SystemExit):
         logger.info("KudaVPN stopped")
+    except (SQLAlchemyError, ValueError, RuntimeError) as exc:
+        logger.error("Startup/runtime failure: %s; check configuration and migrations", type(exc).__name__)
+        raise SystemExit("Не удалось запустить бота. Проверьте конфигурацию и миграции базы.") from None
 
 
 if __name__ == "__main__":

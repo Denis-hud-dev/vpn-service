@@ -56,12 +56,41 @@ def parse_referrer(payload: str | None) -> int | None:
     return result if result > 0 else None
 
 
+class SubscriptionReader(Protocol):
+    async def describe(self, user_id: int) -> str: ...
+
+
+class UserRegistry(Protocol):
+    async def register(self, telegram_id: int, first_name: str, username: str | None = None,
+                       last_name: str | None = None, referrer_id: int | None = None): ...
+
+
+class DeviceReader(Protocol):
+    async def describe(self, telegram_id: int) -> str: ...
+    async def connection_message(self, telegram_id: int) -> str: ...
+
+
 @dataclass
 class Services:
     payments: PaymentService
-    subscriptions: DemoSubscriptionService
+    subscriptions: SubscriptionReader
     referrals: MemoryReferralService
+
+    users: UserRegistry | None = None
+    devices: DeviceReader | None = None
 
     @classmethod
     def demo(cls) -> "Services":
-        return cls(DemoPaymentService(), DemoSubscriptionService(), MemoryReferralService())
+        from bot.services.devices import DemoDeviceService
+        return cls(DemoPaymentService(), DemoSubscriptionService(), MemoryReferralService(), devices=DemoDeviceService())
+
+
+    @classmethod
+    def persistent(cls, sessions) -> "Services":
+        from bot.services.users import UserService
+        from bot.services.subscriptions import SubscriptionService
+        from bot.services.devices import DeviceService
+        from bot.services.vpn import VPNService
+        # Payment selection remains a demo; no automatic charge or activation.
+        return cls(DemoPaymentService(), SubscriptionService(sessions), MemoryReferralService(),
+                   UserService(sessions), DeviceService(sessions, VPNService(sessions)))

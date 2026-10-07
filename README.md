@@ -1,80 +1,165 @@
 # KudaVPN
 
-KudaVPN — коммерческий VPN-сервис с управлением через Telegram. Этап 1: рабочий интерфейс бота на Python 3.12 и aiogram 3; подписки, устройства и оплата пока демонстрационные.
+KudaVPN — коммерческий VPN-сервис с управлением через Telegram на Python 3.12 и aiogram 3. Второй этап добавляет PostgreSQL, миграции и слой бизнес-сервисов. Реальные платежи и VPN-доступ ещё не подключены.
+
+## Что работает
+
+Главное меню и тарифы сохранены: **1 месяц — 299 ₽**, **3 месяца — 799 ₽**, **12 месяцев — 2490 ₽**. Выбор тарифа показывает прежнюю заглушку; он не создаёт платёж и не активирует подписку.
+
+При заполненном `DATABASE_URL` первый `/start` создаёт пользователя в PostgreSQL, последующие вызовы обновляют имя и username. Создание атомарное через UPSERT; Telegram ID уникален. `referrer_id` сохраняется при первом обращении и не меняется; саморефералы игнорируются. Это Telegram ID, а не внешний ключ: приглашение может прийти раньше регистрации пригласившего пользователя.
+
+«Моя подписка» и «Мои устройства» читают базу. У нового пользователя нет подписки и устройств. `SubscriptionService` поддерживает `pending`, `active`, `expired`, `blocked`, проверяет даты активации и допустимые переходы, предоставляет массовое завершение просроченных подписок `expire_due()`. Открытие подписки также переводит просроченную `active` в `expired`. Периодический scheduler пока не подключён; VPN-сервис отдельно проверяет срок действия.
+
+При пустом `DATABASE_URL` сохраняется рабочий деморежим первого этапа с данными в памяти. При указанном, но недоступном URL бот не переключается незаметно в деморежим: запуск требует доступной базы и применённых миграций.
 
 ## Структура
 
 ```text
 bot/
-  main.py             # polling, logging, lifecycle, health/readiness
-  config.py           # переменные окружения
-  handlers/           # start, subscription, devices, instructions, referral, support
-  keyboards/          # main, tariffs
-  services/           # тарифы и заменяемые сервисы
+  main.py                  # polling, lifecycle, /health и /ready
+  config.py                # конфигурация из environment
+  db/
+    models.py              # User, Subscription, Device, VPNServer, Payment
+    session.py             # engine, async session factory, проверка базы
+  handlers/                # существующие русские экраны и кнопки
+  keyboards/               # меню и тарифы
+  services/
+    __init__.py            # тарифы, интерфейсы, demo/persistent factory
+    users.py               # регистрация и обновление Telegram-пользователя
+    subscriptions.py       # жизненный цикл подписки
+    devices.py             # список устройств
+    payments.py            # pending payments, идемпотентность, YooKassa boundary
+    vpn.py                 # проверки подписки, отключённый WireGuard adapter
   requirements.txt
+  requirements-dev.txt
   Dockerfile
-tests/smoke.py        # проверки через Dispatcher без Telegram API
+migrations/
+  env.py
+  script.py.mako
+  versions/0001_initial_initial_kudavpn_schema.py
+alembic.ini
+docker-compose.yml
+tests/
+  smoke.py
+  test_database.py
 .env.example
 .gitignore
 .dockerignore
 ```
 
-## Локальный запуск
+## База данных
 
-Из корня репозитория:
+Все модели имеют UUID, `created_at`, `updated_at`; временные поля PostgreSQL хранят timezone. Связи и ограничения проверяются базой, удаление связанного пользователя или сервера ограничено `RESTRICT`.
+
+| Модель | Основные поля и правила |
+| --- | --- |
+| User | Уникальный `telegram_id`, профиль, `referrer_id` первого обращения |
+| Subscription | Одна текущая подписка на пользователя, tariff ID, status, starts/expires, device_limit |
+| Device | Пользователь, подписка, сервер, платформа, статус, публичный ключ, IP; составной FK проверяет владельца подписки |
+| VPNServer | Имя, hostname, порт, локация, публичный ключ, подсеть; по умолчанию выключен |
+| Payment | Пользователь, необязательная подписка, тариф, сумма целым числом в копейках, RUB, provider ID, idempotency key, статус |
+
+Уникальность `(provider, provider_payment_id)` и `idempotency_key` подготовлена для будущей обработки оплаты. История продлений будет храниться в платежах; отдельная история изменений подписки пока не реализована. Для активного устройства обязательны сервер, публичный ключ и IP; пара сервер/IP уникальна. Приватные WireGuard-ключи и API-ключи в таблицы не записываются. Лимит устройств пока хранится как настройка (по умолчанию 5); выдачи устройств, проверяющей этот лимит, ещё нет.
+
+## Переменные окружения
+
+Настоящий `.env` исключён из Git и Docker build context. Не перезаписывайте существующий `.env`: добавьте новые поля вручную. Если файла ещё нет, создайте копию `.env.example` локально. Приложение читает environment variables и само `.env` не загружает.
+
+- `BOT_TOKEN` — локальный токен BotFather; обязателен для бота, не нужен для миграций.
+- `SUPPORT_USERNAME` — необязательный Telegram username поддержки.
+- `POSTGRES_DB`, `POSTGRES_USER` — имя базы и пользователь (пример: `kudavpn`).
+- `POSTGRES_PASSWORD` — придуманный локальный пароль; Compose требует непустое значение.
+- `DATABASE_URL` — для запуска бота и Alembic на хосте, драйвер **postgresql+psycopg**.
+- `DATABASE_URL_DOCKER` — отдельный URL с hostname `postgres`; Compose передаёт его контейнерам как `DATABASE_URL`.
+- `YOOKASSA_SHOP_ID`, `YOOKASSA_SECRET_KEY`, `YOOKASSA_RETURN_URL` — пока оставьте пустыми.
+
+Шаблоны URL (замените значения локально, пароль URL-encode при наличии специальных символов):
+
+```text
+DATABASE_URL=postgresql+psycopg://USER:ENCODED_PASSWORD@127.0.0.1:5432/DB
+DATABASE_URL_DOCKER=postgresql+psycopg://USER:ENCODED_PASSWORD@postgres:5432/DB
+```
+
+В `.env`, который загружается через shell `source`, заключайте значения со специальными символами в одинарные кавычки. Для простоты настройки можно использовать длинный случайный буквенно-цифровой пароль. Не вставляйте реальные секреты в README или команды, сохраняемые в истории терминала.
+
+## Локальный запуск с PostgreSQL
+
+Из корня репозитория, после заполнения локального `.env`:
 
 ```sh
 python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r bot/requirements.txt
-cp .env.example .env
-```
-
-Заполните `BOT_TOKEN` в `.env` токеном своего бота, а `SUPPORT_USERNAME` — username поддержки, например `kudavpn_support`, без URL. Пустая поддержка показывает заглушку. Настоящий `.env` исключён из Git и Docker build context. Не публикуйте токен.
-
-Бот читает только environment variables и сам не загружает `.env`. Для загрузки файла в текущий shell (файл должен содержать корректные shell-присваивания):
-
-```sh
 set -a
 source .env
 set +a
+```
+
+Если `.venv` уже есть, достаточно активировать её и обновить зависимости. PostgreSQL можно запустить через Docker Compose; для этих команд также заполните `DATABASE_URL_DOCKER`, поскольку Compose проверяет переменные всего файла:
+
+```sh
+docker compose up -d postgres
+alembic upgrade head
+alembic current
 python -m bot.main
 ```
 
-Пустой `BOT_TOKEN` останавливает приложение с понятной ошибкой. Будущие `DATABASE_URL` и `YOOKASSA_*` оставьте пустыми: пока они не используются. Не запускайте одновременно несколько polling-процессов с одним токеном.
-
-## Docker
+Откройте Telegram и отправьте `/start` — пользователь появится в `users`. Посмотреть количество пользователей без вывода токенов:
 
 ```sh
-docker build -f bot/Dockerfile -t kudavpn-bot .
-docker run --name kudavpn-bot --env-file .env --restart unless-stopped -d kudavpn-bot
-docker logs -f kudavpn-bot
-docker stop kudavpn-bot
+docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT count(*) FROM users;"'
 ```
 
-Контейнер работает от непривилегированного пользователя. SIGINT/SIGTERM останавливают polling, закрывают HTTP-сессию, storage и health-сервер. `/health` на порту 8080 проверяет живой процесс; `/ready` возвращает 200 после успешного `getMe` при запуске и 503 до готовности. Это проверка инициализации, она не гарантирует доступность Telegram при последующем сетевом сбое. Порт не публикуется наружу; для локальной диагностики добавьте `-p 127.0.0.1:8080:8080`. При изменении `HEALTH_PORT` нужно также изменить Docker healthcheck.
+Если Docker отсутствует, используйте уже установленный PostgreSQL и заполните `DATABASE_URL`. Для деморежима оставьте `DATABASE_URL` пустым. Не запускайте два polling-процесса с одним токеном. Остановка локального бота: `Ctrl+C`.
 
-## Реализовано
+## Полный запуск через Docker Compose
 
-- Русское меню, `/start`, переходы кнопками и «Назад» на внутренних экранах.
-- Три тарифа: 299, 799 и 2490 ₽; выбор показывает заглушку оплаты.
-- Неактивная подписка и пустой список устройств.
-- Выбор инструкции для iOS, Android, Windows и macOS.
-- Персональная ссылка `https://t.me/KudaVpnBot?start=ref_TELEGRAM_ID` (username берётся из `getMe`, поэтому другой бот тоже поддерживается).
-- Разбор `referrer_id`, запрет саморефералов, первое касание в памяти; перезапуск очищает данные, бонусы не начисляются.
-- Поддержка через `SUPPORT_USERNAME`, обработка неизвестных сообщений и устаревших кнопок.
-- Логирование, lifecycle и Docker healthcheck. Обработка остановки следует [документации aiogram](https://docs.aiogram.dev/en/latest/dispatcher/dispatcher.html).
+Остановите прежний локальный бот, заполните переменные и выполните:
 
-## Следующие этапы
+```sh
+docker compose up --build -d
+docker compose logs -f bot
+```
 
-Подключить backend и PostgreSQL с миграциями и постоянным хранением пользователей/referrer_id; YooKassa и СБП через реализацию `PaymentService`, проверку webhook, идемпотентность платежей и активацию подписки; WireGuard, выдачу конфигураций и управление устройствами; реальные инструкции и бонусные дни. Цена и длительность тарифа централизованы в `bot/services`, обработчики получают сервисы через dependency injection.
+Порядок запуска: PostgreSQL проходит healthcheck → контейнер `migrate` применяет Alembic → бот стартует только после успешной миграции. База сохраняется в named volume `postgres_data`. Пароль существующей базы не меняется автоматически при изменении `.env`.
+
+```sh
+docker compose stop bot
+docker compose down
+```
+
+`down` без `-v` сохраняет данные. После следующих изменений кода/миграций выполните `docker compose up --build -d`.
+
+Контейнер бота работает непривилегированным пользователем. SIGINT/SIGTERM закрывают polling, Telegram-сессию, storage, health-сервер и SQLAlchemy engine. PostgreSQL публикуется только на `127.0.0.1:5432`. HTTP-порт бота по умолчанию наружу не публикуется.
+
+`/health` на 8080 проверяет живой процесс. `/ready` требует завершённого старта и доступной мигрированной базы, возвращая 503 при сбое базы. Проверка не гарантирует доступность Telegram при последующем сетевом сбое. Для локальной диагностики можно добавить публикацию `127.0.0.1:8080:8080`. При изменении `HEALTH_PORT` также обновите Docker healthcheck.
+
+## YooKassa и WireGuard: подготовленная архитектура
+
+`PaymentRepository.create_pending()` сохраняет платёж с ценой в копейках и ключом идемпотентности; повторный вызов с тем же ключом и параметрами возвращает ту же запись. Telegram-кнопки пока этот метод не вызывают. `PaymentGateway` описывает создание и проверку платежа; `YooKassaGateway` сейчас всегда выдаёт ошибку «не подключена». Реальные ключи не читаются и запросы оплаты не отправляются.
+
+Следующий этап оплаты: HTTP adapter YooKassa/СБП, confirmation URL, проверка статуса у провайдера, безопасный webhook, идемпотентная обработка событий и транзакционная активация/продление подписки. `SubscriptionService.set_status()` предназначен для доверенного backend-кода, он не является подтверждением оплаты и не доступен пользователю Telegram.
+
+`WireGuardGateway` описывает добавление/удаление peer; текущий адаптер выключен. `VPNService` проверяет подписку и наличие включённого сервера, но даже такая запись в базе пока не выдаёт доступ: `provision_device()` всегда отказывает. Далее нужны adapter управления сервером, адресный пул, лимиты устройств, безопасная передача конфигурации, повторные попытки и отзыв peer при блокировке/истечении. Пока переход статуса в базе не отзывает реальный peer — реальных peer на этом этапе нет.
 
 ## Проверки
 
 ```sh
-python -m compileall -q bot tests
+pip install -r bot/requirements-dev.txt
+python -m compileall -q bot migrations tests
 python tests/smoke.py
+python -m pytest -q
 pip check
 ```
 
-Smoke test использует синтетические обновления и подменённую Telegram-сессию: реальные токены, сеть и платежи не нужны.
+Smoke test проверяет прежние экраны и callback-кнопки без Telegram API. Интеграционный тест на временной SQLite проверяет миграции `upgrade → downgrade → upgrade`, совпадение схемы с моделями, сохранение пользователей/referrer_id, статусы подписки, ограничения FK, устройства, pending payments и отключённые внешние адаптеры. SQLite используется только в тестах; production-конфигурация допускает PostgreSQL.
+
+Проверка PostgreSQL SQL без подключения (при заданном URL):
+
+```sh
+alembic upgrade head --sql > /tmp/kudavpn-schema.sql
+```
+
+Для интеграционного теста на настоящем PostgreSQL задайте **отдельную пустую тестовую базу** через `TEST_DATABASE_URL=postgresql+psycopg://...` в локальном окружении и выполните `python -m pytest -q`. Тест применяет и откатывает таблицы: не используйте рабочую базу. Без этой переменной PostgreSQL-тест явно пропускается.
+
+Подход к асинхронным сессиям и миграциям основан на [SQLAlchemy asyncio](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html) и [Alembic cookbook](https://alembic.sqlalchemy.org/en/latest/cookbook.html#using-asyncio-with-alembic).

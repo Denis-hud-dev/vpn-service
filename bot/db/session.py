@@ -1,0 +1,27 @@
+from sqlalchemy import select, text
+from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from bot.db.models import User, Subscription, Device, VPNServer, Payment
+
+
+class Database:
+    def __init__(self, url: str):
+        parsed = make_url(url)
+        if parsed.drivername != "postgresql+psycopg":
+            raise ValueError("DATABASE_URL должен использовать postgresql+psycopg.")
+        self.engine = create_async_engine(parsed, pool_pre_ping=True, hide_parameters=True,
+                                          connect_args={"connect_timeout": 5})
+        self.sessions = async_sessionmaker(self.engine, expire_on_commit=False)
+
+    async def check(self) -> None:
+        async with self.engine.connect() as connection:
+            await connection.execute(text("SELECT 1"))
+            # Missing migrations must fail startup before polling begins.
+            for model in (User, Subscription, Device, VPNServer, Payment):
+                await connection.execute(select(model).limit(0))
+            revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
+            if revision != "0001_initial":
+                raise RuntimeError("Примените миграции: alembic upgrade head")
+
+    async def close(self) -> None:
+        await self.engine.dispose()

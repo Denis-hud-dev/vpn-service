@@ -1,0 +1,104 @@
+"""No private keys or payment credentials belong in these tables."""
+from datetime import datetime
+from enum import StrEnum
+from uuid import UUID, uuid4
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Integer, String, UniqueConstraint, Uuid, func
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+class SubscriptionStatus(StrEnum):
+    ACTIVE = "active"
+    EXPIRED = "expired"
+    PENDING = "pending"
+    BLOCKED = "blocked"
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class Record:
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class User(Record, Base):
+    __tablename__ = "users"
+    telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
+    username: Mapped[str | None] = mapped_column(String(32))
+    first_name: Mapped[str] = mapped_column(String(256))
+    last_name: Mapped[str | None] = mapped_column(String(256))
+    # Telegram ID: attribution can precede the referrer's own registration.
+    referrer_id: Mapped[int | None] = mapped_column(BigInteger)
+    __table_args__ = (CheckConstraint("telegram_id > 0", name="user_positive_telegram_id"),
+                     CheckConstraint("referrer_id IS NULL OR (referrer_id > 0 AND referrer_id != telegram_id)", name="user_valid_referrer"))
+
+
+class Subscription(Record, Base):
+    __tablename__ = "subscriptions"
+    # One current subscription per user; payment rows retain renewal history.
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), unique=True)
+    tariff_id: Mapped[str] = mapped_column(String(32))
+    status: Mapped[str] = mapped_column(String(16), default=SubscriptionStatus.PENDING)
+    starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    device_limit: Mapped[int] = mapped_column(Integer, default=5)
+    __table_args__ = (
+        UniqueConstraint("id", "user_id", name="subscription_owner"),
+        CheckConstraint("status IN ('active','expired','pending','blocked')", name="subscription_status"),
+        CheckConstraint("device_limit > 0", name="subscription_device_limit"),
+        CheckConstraint("expires_at IS NULL OR starts_at IS NULL OR expires_at > starts_at", name="subscription_dates"),
+        CheckConstraint("status != 'active' OR (starts_at IS NOT NULL AND expires_at IS NOT NULL)", name="subscription_active_dates"),
+    )
+
+
+class VPNServer(Record, Base):
+    __tablename__ = "vpn_servers"
+    name: Mapped[str] = mapped_column(String(128), unique=True)
+    hostname: Mapped[str] = mapped_column(String(253))
+    port: Mapped[int] = mapped_column(Integer, default=51820)
+    location: Mapped[str] = mapped_column(String(128))
+    public_key: Mapped[str | None] = mapped_column(String(128))
+    subnet: Mapped[str | None] = mapped_column(String(64))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    __table_args__ = (CheckConstraint("port BETWEEN 1 AND 65535", name="vpn_server_port"),)
+
+
+class Device(Record, Base):
+    __tablename__ = "devices"
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
+    subscription_id: Mapped[UUID] = mapped_column(Uuid, index=True)
+    vpn_server_id: Mapped[UUID | None] = mapped_column(ForeignKey("vpn_servers.id", ondelete="RESTRICT"), index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    platform: Mapped[str] = mapped_column(String(16))
+    status: Mapped[str] = mapped_column(String(16), default="pending")
+    public_key: Mapped[str | None] = mapped_column(String(128), unique=True)
+    assigned_ip: Mapped[str | None] = mapped_column(String(45))
+    __table_args__ = (
+        ForeignKeyConstraint(["subscription_id", "user_id"], ["subscriptions.id", "subscriptions.user_id"], ondelete="RESTRICT", name="device_subscription_owner"),
+        CheckConstraint("status != 'active' OR (vpn_server_id IS NOT NULL AND public_key IS NOT NULL AND assigned_ip IS NOT NULL)", name="device_active_configuration"),
+        CheckConstraint("platform IN ('ios','android','windows','macos')", name="device_platform"),
+        CheckConstraint("status IN ('pending','active','revoked')", name="device_status"),
+        UniqueConstraint("vpn_server_id", "assigned_ip", name="device_server_ip"),
+    )
+
+
+class Payment(Record, Base):
+    __tablename__ = "payments"
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
+    subscription_id: Mapped[UUID | None] = mapped_column(ForeignKey("subscriptions.id", ondelete="RESTRICT"), index=True)
+    tariff_id: Mapped[str] = mapped_column(String(32))
+    amount_kopecks: Mapped[int] = mapped_column(Integer)
+    currency: Mapped[str] = mapped_column(String(3), default="RUB")
+    provider: Mapped[str] = mapped_column(String(32), default="yookassa")
+    provider_payment_id: Mapped[str | None] = mapped_column(String(128))
+    idempotency_key: Mapped[UUID] = mapped_column(Uuid, unique=True, default=uuid4)
+    status: Mapped[str] = mapped_column(String(16), default="pending")
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (
+        UniqueConstraint("provider", "provider_payment_id", name="payment_provider_id"),
+        CheckConstraint("amount_kopecks > 0", name="payment_positive_amount"),
+        CheckConstraint("currency = 'RUB'", name="payment_currency"),
+        CheckConstraint("status IN ('pending','succeeded','canceled','refunded')", name="payment_status"),
+    )

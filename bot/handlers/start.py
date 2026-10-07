@@ -11,7 +11,11 @@ WELCOME = "Добро пожаловать в KudaVPN 🚀\n\nБыстрый и 
 @router.message(CommandStart())
 async def start(message: Message, command: CommandObject, services: Services):
     if message.from_user:
-        await services.referrals.register(message.from_user.id, parse_referrer(command.args))
+        if services.users is not None:
+            await services.users.register(message.from_user.id, message.from_user.first_name,
+                message.from_user.username, message.from_user.last_name, parse_referrer(command.args))
+        else:
+            await services.referrals.register(message.from_user.id, parse_referrer(command.args))
     await message.answer(WELCOME, reply_markup=main_menu())
 
 

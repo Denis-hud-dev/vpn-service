@@ -9,6 +9,7 @@ class Config:
     bot_token: str
     support_username: str = ""
     health_port: int = 8080
+    database_url: str = ""
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -21,4 +22,4 @@ class Config:
         port = int(os.getenv("HEALTH_PORT", "8080"))
         if not 1 <= port <= 65535:
             raise ValueError("HEALTH_PORT должен быть от 1 до 65535.")
-        return cls(token, support, port)
+        return cls(token, support, port, os.getenv("DATABASE_URL", "").strip())
