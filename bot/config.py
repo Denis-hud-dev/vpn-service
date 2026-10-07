@@ -1,0 +1,24 @@
+"""Configuration comes exclusively from environment variables."""
+import os
+import re
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Config:
+    bot_token: str
+    support_username: str = ""
+    health_port: int = 8080
+
+    @classmethod
+    def from_env(cls) -> "Config":
+        token = os.getenv("BOT_TOKEN", "").strip()
+        if not token:
+            raise ValueError("Укажите BOT_TOKEN в переменных окружения.")
+        support = os.getenv("SUPPORT_USERNAME", "").strip().lstrip("@")
+        if support and not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{4,31}", support):
+            raise ValueError("SUPPORT_USERNAME должен содержать Telegram username без ссылки.")
+        port = int(os.getenv("HEALTH_PORT", "8080"))
+        if not 1 <= port <= 65535:
+            raise ValueError("HEALTH_PORT должен быть от 1 до 65535.")
+        return cls(token, support, port)
