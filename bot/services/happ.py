@@ -1,0 +1,163 @@
+"""Personal feed and node convergence. No real node adapter is enabled by default."""
+import asyncio
+import hashlib
+import re
+import secrets
+from urllib.parse import urlsplit, urlencode, quote
+from uuid import UUID
+from typing import Protocol
+from sqlalchemy import select, exists
+from bot.db.models import Subscription, SubscriptionToken, VPNNode, NodeAccess, Payment, SubscriptionHistory
+from bot.services.subscriptions import utcnow, as_utc
+
+
+class AccessDenied(ValueError):
+    pass
+
+
+def token_digest(token):
+    if not re.fullmatch(r'[A-Za-z0-9_-]{43}', token):
+        raise AccessDenied('Subscription unavailable')
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+async def entitled(session, sub):
+    return bool(sub.status == 'active' and sub.expires_at and as_utc(sub.expires_at) > utcnow()
+        and await session.scalar(select(exists().where(
+            SubscriptionHistory.subscription_id == sub.id,
+            SubscriptionHistory.payment_id == Payment.id,
+            Payment.status == 'succeeded', Payment.subscription_id == sub.id,
+            Payment.user_id == sub.user_id))))
+
+
+class NodeGateway(Protocol):
+    async def apply(self, node: VPNNode, credential: UUID, *, enabled: bool, expires_at):
+        """Idempotent remote operation. ACK only after enforcement on the node.
+
+        The agent must expire credentials independently and terminate/reject
+        sessions when revoked. Do not treat request acceptance as enforcement.
+        """
+        ...
+
+
+class DisabledNodeGateway:
+    async def apply(self, node, credential: UUID, *, enabled: bool, expires_at):
+        raise RuntimeError('VPN node adapter is not configured')
+
+
+class HappService:
+    def __init__(self, sessions, public_url):
+        url = urlsplit(public_url)
+        if (url.scheme != 'https' or not url.hostname or url.username or url.password
+                or url.query or url.fragment or url.path not in ('', '/')):
+            raise ValueError('Subscription origin must be HTTPS')
+        self.sessions, self.public_url = sessions, public_url.rstrip('/')
+
+    async def issue(self, subscription_id):
+        async with self.sessions.begin() as session:
+            sub = await session.scalar(select(Subscription).where(Subscription.id == subscription_id).with_for_update())
+            if sub is None or not await entitled(session, sub):
+                raise AccessDenied('Active paid subscription required')
+            previous = await session.scalar(select(SubscriptionToken).where(SubscriptionToken.subscription_id == sub.id))
+            if previous and not previous.revoked:
+                raise AccessDenied('Link already issued; revoke before rotation')
+            if previous and await session.scalar(select(exists().where(NodeAccess.subscription_id == sub.id, NodeAccess.revocation_confirmed.is_(False)))):
+                raise AccessDenied('Node revocation must finish before rotation')
+            token = secrets.token_urlsafe(32)
+            if previous:
+                previous.digest, previous.revoked = token_digest(token), False
+                rows = (await session.scalars(select(NodeAccess).where(NodeAccess.subscription_id == sub.id))).all()
+                from uuid import uuid4
+                for row in rows:
+                    row.credential, row.applied_expires_at = uuid4(), None
+                    row.revocation_confirmed = False
+            else:
+                session.add(SubscriptionToken(subscription_id=sub.id, digest=token_digest(token), revoked=False))
+            return self.public_url + '/s/' + token
+
+    async def revoke(self, subscription_id):
+        async with self.sessions.begin() as session:
+            await session.scalar(select(Subscription).where(Subscription.id == subscription_id).with_for_update())
+            token = await session.scalar(select(SubscriptionToken).where(SubscriptionToken.subscription_id == subscription_id))
+            if token: token.revoked = True
+
+    async def feed(self, token):
+        digest = token_digest(token)
+        async with self.sessions() as session:
+            row = await session.scalar(select(SubscriptionToken).where(SubscriptionToken.digest == digest, SubscriptionToken.revoked.is_(False)))
+            sub = await session.get(Subscription, row.subscription_id) if row else None
+            if sub is None or not await entitled(session, sub):
+                raise AccessDenied('Subscription unavailable')
+            rows = (await session.execute(select(VPNNode, NodeAccess).join(NodeAccess, NodeAccess.node_id == VPNNode.id).where(
+                NodeAccess.subscription_id == sub.id, NodeAccess.enabled.is_(True), VPNNode.enabled.is_(True))
+                .order_by(VPNNode.name))).all()
+            lines = []
+            for node, access in rows:
+                # Never advertise stale credentials or an expired node lease.
+                if not access.applied_expires_at or as_utc(access.applied_expires_at) <= utcnow():continue
+                params = urlencode({'encryption':'none','security':'reality','type':'tcp',
+                    'flow':'xtls-rprx-vision','fp':'chrome','sni':node.server_name,
+                    'pbk':node.public_key,'sid':node.short_id})
+                host = '['+node.hostname+']' if ':' in node.hostname else node.hostname
+                lines.append(f'vless://{access.credential}@{host}:{node.port}?{params}#{quote(node.name, safe="")}')
+            if not lines:
+                raise AccessDenied('Subscription unavailable')
+            return '\n'.join(lines)+'\n', int(as_utc(sub.expires_at).timestamp())
+
+
+class NodeReconciler:
+    """Idempotent gateway must enforce lease expiry on the node, even offline.
+
+    Gateway acknowledgement is required before advertising access. Exceptions
+    roll back DB state, retry next tick. Gateway calls must be safe to repeat.
+    Nodes are disabled rather than deleted, so old credentials can be removed.
+    """
+    def __init__(self, sessions, gateway=None):
+        self.sessions, self.gateway = sessions, gateway or DisabledNodeGateway()
+
+    async def reconcile(self, subscription_id):
+        # Commit credentials before any remote operation. Crash after remote add
+        # can then be retried/revoked using exactly the same credential.
+        async with self.sessions.begin() as session:
+            sub = await session.scalar(select(Subscription).where(Subscription.id == subscription_id).with_for_update())
+            if sub is None:return
+            token = await session.scalar(select(SubscriptionToken).where(SubscriptionToken.subscription_id == sub.id))
+            if token and not token.revoked and await entitled(session, sub):
+                nodes = (await session.scalars(select(VPNNode).where(VPNNode.enabled.is_(True)))).all()
+                for node in nodes:
+                    exists_row = await session.scalar(select(NodeAccess).where(NodeAccess.subscription_id == sub.id, NodeAccess.node_id == node.id))
+                    if exists_row is None:
+                        session.add(NodeAccess(subscription_id=sub.id, node_id=node.id, enabled=False))
+        async with self.sessions.begin() as session:
+            sub = await session.scalar(select(Subscription).where(Subscription.id == subscription_id).with_for_update())
+            if sub is None:return
+            token = await session.scalar(select(SubscriptionToken).where(SubscriptionToken.subscription_id == sub.id))
+            allowed = bool(token and not token.revoked and await entitled(session, sub))
+            nodes = (await session.scalars(select(VPNNode).order_by(VPNNode.id).with_for_update())).all()
+            for node in nodes:
+                access = await session.scalar(select(NodeAccess).where(NodeAccess.subscription_id == sub.id, NodeAccess.node_id == node.id))
+                desired = allowed and node.enabled
+                if access is None:
+                    if not desired:continue
+                    access = NodeAccess(subscription_id=sub.id, node_id=node.id, enabled=False)
+                    session.add(access)
+                    await session.flush()
+                expires = as_utc(sub.expires_at) if desired else None
+                if desired and access.enabled and access.applied_expires_at and as_utc(access.applied_expires_at) == expires:
+                    continue
+                # Retry uncertain adds too: a previous remote success may have
+                # occurred before transaction rollback or process termination.
+                await asyncio.wait_for(self.gateway.apply(node, access.credential,
+                    enabled=desired, expires_at=expires), timeout=5)
+                access.enabled, access.applied_expires_at = desired, expires
+                access.revocation_confirmed = not desired
+
+    async def tick(self):
+        async with self.sessions() as session:
+            ids = (await session.scalars(select(Subscription.id))).all()
+        for sid in ids:
+            try: await self.reconcile(sid)
+            except Exception:
+                # No exception strings, node credentials or identifiers in logs.
+                import logging
+                logging.getLogger(__name__).warning('Node reconciliation failed; retry scheduled')

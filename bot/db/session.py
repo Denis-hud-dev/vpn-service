@@ -1,7 +1,7 @@
 from sqlalchemy import select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from bot.db.models import User, Subscription, Device, VPNServer, Payment, ActiveScreen, SubscriptionHistory
+from bot.db.models import User, Subscription, Device, VPNServer, Payment, ActiveScreen, SubscriptionHistory, SubscriptionToken, VPNNode, NodeAccess
 from bot.observability import instrument_database
 
 
@@ -25,10 +25,10 @@ class Database:
         async with self.engine.connect() as connection:
             await connection.execute(text("SELECT 1"))
             # Missing migrations must fail startup before polling begins.
-            for model in (User, Subscription, Device, VPNServer, Payment, ActiveScreen, SubscriptionHistory):
+            for model in (User, Subscription, Device, VPNServer, Payment, ActiveScreen, SubscriptionHistory, SubscriptionToken, VPNNode, NodeAccess):
                 await connection.execute(select(model).limit(0))
             revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
-            if revision != "0003_subscription_history":
+            if revision != "0004_happ_subscriptions":
                 raise RuntimeError("Примените миграции: alembic upgrade head")
 
     async def close(self) -> None:

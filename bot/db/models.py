@@ -128,3 +128,34 @@ class SubscriptionHistory(Record, Base):
     new_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     old_starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     new_starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SubscriptionToken(Record, Base):
+    __tablename__ = "subscription_tokens"
+    subscription_id: Mapped[UUID] = mapped_column(ForeignKey("subscriptions.id", ondelete="RESTRICT"), unique=True)
+    digest: Mapped[str] = mapped_column(String(64), unique=True)
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class VPNNode(Record, Base):
+    """Public REALITY parameters only; private keys and admin credentials stay on nodes."""
+    __tablename__ = "vpn_nodes"
+    name: Mapped[str] = mapped_column(String(128), unique=True)
+    hostname: Mapped[str] = mapped_column(String(253))
+    port: Mapped[int] = mapped_column(Integer, default=443)
+    public_key: Mapped[str] = mapped_column(String(128))
+    short_id: Mapped[str] = mapped_column(String(16))
+    server_name: Mapped[str] = mapped_column(String(253))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    __table_args__ = (CheckConstraint("port BETWEEN 1 AND 65535", name="vpn_node_port"),)
+
+
+class NodeAccess(Record, Base):
+    __tablename__ = "node_access"
+    subscription_id: Mapped[UUID] = mapped_column(ForeignKey("subscriptions.id", ondelete="RESTRICT"), index=True)
+    node_id: Mapped[UUID] = mapped_column(ForeignKey("vpn_nodes.id", ondelete="RESTRICT"), index=True)
+    credential: Mapped[UUID] = mapped_column(Uuid, default=uuid4, unique=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    revocation_confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
+    applied_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (UniqueConstraint("subscription_id", "node_id", name="node_access_owner"),)
