@@ -1,0 +1,73 @@
+# Standalone Linux/Ubuntu 24.04 configuration. Never combine with the local file.
+# Host networking avoids Docker bridge/firewall changes on an existing VPN host.
+name: kudavpn-premium
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+x-app: &app
+  image: kudavpn-premium-app:${KUDA_RELEASE_ID:-prepared}
+  build:
+    context: .
+    dockerfile: bot/Dockerfile.production
+  platform: linux/amd64
+  env_file: .env.production
+  environment:
+    DATABASE_URL: ${DATABASE_URL_DOCKER:?Set loopback production database URL}
+    HEALTH_PORT: '18080'
+  network_mode: host
+  init: true
+  read_only: true
+  tmpfs:
+    - /tmp:size=16m,mode=1777
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  logging: *logging
+services:
+  postgres:
+    image: postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+    platform: linux/amd64
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set production database name}
+      POSTGRES_USER: ${POSTGRES_USER:?Set production database user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set production password}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    # Loopback only; do not touch the host's existing PostgreSQL or VPN ports.
+    command: [postgres, '-c', 'listen_addresses=127.0.0.1', '-c', 'port=5433']
+    network_mode: host
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -h 127.0.0.1 -p 5433 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+    stop_grace_period: 60s
+    logging: *logging
+  migrate:
+    <<: *app
+    command: [alembic, upgrade, head]
+    healthcheck:
+      disable: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+  bot:
+    <<: *app
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    stop_grace_period: 45s
+    healthcheck:
+      test: [CMD, python, '-c', "import urllib.request; urllib.request.urlopen('http://127.0.0.1:18080/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+volumes:
+  postgres_data:

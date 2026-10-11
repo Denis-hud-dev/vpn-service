@@ -102,3 +102,16 @@ class Payment(Record, Base):
         CheckConstraint("currency = 'RUB'", name="payment_currency"),
         CheckConstraint("status IN ('pending','succeeded','canceled','refunded')", name="payment_status"),
     )
+
+
+class ActiveScreen(Base):
+    __tablename__ = "active_screens"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.telegram_id", ondelete="RESTRICT"), primary_key=True)
+    chat_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    message_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    __table_args__ = (
+        UniqueConstraint("chat_id", "message_id", name="active_screen_message"),
+        CheckConstraint("chat_id = user_id AND chat_id > 0", name="active_screen_private_chat"),
+        CheckConstraint("message_id > 0", name="active_screen_message_id"),
+    )

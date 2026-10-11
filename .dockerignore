@@ -5,3 +5,11 @@
 venv
 **/__pycache__
 tests
+backups/
+**/*.dump
+**/*.backup
+**/*.pgdump
+**/*.sql
+**/*.sql.gz
+**/*.sql.bz2
+**/*.sql.xz

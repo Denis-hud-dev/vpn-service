@@ -3,10 +3,14 @@ import asyncio
 import logging
 from aiohttp import web
 from aiogram import Bot, Dispatcher
+from aiogram.client.session.aiohttp import AiohttpSession
+from bot.observability import TelegramTimingMiddleware, SafeDependencyLogs
 from bot.config import Config
 from bot.handlers import create_router
 from bot.services import Services
 from bot.db import Database
+from bot.navigation import Navigation
+from bot.services.navigation import PostgresScreenStore
 from sqlalchemy.exc import SQLAlchemyError
 
 logger = logging.getLogger(__name__)
@@ -15,7 +19,7 @@ logger = logging.getLogger(__name__)
 async def run(config: Config) -> None:
     database = Database(config.database_url) if config.database_url else None
     services = Services.persistent(database.sessions) if database else Services.demo()
-    dispatcher = Dispatcher(config=config, services=services)
+    dispatcher = Dispatcher(config=config, services=services, navigation=Navigation(PostgresScreenStore(database.sessions) if database else None))
     dispatcher.include_router(create_router())
     ready = False
 
@@ -26,7 +30,7 @@ async def run(config: Config) -> None:
         available = ready
         if available and database:
             try:
-                await asyncio.wait_for(database.check(), timeout=3)
+                await asyncio.wait_for(database.ping(), timeout=3)
             except Exception:
                 available = False
         return web.json_response({"ready": available}, status=200 if available else 503)
@@ -54,12 +58,15 @@ async def run(config: Config) -> None:
     app.router.add_get("/ready", readiness)
     runner = web.AppRunner(app, access_log=None)
     # Context manager also closes the session when startup fails.
-    async with Bot(config.bot_token) as bot:
+    session = AiohttpSession(timeout=10)
+    session.middleware(TelegramTimingMiddleware())
+    async with Bot(config.bot_token, session=session) as bot:
         try:
             await runner.setup()
-            await web.TCPSite(runner, "0.0.0.0", config.health_port).start()
+            await web.TCPSite(runner, "127.0.0.1", config.health_port).start()
             await dispatcher.start_polling(bot, handle_signals=True, close_bot_session=False,
-                                           allowed_updates=dispatcher.resolve_used_update_types())
+                                           allowed_updates=dispatcher.resolve_used_update_types(),
+                                           polling_timeout=30, tasks_concurrency_limit=64)
         finally:
             ready = False
             await runner.cleanup()
@@ -70,6 +77,8 @@ async def run(config: Config) -> None:
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    for handler in logging.getLogger().handlers:
+        handler.addFilter(SafeDependencyLogs())
     # Avoid HTTP request logs containing a bot token in the URL.
     logging.getLogger("aiohttp.access").setLevel(logging.WARNING)
     try:

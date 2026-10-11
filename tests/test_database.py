@@ -20,6 +20,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from bot.config import Config
+from bot.navigation import Navigation
+from bot.services.navigation import PostgresScreenStore
+from tests.fake_telegram import TelegramHarness
 from bot.db.models import Base, User, Subscription, SubscriptionStatus, Device, VPNServer, Payment
 from bot.db.session import Database
 from bot.handlers.start import start
@@ -44,16 +47,17 @@ async def scenario(url):
             await conn.run_sync(migrate, 'head')
             def validate(connection):
                 assert not compare_metadata(MigrationContext.configure(connection), Base.metadata)
-                assert set(inspect(connection).get_table_names()) == {'alembic_version', 'users', 'subscriptions', 'devices', 'vpn_servers', 'payments'}
+                assert set(inspect(connection).get_table_names()) == {'alembic_version', 'users', 'subscriptions', 'devices', 'vpn_servers', 'payments', 'active_screens'}
             await conn.run_sync(validate)
         sessions = async_sessionmaker(engine, expire_on_commit=False)
         services = Services.persistent(sessions)
-        bot = Bot('123456:offline_test_token')
-        bot.session = AsyncMock()
+        harness = TelegramHarness(services=services, store=PostgresScreenStore(sessions))
+        bot = harness.bot
+        navigation = harness.navigation
         message = Message.model_validate({'message_id': 1, 'date': 1, 'chat': {'id': 101, 'type': 'private'},
             'from': {'id': 101, 'is_bot': False, 'first_name': 'Alice'}, 'text': '/start ref_202'}).as_(bot)
-        await start(message, CommandObject(command='start', args='ref_202'), services)
-        await start(message, CommandObject(command='start', args='ref_303'), services)
+        await start(message, CommandObject(command='start', args='ref_202'), services, navigation)
+        await start(message, CommandObject(command='start', args='ref_303'), services, navigation)
         async with sessions() as session:
             assert await session.scalar(select(func.count()).select_from(User)) == 1
             user = await session.scalar(select(User).where(User.telegram_id == 101))
@@ -65,6 +69,8 @@ async def scenario(url):
         first = await services.users.register(303, 'Carol')
         second = await services.users.register(303, 'Carol', referrer_id=101)
         assert first.id == second.id and second.referrer_id is None
+        snapshot = await services.subscriptions.snapshot(101)
+        assert snapshot.status == 'inactive' and snapshot.device_count == 0 and snapshot.traffic_bytes is None
         assert 'Статус: не активна' in await services.subscriptions.describe(101)
         assert 'нет подключённых' in await services.devices.describe(101)
         sub = await services.subscriptions.create_pending(101, 'month')
@@ -98,6 +104,8 @@ async def scenario(url):
             session.add(Device(user_id=user_id, subscription_id=sub.id, name='Phone', platform='ios'))
         assert 'Phone' in await services.devices.describe(101)
         assert 'Устройства: 1' in await services.subscriptions.describe(101)
+        snapshot = await services.subscriptions.snapshot(101)
+        assert snapshot.status == 'active' and snapshot.device_count == 1 and snapshot.tariff_label == TARIFFS['month'].label
         with pytest.raises(IntegrityError):
             async with sessions.begin() as session:
                 session.add(Device(user_id=other.id, subscription_id=sub.id, name='Wrong owner', platform='ios'))
@@ -138,7 +146,7 @@ async def scenario(url):
                 assert set(inspect(connection).get_table_names()) == {'alembic_version'}
             await conn.run_sync(downgrade)
             await conn.run_sync(migrate, 'head')
-        await bot.session.close()
+        await harness.close()
     finally:
         await engine.dispose()
 
@@ -181,17 +189,14 @@ def test_config_demo_and_compose(monkeypatch):
 def test_lifecycle_and_database_readiness(monkeypatch):
     """Exercise startup/readiness/shutdown without opening ports or Telegram."""
     from types import SimpleNamespace
-    from unittest.mock import Mock
-    from aiogram import Router
     import bot.main as app_module
 
-    database = SimpleNamespace(sessions=object(), check=AsyncMock(), close=AsyncMock())
+    database = SimpleNamespace(sessions=object(), check=AsyncMock(), ping=AsyncMock(), close=AsyncMock())
     runner = SimpleNamespace(setup=AsyncMock(), cleanup=AsyncMock())
     site = SimpleNamespace(start=AsyncMock())
     apps = []
     monkeypatch.setattr(app_module, 'Database', lambda url: database)
     monkeypatch.setattr(app_module.Services, 'persistent', lambda sessions: Services.demo())
-    monkeypatch.setattr(app_module, 'create_router', lambda: Router())
     def make_runner(app, **kwargs):
         apps.append(app)
         return runner
@@ -204,12 +209,14 @@ def test_lifecycle_and_database_readiness(monkeypatch):
         assert (await handlers['/health'](None)).status == 200
         await dispatcher.emit_startup(bot=bot)
         assert (await handlers['/ready'](None)).status == 200
-        database.check.side_effect = RuntimeError('offline test DB failure')
+        database.ping.side_effect = RuntimeError('offline test DB failure')
         assert (await handlers['/ready'](None)).status == 503
-        database.check.side_effect = None
+        database.ping.side_effect = None
         await dispatcher.emit_shutdown()
         assert (await handlers['/ready'](None)).status == 503
     monkeypatch.setattr(Dispatcher, 'start_polling', polling)
     asyncio.run(app_module.run(Config('123456:offline_test_token', database_url='offline-placeholder')))
     database.close.assert_awaited_once()
+    database.check.assert_awaited_once()
+    assert database.ping.await_count == 2
     runner.cleanup.assert_awaited_once()

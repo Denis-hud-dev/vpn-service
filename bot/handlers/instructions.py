@@ -1,28 +1,19 @@
 from aiogram import F, Router
-from aiogram.types import CallbackQuery, Message
-from bot.keyboards.main import INSTRUCTIONS, back_keyboard
-
-router = Router(name="instructions")
-PLATFORMS = {"ios": "🍎 iPhone / iPad", "android": "🤖 Android", "windows": "🪟 Windows", "macos": "💻 macOS"}
+from aiogram.types import CallbackQuery
+from bot.navigation import Navigation
+from bot import screens
 
 
-@router.message(F.text == INSTRUCTIONS)
-async def instructions(message: Message):
-    await message.answer("📖 Инструкция KudaVPN\n\nВыберите платформу:",
-                         reply_markup=back_keyboard(*((label, f"instruction:{key}") for key, label in PLATFORMS.items())))
+async def connect(callback: CallbackQuery, navigation: Navigation):
+    await navigation.callback(callback, screens.connect())
 
 
-@router.callback_query(F.data == "instructions")
-async def platforms(callback: CallbackQuery):
-    await callback.answer()
-    if isinstance(callback.message, Message):
-        await instructions(callback.message)
+async def instructions(callback: CallbackQuery, navigation: Navigation):
+    await navigation.callback(callback, screens.happ())
 
 
-@router.callback_query(F.data.startswith("instruction:"))
-async def platform(callback: CallbackQuery):
-    label = PLATFORMS.get((callback.data or "").partition(":")[2])
-    await callback.answer()
-    if isinstance(callback.message, Message):
-        await callback.message.answer(f"{label or 'Платформа не найдена'}\n\nИнструкция появится после подключения VPN-сервера.",
-                                     reply_markup=back_keyboard(("📖 Выбрать платформу", "instructions")))
+def create_router() -> Router:
+    router = Router(name="instructions")
+    router.callback_query.register(connect, F.data.in_({"nav:connect", "device:add"}))
+    router.callback_query.register(instructions, F.data.in_({"nav:happ", "instructions"}))
+    return router

@@ -1,17 +1,15 @@
 from aiogram import F, Router
-from aiogram.types import InlineKeyboardButton, Message
+from aiogram.types import CallbackQuery
 from bot.config import Config
-from bot.keyboards.main import SUPPORT, back_keyboard
+from bot.navigation import Navigation
+from bot import screens
 
-router = Router(name="support")
+
+async def support(callback: CallbackQuery, config: Config, navigation: Navigation):
+    await navigation.callback(callback, screens.support(config.support_username))
 
 
-@router.message(F.text == SUPPORT)
-async def support(message: Message, config: Config):
-    keyboard = back_keyboard()
-    text = "💬 Поддержка KudaVPN\n\nЕсли у вас возник вопрос или проблема, напишите нам."
-    if config.support_username:
-        keyboard.inline_keyboard.insert(0, [InlineKeyboardButton(text="💬 Написать в поддержку", url=f"https://t.me/{config.support_username}")])
-    else:
-        text += "\n\nПоддержка скоро будет доступна."
-    await message.answer(text, reply_markup=keyboard)
+def create_router() -> Router:
+    router = Router(name="support")
+    router.callback_query.register(support, F.data == "nav:support")
+    return router

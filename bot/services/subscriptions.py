@@ -3,6 +3,7 @@ from uuid import UUID
 from sqlalchemy import func, select, update
 from bot.db.models import Device, Subscription, SubscriptionStatus, User
 from bot.services import TARIFFS
+from bot.services.account import AccountSnapshot
 
 
 def utcnow() -> datetime:
@@ -60,16 +61,28 @@ class SubscriptionService:
                 Subscription.status == "active", Subscription.expires_at <= utcnow()).values(status="expired"))
             return result.rowcount
 
-    async def describe(self, telegram_id: int) -> str:
+    async def snapshot(self, telegram_id: int) -> AccountSnapshot:
         async with self.sessions.begin() as session:
-            sub = await session.scalar(select(Subscription).join(User).where(User.telegram_id == telegram_id).with_for_update())
+            user = await session.scalar(select(User).where(User.telegram_id == telegram_id))
+            if user is None:
+                return AccountSnapshot()
+            sub = await session.scalar(select(Subscription).where(Subscription.user_id == user.id).with_for_update())
+            count = await session.scalar(select(func.count()).select_from(Device).where(
+                Device.user_id == user.id, Device.status != "revoked"))
             if sub is None:
-                return "👤 Ваша подписка\n\nСтатус: не активна\nТариф: —\nДействует до: —\nУстройства: 0"
+                return AccountSnapshot(device_count=count)
             if sub.status == "active" and sub.expires_at and as_utc(sub.expires_at) <= utcnow():
                 sub.status = "expired"
-            count = await session.scalar(select(func.count()).select_from(Device).where(
-                Device.subscription_id == sub.id, Device.status != "revoked"))
-            labels = {"active": "активна", "expired": "истекла", "pending": "ожидает активации", "blocked": "заблокирована"}
             tariff = TARIFFS.get(sub.tariff_id)
-            date = as_utc(sub.expires_at).strftime("%d.%m.%Y %H:%M UTC") if sub.expires_at else "—"
-            return f"👤 Ваша подписка\n\nСтатус: {labels[sub.status]}\nТариф: {tariff.label if tariff else sub.tariff_id}\nДействует до: {date}\nУстройства: {count}"
+            return AccountSnapshot(status=sub.status, tariff_label=tariff.label if tariff else sub.tariff_id,
+                expires_at=as_utc(sub.expires_at) if sub.expires_at else None, device_count=count)
+
+    async def describe(self, telegram_id: int) -> str:
+        # Compatibility for backend consumers of the original plain-text summary.
+        snapshot = await self.snapshot(telegram_id)
+        labels = {"inactive": "не активна", "active": "активна", "expired": "истекла",
+                  "pending": "ожидает активации", "blocked": "заблокирована"}
+        date = snapshot.expires_at.strftime("%d.%m.%Y %H:%M UTC") if snapshot.expires_at else "—"
+        return (f"👤 Ваша подписка\n\nСтатус: {labels[snapshot.status]}\n"
+                f"Тариф: {snapshot.tariff_label or '—'}\nДействует до: {date}\n"
+                f"Устройства: {snapshot.device_count if snapshot.device_count is not None else 'Нет данных'}")

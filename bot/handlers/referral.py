@@ -1,12 +1,14 @@
 from aiogram import F, Router
-from aiogram.types import Message
-from bot.keyboards.main import REFERRAL, back_keyboard
+from aiogram.types import CallbackQuery
+from bot.navigation import Navigation
+from bot import screens
 
-router = Router(name="referral")
+
+async def referral(callback: CallbackQuery, navigation: Navigation):
+    await navigation.callback(callback, screens.bonuses())
 
 
-@router.message(F.text == REFERRAL)
-async def referral(message: Message, bot_username: str):
-    if message.from_user:
-        link = f"https://t.me/{bot_username}?start=ref_{message.from_user.id}"
-        await message.answer(f"🎁 Приглашайте друзей в KudaVPN\n\nЗа приглашённых пользователей в будущем будут начисляться бонусные дни.\n\nВаша персональная ссылка:\n{link}", reply_markup=back_keyboard())
+def create_router() -> Router:
+    router = Router(name="referral")
+    router.callback_query.register(referral, F.data == "nav:bonuses")
+    return router

@@ -1,0 +1,12 @@
+# Pinned multi-platform Python manifest; production Compose selects linux/amd64.
+FROM python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /app
+COPY bot/requirements-linux.lock /app/bot/requirements-linux.lock
+RUN pip install --no-cache-dir --only-binary=:all: --require-hashes -r bot/requirements-linux.lock && useradd --create-home --uid 10001 kudavpn
+COPY bot /app/bot
+COPY alembic.ini /app/alembic.ini
+COPY migrations /app/migrations
+USER kudavpn
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:18080/health', timeout=3)"
+CMD ["python", "-m", "bot.main"]

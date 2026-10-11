@@ -1,21 +1,21 @@
+from html import escape
 from aiogram import F, Router
-from aiogram.types import CallbackQuery, Message
-from bot.keyboards.main import DEVICES, back_keyboard
+from aiogram.types import CallbackQuery
+from bot.keyboards.main import back_keyboard
+from bot.navigation import Navigation
+from bot.screens import panel
 from bot.services import Services
 
-router = Router(name="devices")
+
+async def devices(callback: CallbackQuery, services: Services, navigation: Navigation):
+    text = await services.devices.describe(callback.from_user.id)
+    body = text.partition("\n\n")[2] or text
+    if len(body) > 2400:
+        body = body[:2400] + "\n…"
+    await navigation.callback(callback, panel("📱 Устройства", escape(body), back_keyboard(back="nav:account")))
 
 
-@router.message(F.text == DEVICES)
-async def devices(message: Message, services: Services):
-    if message.from_user:
-        await message.answer(await services.devices.describe(message.from_user.id),
-                             reply_markup=back_keyboard(("➕ Добавить устройство", "device:add")))
-
-
-@router.callback_query(F.data == "device:add")
-async def add_device(callback: CallbackQuery, services: Services):
-    await callback.answer()
-    if isinstance(callback.message, Message):
-        await callback.message.answer(await services.devices.connection_message(callback.from_user.id),
-                                     reply_markup=back_keyboard(("💎 Купить подписку", "buy")))
+def create_router() -> Router:
+    router = Router(name="devices")
+    router.callback_query.register(devices, F.data == "nav:devices")
+    return router
