@@ -115,3 +115,16 @@ class ActiveScreen(Base):
         CheckConstraint("chat_id = user_id AND chat_id > 0", name="active_screen_private_chat"),
         CheckConstraint("message_id > 0", name="active_screen_message_id"),
     )
+
+
+class SubscriptionHistory(Record, Base):
+    __tablename__ = "subscription_history"
+    subscription_id: Mapped[UUID] = mapped_column(ForeignKey("subscriptions.id", ondelete="RESTRICT"), index=True)
+    payment_id: Mapped[UUID | None] = mapped_column(ForeignKey("payments.id", ondelete="RESTRICT"), unique=True)
+    reason: Mapped[str] = mapped_column(String(32))
+    old_status: Mapped[str | None] = mapped_column(String(16))
+    new_status: Mapped[str] = mapped_column(String(16))
+    old_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    new_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    old_starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    new_starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

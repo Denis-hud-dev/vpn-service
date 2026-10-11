@@ -33,6 +33,22 @@ from bot.services.vpn import VPNService, DisabledWireGuardGateway
 
 
 async def scenario(url):
+    from bot.services.payment_events import ConfirmedPayment
+    async def activate(sub_id, **dates):
+        # Test fixture uses a verified-event boundary rather than bypass activation.
+        async with sessions.begin() as session:
+            row = await session.get(Subscription, sub_id)
+            if row.status == 'blocked':
+                row.status = 'expired'
+            if dates.get('starts_at'):
+                row.starts_at = dates['starts_at']
+            if dates.get('expires_at'):
+                row.expires_at = dates['expires_at']
+            user = await session.get(User, row.user_id)
+        payment = await PaymentRepository(sessions).create_pending(user.telegram_id, TARIFFS['month'], uuid4())
+        return await services.subscriptions.apply_confirmed_payment(ConfirmedPayment(
+            payment.id, 'yookassa', str(uuid4()), 29900, 'RUB', utcnow()))
+
     engine = create_async_engine(url)
     if engine.dialect.name == 'sqlite':
         @event.listens_for(engine.sync_engine, 'connect')
@@ -47,10 +63,12 @@ async def scenario(url):
             await conn.run_sync(migrate, 'head')
             def validate(connection):
                 assert not compare_metadata(MigrationContext.configure(connection), Base.metadata)
-                assert set(inspect(connection).get_table_names()) == {'alembic_version', 'users', 'subscriptions', 'devices', 'vpn_servers', 'payments', 'active_screens'}
+                assert set(inspect(connection).get_table_names()) == {'alembic_version', 'users', 'subscriptions', 'devices', 'vpn_servers', 'payments', 'active_screens', 'subscription_history'}
             await conn.run_sync(validate)
         sessions = async_sessionmaker(engine, expire_on_commit=False)
         services = Services.persistent(sessions)
+        from tests.test_subscription_lifecycle import TestVerifier
+        services.subscriptions.payment_verifier = TestVerifier()
         harness = TelegramHarness(services=services, store=PostgresScreenStore(sessions))
         bot = harness.bot
         navigation = harness.navigation
@@ -79,14 +97,14 @@ async def scenario(url):
         with pytest.raises(ValueError):
             await services.subscriptions.set_status(sub.id, SubscriptionStatus.ACTIVE)
         now = utcnow()
-        await services.subscriptions.set_status(sub.id, SubscriptionStatus.ACTIVE, starts_at=now, expires_at=now + timedelta(days=30))
+        await activate(sub.id, starts_at=now, expires_at=now + timedelta(days=30))
         assert 'Статус: активна' in await services.subscriptions.describe(101)
         assert 'сервер пока не настроен' in await services.devices.connection_message(101)
         await services.subscriptions.set_status(sub.id, SubscriptionStatus.BLOCKED)
         assert 'заблокирована' in await services.subscriptions.describe(101)
         with pytest.raises(ValueError):
             await services.subscriptions.set_status(sub.id, SubscriptionStatus.PENDING)
-        await services.subscriptions.set_status(sub.id, SubscriptionStatus.ACTIVE)
+        await activate(sub.id)
         async with sessions.begin() as session:
             row = await session.get(Subscription, sub.id)
             row.starts_at = now - timedelta(days=31)
@@ -94,7 +112,7 @@ async def scenario(url):
         assert await services.subscriptions.expire_due() == 1
         assert await services.subscriptions.expire_due() == 0
         assert 'истекла' in await services.subscriptions.describe(101)
-        await services.subscriptions.set_status(sub.id, SubscriptionStatus.ACTIVE, starts_at=now, expires_at=now + timedelta(days=30))
+        await activate(sub.id, starts_at=now, expires_at=now + timedelta(days=30))
         async with sessions.begin() as session:
             server = VPNServer(name='Test', hostname='invalid.example', location='test')
             session.add(server)
@@ -125,7 +143,7 @@ async def scenario(url):
         text = await services.payments.create_payment(101, TARIFFS['year'])
         assert '2490' in text
         async with sessions() as session:
-            assert await session.scalar(select(func.count()).select_from(Payment)) == 1
+            assert await session.scalar(select(func.count()).select_from(Payment).where(Payment.status == "pending")) == 1
         with pytest.raises(RuntimeError):
             await YooKassaGateway().create()
         with pytest.raises(RuntimeError):
