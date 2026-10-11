@@ -79,10 +79,8 @@ def probe_vless(xray, root, credential, public_key, server_port, origin_port,
     file=root/'client.json';file.write_text(json.dumps(config));file.chmod(0o600)
     run(xray,'run','-test','-c',str(file))
     client_log=open(root/'client.log','wb')
-    client_env=os.environ.copy()
-    client_env['SSL_CERT_FILE']=str(root/'ca.crt')
     client=subprocess.Popen([xray,'run','-c',str(file)],
-        stdout=client_log,stderr=client_log,env=client_env)
+        stdout=client_log,stderr=client_log)
     try:
         for _ in range(30):
             with socket.socket() as sock:
@@ -90,16 +88,24 @@ def probe_vless(xray, root, credential, public_key, server_port, origin_port,
             time.sleep(.1)
         # Explicit proxy, cleared no-proxy list. No freedom/direct outbound exists
         # on the test client; a successful response must cross VLESS.
-        result=subprocess.run(['curl','--silent','--show-error','--insecure','--max-time','5',
-            '--connect-timeout','2','--noproxy','','--socks5-hostname',
+        result=subprocess.run(['curl','--silent','--show-error','--insecure','--max-time','18',
+            '--connect-timeout','12','--noproxy','','--socks5-hostname',
             f'127.0.0.1:{socks_port}','--output','/dev/null',
-            '--write-out','%{http_code}',f'https://127.0.0.1:{origin_port}/'],
-            stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,timeout=7)
+            '--write-out','%{http_code} %{time_connect} %{time_appconnect} %{time_total}',
+            f'https://127.0.0.1:{origin_port}/'],
+            stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,timeout=20)
+        fields=result.stdout.split()
+        if os.getenv('TEST_XRAY_TIMINGS'):
+            # Only numeric timing metadata; never print the URL or credentials.
+            print('REALITY' if reality else 'plain VLESS',
+                  'curl status', result.returncode, 'HTTP', fields[0] if fields else 'none',
+                  'connect/appconnect/total', ' '.join(fields[1:4]))
         if expect_working:
-            assert result.returncode==0 and result.stdout=='200', (
+            assert result.returncode==0 and fields and fields[0]=='200', (
                 'Local VLESS REALITY data path did not deliver HTTPS')
         else:
-            assert result.returncode!=0 or result.stdout!='200'
+            assert result.returncode!=0 and fields and fields[0]=='000', (
+                'Revoked credential unexpectedly received an HTTP response')
     finally:
         for process in (client,):
             process.terminate()
@@ -199,9 +205,8 @@ def test_real_xray_node_lifecycle(tmp_path,reality):
             assert cli.email(credential) in await cli.managed_users()
             link=await happ.issue(sub.id);token=link.rsplit('/',1)[1]
             assert str(credential) in (await happ.feed(token))[0]
-            if not reality or os.getenv('TEST_XRAY_DATAPLANE') == '1':
-                probe_vless(xray,tmp_path,credential,public,vless_port,target_port,
-                            expect_working=True,reality=reality)
+            probe_vless(xray,tmp_path,credential,public,vless_port,target_port,
+                        expect_working=True,reality=reality)
             # Duplicate event must not renew or generate another UUID.
             prior=sub.expires_at
             again=await lifecycle.apply_confirmed_payment(first_event)
@@ -219,9 +224,8 @@ def test_real_xray_node_lifecycle(tmp_path,reality):
             with pytest.raises(AccessDenied):await happ.issue(sub.id)
             await reconciler.reconcile(sub.id)
             assert cli.email(credential) not in await cli.managed_users()
-            if not reality or os.getenv('TEST_XRAY_DATAPLANE') == '1':
-                probe_vless(xray,tmp_path,credential,public,vless_port,target_port,
-                            expect_working=False,reality=reality)
+            probe_vless(xray,tmp_path,credential,public,vless_port,target_port,
+                        expect_working=False,reality=reality)
             # Unavailable Xray: persist intent, recover with same UUID/revision.
             proc.terminate();proc.wait(timeout=4)
             async with sessions.begin() as session:

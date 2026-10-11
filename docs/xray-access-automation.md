@@ -2,8 +2,9 @@
 
 This branch adds a **separate** subscription API, PostgreSQL intent/acknowledgement
 state, and a per-node Xray agent. It does not change the running Telegram bot,
-DigitalOcean, or any existing VPN listener. Do not deploy it until a VLESS +
-REALITY + Vision data-plane test succeeds on the chosen Xray version and node.
+DigitalOcean, or any existing VPN listener. The local Xray 26.3.27 REALITY +
+Vision data-plane test now passes, but deployment still requires a real-node and
+target-network test.
 
 ## Data flow
 
@@ -103,18 +104,34 @@ node's agent and inbound, restore verified current state, then reconcile.
 Automated tests use disposable PostgreSQL and a real local Xray 26.3.27 API.
 They cover confirmed activation, duplicate provider event, renewal, block,
 revocation, node outage and recovery, local lease expiry, mTLS rejection,
-and actual add/list/remove. A separate plain VLESS test transfers HTTPS data
-through Xray to a local origin. The strict REALITY + Vision data-plane probe
-currently times out **after** a successful REALITY handshake; it is a release
-blocker. No mobile or real VPS traffic has been proven by these tests.
+and actual add/list/remove. Both plain VLESS and REALITY + Vision probes transfer
+HTTPS through Xray to a local origin. The REALITY probe uses a public, trusted
+camouflage target (`www.cloudflare.com`) for its outer handshake; the application
+origin and Xray listener are local. The test therefore does require external
+DNS/TLS reachability, but it never connects to production infrastructure.
+The local origin uses a self-signed certificate; `curl --insecure` applies only
+to that inner origin. REALITY still verifies its server against the configured
+public key and SNI.
+
+The earlier `SSL connection timeout` came from the probe's two-second
+`curl --connect-timeout`, not from failed VLESS authentication. On this Mac,
+the initial REALITY HTTPS probe completed in 5.65–5.75 seconds and returned
+HTTP 200. Xray 26.3.27 pins `xtls/reality` revision `9234c772ba8f`, whose
+server handshake code includes a five-second wait when it has no cached
+post-handshake record lengths. The test now allows 12 seconds to connect and
+18 seconds total, while still failing if no HTTP response arrives. It also
+checks that a newly attempted connection fails after `RemoveUser`.
+
+No mobile or real VPS traffic has been proven by these tests.
 Furthermore, Xray `RemoveUser` was checked for rejecting new sessions; whether
 already established tunnels terminate immediately requires explicit validation
 on a real node. Do not claim immediate session termination until that is shown.
 
 Run local tests with trusted `TEST_XRAY_BINARY` and a disposable PostgreSQL URL;
-`TEST_XRAY_DATAPLANE=1` enables the strict, currently failing REALITY probe.
+both data-plane probes run automatically when the binary is provided.
 Never point test database variables at production.
 
 Protocol integration follows the official [Xray API](https://xtls.github.io/en/config/api.html),
 [VLESS](https://xtls.github.io/en/config/inbounds/vless.html), and
 [REALITY](https://xtls.github.io/en/config/transports/reality.html) documentation.
+The measured five-second wait is in the [pinned REALITY source](https://github.com/XTLS/REALITY/blob/9234c772ba8f/tls.go#L2617).
