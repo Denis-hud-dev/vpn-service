@@ -16,6 +16,8 @@ def main():
         handler.addFilter(SafeDependencyLogs())
     database = Database(os.environ['DATABASE_URL'])
     service = HappService(database.sessions, os.environ['SUBSCRIPTION_PUBLIC_URL'])
+    from bot.services.node_gateway import HTTPSNodeGateway
+    gateway = HTTPSNodeGateway(os.environ['NODE_AGENT_CONFIG'])
     tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     tls.minimum_version = ssl.TLSVersion.TLSv1_2
     tls.load_cert_chain(os.environ['SUBSCRIPTION_TLS_CERT'], os.environ['SUBSCRIPTION_TLS_KEY'])
@@ -23,7 +25,7 @@ def main():
     async def lifecycle(app):
         await database.check()
         async def worker():
-            reconciler = NodeReconciler(database.sessions)
+            reconciler = NodeReconciler(database.sessions, gateway)
             while True:
                 await reconciler.tick()
                 await asyncio.sleep(30)

@@ -9,6 +9,10 @@ from typing import Protocol
 from sqlalchemy import select, exists
 from bot.db.models import Subscription, SubscriptionToken, VPNNode, NodeAccess, Payment, SubscriptionHistory
 from bot.services.subscriptions import utcnow, as_utc
+from datetime import timedelta
+
+NODE_LEASE_SECONDS = 120
+NODE_RENEW_SECONDS = 60
 
 
 class AccessDenied(ValueError):
@@ -31,7 +35,7 @@ async def entitled(session, sub):
 
 
 class NodeGateway(Protocol):
-    async def apply(self, node: VPNNode, credential: UUID, *, enabled: bool, expires_at):
+    async def apply(self, node: VPNNode, credential: UUID, *, enabled: bool, expires_at, revision: int):
         """Idempotent remote operation. ACK only after enforcement on the node.
 
         The agent must expire credentials independently and terminate/reject
@@ -41,7 +45,7 @@ class NodeGateway(Protocol):
 
 
 class DisabledNodeGateway:
-    async def apply(self, node, credential: UUID, *, enabled: bool, expires_at):
+    async def apply(self, node, credential: UUID, *, enabled: bool, expires_at, revision: int):
         raise RuntimeError('VPN node adapter is not configured')
 
 
@@ -71,6 +75,8 @@ class HappService:
                 for row in rows:
                     row.credential, row.applied_expires_at = uuid4(), None
                     row.revocation_confirmed = False
+                    row.enabled, row.desired_enabled = False, False
+                    row.desired_expires_at, row.lease_revision = None, 0
             else:
                 session.add(SubscriptionToken(subscription_id=sub.id, digest=token_digest(token), revoked=False))
             return self.public_url + '/s/' + token
@@ -79,7 +85,14 @@ class HappService:
         async with self.sessions.begin() as session:
             await session.scalar(select(Subscription).where(Subscription.id == subscription_id).with_for_update())
             token = await session.scalar(select(SubscriptionToken).where(SubscriptionToken.subscription_id == subscription_id))
-            if token: token.revoked = True
+            if token:
+                token.revoked = True
+            else:
+                # A revocation before first link issuance must still prevent the
+                # background reconciler from provisioning this subscription.
+                token = secrets.token_urlsafe(32)
+                session.add(SubscriptionToken(subscription_id=subscription_id,
+                                              digest=token_digest(token), revoked=True))
 
     async def feed(self, token):
         digest = token_digest(token)
@@ -116,40 +129,61 @@ class NodeReconciler:
         self.sessions, self.gateway = sessions, gateway or DisabledNodeGateway()
 
     async def reconcile(self, subscription_id):
-        # Commit credentials before any remote operation. Crash after remote add
-        # can then be retried/revoked using exactly the same credential.
+        # Persist a versioned intent before the remote call. A late old request
+        # cannot undo a revoke; the agent rejects lower revisions per credential.
         async with self.sessions.begin() as session:
             sub = await session.scalar(select(Subscription).where(Subscription.id == subscription_id).with_for_update())
-            if sub is None:return
+            if sub is None:
+                return
             token = await session.scalar(select(SubscriptionToken).where(SubscriptionToken.subscription_id == sub.id))
-            if token and not token.revoked and await entitled(session, sub):
-                nodes = (await session.scalars(select(VPNNode).where(VPNNode.enabled.is_(True)))).all()
-                for node in nodes:
-                    exists_row = await session.scalar(select(NodeAccess).where(NodeAccess.subscription_id == sub.id, NodeAccess.node_id == node.id))
-                    if exists_row is None:
-                        session.add(NodeAccess(subscription_id=sub.id, node_id=node.id, enabled=False))
-        async with self.sessions.begin() as session:
-            sub = await session.scalar(select(Subscription).where(Subscription.id == subscription_id).with_for_update())
-            if sub is None:return
-            token = await session.scalar(select(SubscriptionToken).where(SubscriptionToken.subscription_id == sub.id))
-            allowed = bool(token and not token.revoked and await entitled(session, sub))
-            nodes = (await session.scalars(select(VPNNode).order_by(VPNNode.id).with_for_update())).all()
+            # A verified payment is enough to provision access. The HTTPS link
+            # may be issued later, while an explicit revoke remains authoritative.
+            allowed = bool((token is None or not token.revoked) and await entitled(session, sub))
+            nodes = (await session.scalars(select(VPNNode).order_by(VPNNode.id))).all()
+            now = utcnow()
             for node in nodes:
-                access = await session.scalar(select(NodeAccess).where(NodeAccess.subscription_id == sub.id, NodeAccess.node_id == node.id))
+                access = await session.scalar(select(NodeAccess).where(
+                    NodeAccess.subscription_id == sub.id, NodeAccess.node_id == node.id))
                 desired = allowed and node.enabled
                 if access is None:
-                    if not desired:continue
-                    access = NodeAccess(subscription_id=sub.id, node_id=node.id, enabled=False)
+                    if not desired:
+                        continue
+                    access = NodeAccess(subscription_id=sub.id, node_id=node.id,
+                                        enabled=False, desired_enabled=False)
                     session.add(access)
                     await session.flush()
-                expires = as_utc(sub.expires_at) if desired else None
-                if desired and access.enabled and access.applied_expires_at and as_utc(access.applied_expires_at) == expires:
+                desired_expiry = min(as_utc(sub.expires_at), now + timedelta(seconds=NODE_LEASE_SECONDS)) if desired else None
+                old_expiry = as_utc(access.desired_expires_at) if access.desired_expires_at else None
+                renewal_due = desired and (old_expiry is None or old_expiry <= now + timedelta(seconds=NODE_RENEW_SECONDS))
+                if access.desired_enabled != desired or renewal_due:
+                    access.lease_revision += 1
+                    access.desired_enabled = desired
+                    access.desired_expires_at = desired_expiry
+                    if desired:
+                        access.revocation_confirmed = False
+        # Apply durable intents. The worker retries after process/network failure.
+        async with self.sessions.begin() as session:
+            sub = await session.scalar(select(Subscription).where(Subscription.id == subscription_id).with_for_update())
+            if sub is None:
+                return
+            rows = (await session.execute(select(NodeAccess, VPNNode).join(
+                VPNNode, VPNNode.id == NodeAccess.node_id).where(NodeAccess.subscription_id == sub.id)
+                .order_by(VPNNode.id).with_for_update())).all()
+            for access, node in rows:
+                desired = access.desired_enabled
+                expires = as_utc(access.desired_expires_at) if access.desired_expires_at else None
+                if desired and expires and expires <= utcnow():
+                    # A stale lease intent may never reactivate an expired right.
                     continue
-                # Retry uncertain adds too: a previous remote success may have
-                # occurred before transaction rollback or process termination.
+                if (access.enabled == desired and
+                    ((not desired and access.revocation_confirmed) or
+                     (desired and access.applied_expires_at and
+                      as_utc(access.applied_expires_at) == expires))):
+                    continue
                 await asyncio.wait_for(self.gateway.apply(node, access.credential,
-                    enabled=desired, expires_at=expires), timeout=5)
-                access.enabled, access.applied_expires_at = desired, expires
+                    enabled=desired, expires_at=expires, revision=access.lease_revision), timeout=5)
+                access.enabled = desired
+                access.applied_expires_at = expires if desired else None
                 access.revocation_confirmed = not desired
 
     async def tick(self):

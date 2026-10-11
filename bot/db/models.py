@@ -158,4 +158,7 @@ class NodeAccess(Record, Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     revocation_confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
     applied_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    desired_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    desired_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    lease_revision: Mapped[int] = mapped_column(Integer, default=0)
     __table_args__ = (UniqueConstraint("subscription_id", "node_id", name="node_access_owner"),)

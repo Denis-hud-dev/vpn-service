@@ -19,7 +19,7 @@ from tests.test_subscription_lifecycle import TestVerifier
 
 class FakeNode:
     def __init__(self):self.active={};self.fail=False
-    async def apply(self,node,credential,*,enabled,expires_at):
+    async def apply(self,node,credential,*,enabled,expires_at,revision):
         key=(node.id,credential)
         if enabled:self.active[key]=expires_at
         else:self.active.pop(key,None)
@@ -128,6 +128,32 @@ def test_lost_node_acknowledgement(tmp_path):
             await reconciler.reconcile(sub.id)
             assert not gateway.active
             await feed.issue(sub.id)  # Rotation only after confirmed node removal.
+        finally:await engine.dispose()
+    asyncio.run(run())
+
+
+def test_revoke_before_link_issuance_prevents_provisioning(tmp_path):
+    async def run():
+        engine=create_async_engine('sqlite+aiosqlite:///'+str(tmp_path/'early_revoke.db'))
+        try:
+            async with engine.begin() as conn:await conn.run_sync(Base.metadata.create_all)
+            sessions=async_sessionmaker(engine,expire_on_commit=False)
+            await UserService(sessions).register(8,'Test')
+            payment=await PaymentRepository(sessions).create_pending(8,TARIFFS['month'],uuid4())
+            sub=await SubscriptionService(sessions,TestVerifier()).apply_confirmed_payment(
+                ConfirmedPayment(payment.id,'yookassa',str(uuid4()),29900,'RUB',utcnow()))
+            async with sessions.begin() as session:
+                session.add(VPNNode(name='Test',hostname='test.example',port=443,
+                    public_key='a'*43,short_id='abcd',server_name='www.cloudflare.com',enabled=True))
+            gateway=FakeNode();reconciler=NodeReconciler(sessions,gateway)
+            service=HappService(sessions,'https://subscriptions.example')
+            await service.revoke(sub.id)
+            await reconciler.reconcile(sub.id)
+            assert not gateway.active
+            # Explicit link rotation is possible only after node revocation.
+            await service.issue(sub.id)
+            await reconciler.reconcile(sub.id)
+            assert len(gateway.active)==1
         finally:await engine.dispose()
     asyncio.run(run())
 
