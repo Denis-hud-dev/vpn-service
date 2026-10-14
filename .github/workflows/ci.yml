@@ -1,0 +1,76 @@
+name: KudaVPN CI
+
+on:
+  push:
+    branches:
+      - main
+      - codex/**
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      # A disposable database on this GitHub runner. No repository or production secrets.
+      TEST_DATABASE_URL: postgresql+psycopg://ci:ci_local_only@127.0.0.1:5432/kudavpn_ci
+      DATABASE_URL: ''
+      BOT_TOKEN: ''
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci_local_only
+          POSTGRES_DB: kudavpn_ci
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d kudavpn_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            bot/requirements.txt
+            bot/requirements-dev.txt
+      - name: Check tracked files for secrets and backups
+        run: python scripts/check_repo_hygiene.py
+      - name: Install dependencies
+        run: |
+          python -m pip install -r bot/requirements.txt -r bot/requirements-dev.txt
+          python -m pip check
+      - name: Check Python syntax
+        run: python -m compileall -q bot migrations tests scripts
+      - name: Run offline smoke test
+        run: python tests/smoke.py
+      - name: Run tests and disposable PostgreSQL migrations
+        run: |
+          mkdir -p reports
+          python -m pytest -q --junitxml=reports/pytest.xml
+      - name: Add concise diagnostic report
+        if: always()
+        run: python scripts/ci_report.py reports/pytest.xml >> "$GITHUB_STEP_SUMMARY"
+      - name: Save test report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pytest-results
+          path: reports/pytest.xml
+          if-no-files-found: ignore
+          retention-days: 7
