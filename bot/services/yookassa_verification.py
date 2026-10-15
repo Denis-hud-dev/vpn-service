@@ -3,6 +3,7 @@
 The caller must supply a fetcher that independently reads GET /v3/payments/{id}
 from YooKassa with the intended shop credentials. Webhook JSON is untrusted.
 """
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any, Protocol
@@ -15,11 +16,15 @@ class PaymentLookup(Protocol):
     async def fetch(self, provider_payment_id: str) -> dict[str, Any]: ...
 
 
-def confirmed_from_lookup(payment_id: UUID, data: dict[str, Any]) -> ConfirmedPayment:
-    """Reject any incomplete or non-final provider response, without logging it."""
+@dataclass(frozen=True)
+class ProviderPaymentIdentity:
+    provider_id: str
+    amount_kopecks: int
+
+
+def identity_from_lookup(payment_id: UUID, data: dict[str, Any]) -> ProviderPaymentIdentity:
+    """Validate provider identity, order metadata and exact amount for any status."""
     try:
-        if data['status'] != 'succeeded' or data['paid'] is not True:
-            raise ValueError
         provider_id = data['id']
         if not isinstance(provider_id, str) or not provider_id:
             raise ValueError
@@ -32,12 +37,23 @@ def confirmed_from_lookup(payment_id: UUID, data: dict[str, Any]) -> ConfirmedPa
         kopecks = value * 100
         if not value.is_finite() or kopecks != kopecks.to_integral_value() or kopecks <= 0:
             raise ValueError
+        return ProviderPaymentIdentity(provider_id, int(kopecks))
+    except (KeyError, TypeError, ValueError, InvalidOperation, OverflowError):
+        raise ValueError('Провайдер не подтвердил параметры оплаты') from None
+
+
+def confirmed_from_lookup(payment_id: UUID, data: dict[str, Any]) -> ConfirmedPayment:
+    """Reject any incomplete or non-final provider response, without logging it."""
+    identity = identity_from_lookup(payment_id, data)
+    try:
+        if data['status'] != 'succeeded' or data['paid'] is not True:
+            raise ValueError
         captured = data['captured_at']
         if not isinstance(captured, str):
             raise ValueError
         paid_at = datetime.fromisoformat(captured.replace('Z', '+00:00'))
-        return ConfirmedPayment(payment_id, 'yookassa', provider_id,
-                                int(kopecks), 'RUB', paid_at)
+        return ConfirmedPayment(payment_id, 'yookassa', identity.provider_id,
+                                identity.amount_kopecks, 'RUB', paid_at)
     except (KeyError, TypeError, ValueError, InvalidOperation, OverflowError):
         raise ValueError('Провайдер не подтвердил параметры оплаты') from None
 
