@@ -15,3 +15,8 @@ backups/
 *.sql.gz
 *.sql.bz2
 *.sql.xz
+*.key
+*.pem
+*.p12
+*.pfx
+node-private/

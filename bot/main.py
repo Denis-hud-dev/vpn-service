@@ -22,6 +22,7 @@ async def run(config: Config) -> None:
     dispatcher = Dispatcher(config=config, services=services, navigation=Navigation(PostgresScreenStore(database.sessions) if database else None))
     dispatcher.include_router(create_router())
     ready = False
+    expiry_task = None
 
     async def health(request: web.Request) -> web.Response:
         return web.json_response({"status": "alive"})
@@ -36,9 +37,11 @@ async def run(config: Config) -> None:
         return web.json_response({"ready": available}, status=200 if available else 503)
 
     async def startup(bot: Bot) -> None:
-        nonlocal ready
+        nonlocal ready, expiry_task
         if database:
             await database.check()
+            from bot.services.expiry import expiry_worker
+            expiry_task = asyncio.create_task(expiry_worker(services.subscriptions))
         else:
             logger.warning("DATABASE_URL not set: demo mode, data is not persistent")
         me = await bot.get_me()
@@ -69,6 +72,12 @@ async def run(config: Config) -> None:
                                            polling_timeout=30, tasks_concurrency_limit=64)
         finally:
             ready = False
+            if expiry_task:
+                expiry_task.cancel()
+                try:
+                    await expiry_task
+                except asyncio.CancelledError:
+                    pass
             await runner.cleanup()
             await dispatcher.storage.close()
             if database:
