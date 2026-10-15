@@ -1,13 +1,15 @@
 """Personal feed and node convergence. No real node adapter is enabled by default."""
 import asyncio
+import base64
 import hashlib
+import hmac
 import re
 import secrets
 from urllib.parse import urlsplit, urlencode, quote
 from uuid import UUID
 from typing import Protocol
 from sqlalchemy import select, exists
-from bot.db.models import Subscription, SubscriptionToken, VPNNode, NodeHealth, NodeAccess, Payment, SubscriptionHistory
+from bot.db.models import User, Subscription, SubscriptionToken, VPNNode, NodeHealth, NodeAccess, Payment, SubscriptionHistory
 from bot.services.subscriptions import utcnow, as_utc
 from bot.services.node_health import node_config_digest, HEALTH_TTL_SECONDS
 from datetime import timedelta
@@ -53,12 +55,57 @@ class DisabledNodeGateway:
 
 
 class HappService:
-    def __init__(self, sessions, public_url):
+    def __init__(self, sessions, public_url, *, link_key: str | None = None):
         url = urlsplit(public_url)
         if (url.scheme != 'https' or not url.hostname or url.username or url.password
                 or url.query or url.fragment or url.path not in ('', '/')):
             raise ValueError('Subscription origin must be HTTPS')
         self.sessions, self.public_url = sessions, public_url.rstrip('/')
+        self.link_key = None
+        if link_key is not None:
+            try:
+                raw = base64.urlsafe_b64decode(link_key + '=')
+            except (ValueError, base64.binascii.Error):
+                raw = b''
+            if len(raw) != 32 or base64.urlsafe_b64encode(raw).rstrip(b'=').decode() != link_key:
+                raise ValueError('HAPP_LINK_SECRET must be a base64url-encoded 32-byte key')
+            self.link_key = raw
+
+    def _derived_token(self, subscription_id: UUID, nonce: str) -> str:
+        if self.link_key is None:
+            raise AccessDenied('Stable link delivery is not configured')
+        if len(nonce) != 32:
+            raise AccessDenied('Subscription unavailable')
+        try:
+            nonce_bytes = bytes.fromhex(nonce)
+        except ValueError:
+            raise AccessDenied('Subscription unavailable') from None
+        key = hmac.new(self.link_key, b'kudavpn-happ-v1:' + subscription_id.bytes + nonce_bytes, hashlib.sha256).digest()
+        return base64.urlsafe_b64encode(key).rstrip(b'=').decode()
+
+    async def _live_nodes(self, session, subscription_id):
+        rows = (await session.execute(select(VPNNode, NodeAccess, NodeHealth)
+            .join(NodeAccess, NodeAccess.node_id == VPNNode.id)
+            .join(NodeHealth, NodeHealth.node_id == VPNNode.id).where(
+            NodeAccess.subscription_id == subscription_id, NodeAccess.enabled.is_(True), VPNNode.enabled.is_(True))
+            .order_by(VPNNode.name))).all()
+        now = utcnow()
+        return [(node, access) for node, access, health in rows
+                if health.available and as_utc(health.checked_at) > now - timedelta(seconds=HEALTH_TTL_SECONDS)
+                and health.config_digest == node_config_digest(node)
+                and access.applied_expires_at and as_utc(access.applied_expires_at) > now]
+
+    async def issue_for_user(self, telegram_id: int) -> str:
+        """Only an entitled private-chat owner with a live node gets a link."""
+        if self.link_key is None:
+            raise AccessDenied('Stable link delivery is not configured')
+        async with self.sessions() as session:
+            sub = await session.scalar(select(Subscription).join(User, User.id == Subscription.user_id)
+                .where(User.telegram_id == telegram_id))
+            if sub is None or not await entitled(session, sub) or not await self._live_nodes(session, sub.id):
+                raise AccessDenied('Subscription unavailable')
+            subscription_id = sub.id
+        return await self.issue(subscription_id)
 
     async def issue(self, subscription_id):
         async with self.sessions.begin() as session:
@@ -67,12 +114,18 @@ class HappService:
                 raise AccessDenied('Active paid subscription required')
             previous = await session.scalar(select(SubscriptionToken).where(SubscriptionToken.subscription_id == sub.id))
             if previous and not previous.revoked:
+                if self.link_key is not None and previous.derivation_nonce:
+                    token = self._derived_token(sub.id, previous.derivation_nonce)
+                    if hmac.compare_digest(previous.digest, token_digest(token)):
+                        return self.public_url + '/s/' + token
                 raise AccessDenied('Link already issued; revoke before rotation')
             if previous and await session.scalar(select(exists().where(NodeAccess.subscription_id == sub.id, NodeAccess.revocation_confirmed.is_(False)))):
                 raise AccessDenied('Node revocation must finish before rotation')
-            token = secrets.token_urlsafe(32)
+            nonce = secrets.token_hex(16) if self.link_key is not None else None
+            token = self._derived_token(sub.id, nonce) if nonce else secrets.token_urlsafe(32)
             if previous:
                 previous.digest, previous.revoked = token_digest(token), False
+                previous.derivation_nonce = nonce
                 rows = (await session.scalars(select(NodeAccess).where(NodeAccess.subscription_id == sub.id))).all()
                 from uuid import uuid4
                 for row in rows:
@@ -81,7 +134,8 @@ class HappService:
                     row.enabled, row.desired_enabled = False, False
                     row.desired_expires_at, row.lease_revision = None, 0
             else:
-                session.add(SubscriptionToken(subscription_id=sub.id, digest=token_digest(token), revoked=False))
+                session.add(SubscriptionToken(subscription_id=sub.id, digest=token_digest(token),
+                                              revoked=False, derivation_nonce=nonce))
             return self.public_url + '/s/' + token
 
     async def revoke(self, subscription_id):
@@ -104,19 +158,9 @@ class HappService:
             sub = await session.get(Subscription, row.subscription_id) if row else None
             if sub is None or not await entitled(session, sub):
                 raise AccessDenied('Subscription unavailable')
-            rows = (await session.execute(select(VPNNode, NodeAccess, NodeHealth)
-                .join(NodeAccess, NodeAccess.node_id == VPNNode.id)
-                .join(NodeHealth, NodeHealth.node_id == VPNNode.id).where(
-                NodeAccess.subscription_id == sub.id, NodeAccess.enabled.is_(True), VPNNode.enabled.is_(True))
-                .order_by(VPNNode.name))).all()
+            rows = await self._live_nodes(session, sub.id)
             lines = []
-            now = utcnow()
-            for node, access, health in rows:
-                # Never advertise stale credentials or an expired node lease.
-                if (not health.available or as_utc(health.checked_at) <= now - timedelta(seconds=HEALTH_TTL_SECONDS)
-                        or health.config_digest != node_config_digest(node)
-                        or not access.applied_expires_at or as_utc(access.applied_expires_at) <= now):
-                    continue
+            for node, access in rows:
                 params = urlencode({'encryption':'none','security':'reality','type':'tcp',
                     'flow':'xtls-rprx-vision','fp':'chrome','sni':node.server_name,
                     'pbk':node.public_key,'sid':node.short_id})

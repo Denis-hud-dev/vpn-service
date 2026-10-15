@@ -49,12 +49,20 @@ def tariff_details(tariff_id: str) -> Screen:
     return panel("💎 Ваш выбор", f"<b>{escape(tariff.label)}</b>\n\nОплата ещё не подключена.\nПлатёж не создан.", back_keyboard(back="nav:tariffs"))
 
 
-def connect() -> Screen:
-    return panel("🚀 Подключить VPN", "Подключение через <b>Happ</b>.\n\nПерсональная ссылка станет доступна после настройки сервера. Сейчас выдать доступ нельзя.", back_keyboard(("📖 Настройка Happ", "nav:happ"), ("💎 Тарифы", "nav:tariffs")))
+def connect(link: str | None = None) -> Screen:
+    keyboard = back_keyboard(("📖 Настройка Happ", "nav:happ"), ("💎 Тарифы", "nav:tariffs"))
+    if link:
+        keyboard.inline_keyboard.insert(0, [InlineKeyboardButton(text="🔗 Открыть подписку", url=link)])
+        body = ("Подключение через <b>Happ</b>.\n\nСкопируйте личную HTTPS-ссылку и импортируйте её в Happ:\n"
+                f"<code>{escape(link)}</code>\n\nНе передавайте ссылку другим: она даёт доступ к подписке.")
+    else:
+        body = ("Подключение через <b>Happ</b>.\n\nПерсональная ссылка появится после активации "
+                "оплаченной подписки и проверки VPN-сервера.")
+    return panel("🚀 Подключить VPN", body, keyboard)
 
 
 def happ() -> Screen:
-    return panel("📖 Настройка Happ", "<b>Когда персональная ссылка будет доступна:</b>\n\n1. Установите Happ на устройство.\n2. Скопируйте ссылку из этого бота.\n3. Добавьте подписку в Happ из буфера обмена.\n4. Выберите профиль и включите подключение.\n\nСсылка ещё не выдана — сервер не настроен.", back_keyboard(back="nav:connect"))
+    return panel("📖 Настройка Happ", "<b>Подключение на Android:</b>\n\n1. Установите Happ.\n2. Откройте раздел «Подключить VPN» и скопируйте личную ссылку, если она доступна.\n3. Импортируйте подписку в Happ из буфера обмена.\n4. Выберите сервер и включите VPN.\n\nЕсли ссылка пока недоступна, проверьте статус подписки позже.", back_keyboard(back="nav:connect"))
 
 
 def traffic() -> Screen:

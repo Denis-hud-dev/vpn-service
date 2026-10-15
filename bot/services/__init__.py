@@ -75,6 +75,10 @@ class DeviceReader(Protocol):
     async def connection_message(self, telegram_id: int) -> str: ...
 
 
+class HappLinkIssuer(Protocol):
+    async def issue_for_user(self, telegram_id: int) -> str: ...
+
+
 @dataclass
 class Services:
     payments: PaymentService
@@ -83,6 +87,7 @@ class Services:
 
     users: UserRegistry | None = None
     devices: DeviceReader | None = None
+    happ: HappLinkIssuer | None = None
 
     @classmethod
     def demo(cls) -> "Services":
@@ -91,11 +96,14 @@ class Services:
 
 
     @classmethod
-    def persistent(cls, sessions) -> "Services":
+    def persistent(cls, sessions, *, subscription_public_url: str = "", happ_link_secret: str = "") -> "Services":
         from bot.services.users import UserService
         from bot.services.subscriptions import SubscriptionService
         from bot.services.devices import DeviceService
         from bot.services.vpn import VPNService
         # Payment selection remains a demo; no automatic charge or activation.
+        from bot.services.happ import HappService
+        happ = (HappService(sessions, subscription_public_url, link_key=happ_link_secret)
+                if subscription_public_url and happ_link_secret else None)
         return cls(DemoPaymentService(), SubscriptionService(sessions), MemoryReferralService(),
-                   UserService(sessions), DeviceService(sessions, VPNService(sessions)))
+                   UserService(sessions), DeviceService(sessions, VPNService(sessions)), happ)
