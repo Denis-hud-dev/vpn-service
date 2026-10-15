@@ -47,6 +47,39 @@ Litnets **не включён**: страница тарифа рекламир�
 
 ## Порядок проверки без новой покупки
 
+### Предварительный запрос Veesp
+
+Официальная [форма контакта](https://veesp.com/contact/) требует адрес
+электронной почты для ответа и CAPTCHA. 15 октября 2026 года около 06:00 UTC
+запрос ниже отправлен через эту форму с адресом проекта, который владелец
+разрешил использовать. Форма очистилась после отправки, но не показала номер
+обращения или явное подтверждение доставки. Повторно не отправлять до проверки
+почты проекта. Адрес не сохраняется в репозитории. Пробный VPS по
+[FAQ](https://kb.veesp.com/) требует неоплаченного заказа и тикета с номером
+счёта; регистрация/заказ сейчас не разрешены. Текст запроса:
+
+> Hello Veesp team. We are evaluating one VM 1 VPS in Amsterdam for a paid VPN
+> service with authenticated customers (Xray VLESS/REALITY, no open proxy).
+> The service is intended for customers in Russia. Before registration or an
+> order, please confirm: (1) Is this use permitted, and may an operator located
+> in Russia contract for this VPS under your current terms? (2) Is the three-day
+> unpaid VM 1 trial available in Amsterdam, and what exact steps and cancellation
+> deadline apply? (3) Which current IPv4 address and TCP port represent the
+> Amsterdam VM 1 network for a pre-purchase inbound test from Russia? Your
+> network page and knowledge base list different Netherlands test IPs. (4) What
+> is the total recurring monthly price for VM 1 in Amsterdam, including mandatory
+> VAT, IPv4 and other fees, and are there setup charges? (5) What are the traffic,
+> sustained bandwidth and concurrent-connection limits for this use? Please
+> confirm any additional restrictions on commercial VPN subscriptions. Thank you.
+
+После подтверждения адреса и порта — **одна** короткая проверка с домашнего
+Wi-Fi, вручную без стороннего VPN: убедиться, что маршрут идёт через Wi-Fi,
+затем выполнить TCP-соединение к предоставленному адресу/порту с ограничением
+15 секунд и сохранить только время/результат соединения. Если провайдер
+предоставит серверный журнал для этого теста, сопоставить SYN и полезные
+данные. Успех этой проверки подтверждает лишь доступность тестового адреса;
+пригодность Xray и Happ проверяется отдельно на фактически выданном пробном IP.
+
 1. Сначала подтвердить у Veesp актуальный тестовый IP/порт, возможность
    трёхдневной пробы и допустимость будущего коммерческого VPN для владельца
    из РФ. Без этого не регистрироваться и не создавать неоплаченный заказ.
