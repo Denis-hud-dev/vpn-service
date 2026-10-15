@@ -6,7 +6,10 @@ import ssl
 from aiohttp import web
 from bot.db.session import Database
 from bot.services.happ import HappService, NodeReconciler
+from bot.services.node_health import NodeHealthMonitor
 from bot.subscription_api.app import create_app
+
+logger = logging.getLogger(__name__)
 
 
 def main():
@@ -24,17 +27,24 @@ def main():
     app = create_app(service)
     async def lifecycle(app):
         await database.check()
-        async def worker():
-            reconciler = NodeReconciler(database.sessions, gateway)
+        async def worker(action, failure_message):
             while True:
-                await reconciler.tick()
+                try:
+                    await action.tick()
+                except Exception:
+                    logger.warning(failure_message)
                 await asyncio.sleep(30)
-        task = asyncio.create_task(worker())
+        tasks = [
+            asyncio.create_task(worker(NodeHealthMonitor(database.sessions, gateway),
+                                       'Node health monitoring failed; retry scheduled')),
+            asyncio.create_task(worker(NodeReconciler(database.sessions, gateway),
+                                       'Node reconciliation failed; retry scheduled')),
+        ]
         try:yield
         finally:
-            task.cancel()
-            try:await task
-            except asyncio.CancelledError:pass
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
             await database.close()
     app.cleanup_ctx.append(lifecycle)
     web.run_app(app, host='127.0.0.1', port=int(os.getenv('SUBSCRIPTION_PORT','18443')),

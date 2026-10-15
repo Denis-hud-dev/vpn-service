@@ -24,6 +24,7 @@ from bot.services.payments import PaymentRepository
 from bot.services.payment_events import ConfirmedPayment
 from bot.services.subscriptions import SubscriptionService, utcnow, as_utc
 from bot.services.happ import HappService, NodeReconciler, AccessDenied
+from bot.services.node_health import NodeHealthMonitor
 from bot.services.node_gateway import HTTPSNodeGateway, NodeGatewayError
 from bot.services import TARIFFS
 from bot.node_agent.store import LeaseStore
@@ -200,6 +201,7 @@ def test_real_xray_node_lifecycle(tmp_path,reality):
             # Payment activates the node even when the Telegram/Happ link has
             # not yet been delivered.
             await reconciler.reconcile(sub.id)
+            await NodeHealthMonitor(sessions,gateway).tick()
             async with sessions() as session:
                 access=await session.scalar(select(NodeAccess));credential=access.credential
             assert cli.email(credential) in await cli.managed_users()
