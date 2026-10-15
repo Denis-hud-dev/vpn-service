@@ -135,6 +135,9 @@ class SubscriptionToken(Record, Base):
     subscription_id: Mapped[UUID] = mapped_column(ForeignKey("subscriptions.id", ondelete="RESTRICT"), unique=True)
     digest: Mapped[str] = mapped_column(String(64), unique=True)
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+    # A random nonce, not the bearer token. With a separate HMAC key the bot can
+    # show the same link again without storing its plaintext in PostgreSQL.
+    derivation_nonce: Mapped[str | None] = mapped_column(String(32))
 
 
 class VPNNode(Record, Base):

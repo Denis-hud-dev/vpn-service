@@ -214,7 +214,7 @@ def test_lifecycle_and_database_readiness(monkeypatch):
     site = SimpleNamespace(start=AsyncMock())
     apps = []
     monkeypatch.setattr(app_module, 'Database', lambda url: database)
-    monkeypatch.setattr(app_module.Services, 'persistent', lambda sessions: Services.demo())
+    monkeypatch.setattr(app_module.Services, 'persistent', lambda sessions, **kwargs: Services.demo())
     def make_runner(app, **kwargs):
         apps.append(app)
         return runner
