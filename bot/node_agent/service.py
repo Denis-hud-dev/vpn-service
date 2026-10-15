@@ -19,6 +19,16 @@ class NodeAgent:
         async with self.lock:
             await self._reconcile_locked_unlocked()
 
+    async def health(self) -> bool:
+        # Management connectivity plus the actual VLESS listener. This does not
+        # claim end-to-end reachability from any particular client network.
+        await asyncio.wait_for(self.xray.managed_users(), timeout=3)
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection('127.0.0.1', self.xray.port), timeout=1)
+        writer.close()
+        await writer.wait_closed()
+        return True
+
     async def apply(self, credential: UUID, revision: int, enabled: bool, expires_at: int | None):
         now = int(time.time())
         if revision < 1 or (enabled and (expires_at is None or expires_at <= now
@@ -74,5 +84,10 @@ def create_app(agent: NodeAgent):
                           payload['enabled'], payload['expires_at'])
         return web.json_response({'applied': True}, headers={'Cache-Control': 'no-store'})
 
+    async def get_health(request):
+        healthy = await agent.health()
+        return web.json_response({'healthy': healthy}, headers={'Cache-Control': 'no-store'})
+
     app.router.add_put('/v1/access', put_access)
+    app.router.add_get('/v1/health', get_health)
     return app

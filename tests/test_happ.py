@@ -6,8 +6,9 @@ import pytest
 from aiohttp.test_utils import TestClient, TestServer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from bot.db.models import Base, VPNNode, Subscription, NodeAccess, SubscriptionToken
+from bot.db.models import Base, VPNNode, NodeHealth, Subscription, NodeAccess, SubscriptionToken
 from bot.services.happ import HappService, NodeReconciler, AccessDenied
+from bot.services.node_health import NodeHealthMonitor, HEALTH_TTL_SECONDS
 from bot.services.subscriptions import SubscriptionService, utcnow
 from bot.services.users import UserService
 from bot.services.payments import PaymentRepository
@@ -18,12 +19,17 @@ from tests.test_subscription_lifecycle import TestVerifier
 
 
 class FakeNode:
-    def __init__(self):self.active={};self.fail=False
+    def __init__(self):
+        self.active={};self.fail=False;self.probe_failure=False;self.probe_error=False
+        self.unhealthy_nodes=set()
     async def apply(self,node,credential,*,enabled,expires_at,revision):
         key=(node.id,credential)
         if enabled:self.active[key]=expires_at
         else:self.active.pop(key,None)
         if self.fail:raise RuntimeError('simulated lost acknowledgement')
+    async def probe(self,node):
+        if self.probe_error:raise RuntimeError('secret node endpoint')
+        return not self.probe_failure and node.id not in self.unhealthy_nodes
 
 
 def test_happ_lifecycle(tmp_path):
@@ -51,12 +57,25 @@ def test_happ_lifecycle(tmp_path):
         with pytest.raises(AccessDenied):await feed.feed(token)
         gateway=FakeNode();reconciler=NodeReconciler(sessions,gateway)
         await reconciler.reconcile(sub.id)
+        await NodeHealthMonitor(sessions,gateway).tick()
         body,_=await feed.feed(token)
         assert len(body.splitlines())==1 and 'flow=xtls-rprx-vision' in body
         async with sessions.begin() as session:
             session.add(VPNNode(name='Test US',hostname='other.example',port=443,public_key='b'*43,
                 short_id='abcd',server_name='www.cloudflare.com',enabled=True))
         await reconciler.reconcile(sub.id)
+        await NodeHealthMonitor(sessions,gateway).tick()
+        assert len((await feed.feed(token))[0].splitlines())==2
+        async with sessions() as session:
+            nodes=(await session.scalars(select(VPNNode))).all()
+            failing_node=next(node for node in nodes if node.id != node_id)
+        gateway.unhealthy_nodes.add(failing_node.id)
+        await NodeHealthMonitor(sessions,gateway).tick()
+        one_node_feed=(await feed.feed(token))[0]
+        assert len(one_node_feed.splitlines())==1
+        assert 'other.example' not in one_node_feed
+        gateway.unhealthy_nodes.clear()
+        await NodeHealthMonitor(sessions,gateway).tick()
         assert len((await feed.feed(token))[0].splitlines())==2
         client=TestClient(TestServer(create_app(feed)))
         await client.start_server()
@@ -81,6 +100,7 @@ def test_happ_lifecycle(tmp_path):
             new_link=await feed.issue(sub.id)
             assert new_link!=link
             await reconciler.reconcile(sub.id)
+            await NodeHealthMonitor(sessions,gateway).tick()
             async with sessions.begin() as session:
                 row=await session.get(VPNNode,node_id);row.enabled=False
             await reconciler.reconcile(sub.id)
@@ -100,6 +120,52 @@ def test_happ_lifecycle(tmp_path):
 def test_https_required():
     for url in ['http://example.com','https://user:pass@example.com','https://example.com/x']:
         with pytest.raises(ValueError):HappService(None,url)
+
+
+def test_unhealthy_stale_or_changed_node_is_not_advertised(tmp_path, caplog):
+    async def run():
+        engine=create_async_engine('sqlite+aiosqlite:///'+str(tmp_path/'health.db'))
+        try:
+            async with engine.begin() as conn:await conn.run_sync(Base.metadata.create_all)
+            sessions=async_sessionmaker(engine,expire_on_commit=False)
+            await UserService(sessions).register(22,'Test')
+            payment=await PaymentRepository(sessions).create_pending(22,TARIFFS['month'],uuid4())
+            sub=await SubscriptionService(sessions,TestVerifier()).apply_confirmed_payment(
+                ConfirmedPayment(payment.id,'yookassa',str(uuid4()),29900,'RUB',utcnow()))
+            feed=HappService(sessions,'https://subscriptions.example')
+            token=(await feed.issue(sub.id)).rsplit('/',1)[1]
+            async with sessions.begin() as session:
+                node=VPNNode(name='Test NL',hostname='node.example',port=443,
+                    public_key='a'*43,short_id='abcd',server_name='www.cloudflare.com',enabled=True)
+                session.add(node);await session.flush();node_id=node.id
+            gateway=FakeNode()
+            await NodeReconciler(sessions,gateway).reconcile(sub.id)
+            with pytest.raises(AccessDenied):await feed.feed(token)
+            monitor=NodeHealthMonitor(sessions,gateway)
+            await monitor.tick()
+            assert len((await feed.feed(token))[0].splitlines())==1
+            async with sessions.begin() as session:
+                health=await session.get(NodeHealth,node_id)
+                health.checked_at=utcnow()-timedelta(seconds=HEALTH_TTL_SECONDS+1)
+            with pytest.raises(AccessDenied):await feed.feed(token)
+            await monitor.tick()
+            gateway.probe_failure=True
+            await monitor.tick()
+            with pytest.raises(AccessDenied):await feed.feed(token)
+            gateway.probe_failure=False;gateway.probe_error=True
+            await monitor.tick()
+            assert 'secret node endpoint' not in caplog.text
+            gateway.probe_error=False
+            await monitor.tick()
+            assert len((await feed.feed(token))[0].splitlines())==1
+            async with sessions.begin() as session:
+                node=await session.get(VPNNode,node_id)
+                node.hostname='replacement.example'
+            with pytest.raises(AccessDenied):await feed.feed(token)
+            await monitor.tick()
+            assert 'replacement.example' in (await feed.feed(token))[0]
+        finally:await engine.dispose()
+    asyncio.run(run())
 
 
 def test_lost_node_acknowledgement(tmp_path):

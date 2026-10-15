@@ -150,6 +150,15 @@ class VPNNode(Record, Base):
     __table_args__ = (CheckConstraint("port BETWEEN 1 AND 65535", name="vpn_node_port"),)
 
 
+class NodeHealth(Base):
+    """Last control-plane check. Missing or stale checks never enter the Happ feed."""
+    __tablename__ = "node_health"
+    node_id: Mapped[UUID] = mapped_column(ForeignKey("vpn_nodes.id", ondelete="CASCADE"), primary_key=True)
+    available: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    config_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
 class NodeAccess(Record, Base):
     __tablename__ = "node_access"
     subscription_id: Mapped[UUID] = mapped_column(ForeignKey("subscriptions.id", ondelete="RESTRICT"), index=True)

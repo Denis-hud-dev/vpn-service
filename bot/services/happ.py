@@ -7,8 +7,9 @@ from urllib.parse import urlsplit, urlencode, quote
 from uuid import UUID
 from typing import Protocol
 from sqlalchemy import select, exists
-from bot.db.models import Subscription, SubscriptionToken, VPNNode, NodeAccess, Payment, SubscriptionHistory
+from bot.db.models import Subscription, SubscriptionToken, VPNNode, NodeHealth, NodeAccess, Payment, SubscriptionHistory
 from bot.services.subscriptions import utcnow, as_utc
+from bot.services.node_health import node_config_digest, HEALTH_TTL_SECONDS
 from datetime import timedelta
 
 NODE_LEASE_SECONDS = 120
@@ -103,13 +104,19 @@ class HappService:
             sub = await session.get(Subscription, row.subscription_id) if row else None
             if sub is None or not await entitled(session, sub):
                 raise AccessDenied('Subscription unavailable')
-            rows = (await session.execute(select(VPNNode, NodeAccess).join(NodeAccess, NodeAccess.node_id == VPNNode.id).where(
+            rows = (await session.execute(select(VPNNode, NodeAccess, NodeHealth)
+                .join(NodeAccess, NodeAccess.node_id == VPNNode.id)
+                .join(NodeHealth, NodeHealth.node_id == VPNNode.id).where(
                 NodeAccess.subscription_id == sub.id, NodeAccess.enabled.is_(True), VPNNode.enabled.is_(True))
                 .order_by(VPNNode.name))).all()
             lines = []
-            for node, access in rows:
+            now = utcnow()
+            for node, access, health in rows:
                 # Never advertise stale credentials or an expired node lease.
-                if not access.applied_expires_at or as_utc(access.applied_expires_at) <= utcnow():continue
+                if (not health.available or as_utc(health.checked_at) <= now - timedelta(seconds=HEALTH_TTL_SECONDS)
+                        or health.config_digest != node_config_digest(node)
+                        or not access.applied_expires_at or as_utc(access.applied_expires_at) <= now):
+                    continue
                 params = urlencode({'encryption':'none','security':'reality','type':'tcp',
                     'flow':'xtls-rprx-vision','fp':'chrome','sni':node.server_name,
                     'pbk':node.public_key,'sid':node.short_id})

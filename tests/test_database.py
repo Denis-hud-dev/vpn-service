@@ -63,7 +63,7 @@ async def scenario(url):
             await conn.run_sync(migrate, 'head')
             def validate(connection):
                 assert not compare_metadata(MigrationContext.configure(connection), Base.metadata)
-                assert set(inspect(connection).get_table_names()) == {'alembic_version', 'users', 'subscriptions', 'devices', 'vpn_servers', 'payments', 'active_screens', 'subscription_history', 'subscription_tokens', 'vpn_nodes', 'node_access'}
+                assert set(inspect(connection).get_table_names()) == {'alembic_version', 'users', 'subscriptions', 'devices', 'vpn_servers', 'payments', 'active_screens', 'subscription_history', 'subscription_tokens', 'vpn_nodes', 'node_health', 'node_access'}
             await conn.run_sync(validate)
         sessions = async_sessionmaker(engine, expire_on_commit=False)
         services = Services.persistent(sessions)

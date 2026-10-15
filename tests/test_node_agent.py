@@ -41,6 +41,12 @@ def test_node_reconciles_orphans_after_restart(tmp_path):
         agent=NodeAgent(store,xray)
         await agent.reconcile()
         assert xray.users=={xray.email(new)}
+        listener=await asyncio.start_server(lambda reader,writer: writer.close(),
+                                             '127.0.0.1',0)
+        xray.port=listener.sockets[0].getsockname()[1]
+        assert await agent.health() is True
+        listener.close();await listener.wait_closed()
+        with pytest.raises(OSError):await agent.health()
         await agent.apply(new,2,False,None)
         assert not xray.users
         store.close()

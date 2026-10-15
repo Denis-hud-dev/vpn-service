@@ -37,6 +37,21 @@ class HTTPSNodeGateway:
             context.load_cert_chain(entry['cert'], entry['key'])
             self.nodes[key] = (entry['url'].rstrip('/'), context)
 
+    async def probe(self, node) -> bool:
+        entry = self.nodes.get(str(node.id))
+        if entry is None:
+            return False
+        origin, context = entry
+        try:
+            timeout = aiohttp.ClientTimeout(total=4, connect=2)
+            async with aiohttp.ClientSession(timeout=timeout, trust_env=False) as session:
+                async with session.get(origin+'/v1/health', ssl=context) as response:
+                    if response.status != 200:
+                        return False
+                    return await response.json() == {'healthy': True}
+        except (aiohttp.ClientError, TimeoutError, ssl.SSLError, ValueError):
+            return False
+
     async def apply(self, node, credential: UUID, *, enabled: bool,
                     expires_at: datetime | None, revision: int):
         entry = self.nodes.get(str(node.id))
