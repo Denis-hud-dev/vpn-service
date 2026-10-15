@@ -193,3 +193,56 @@ def test_postgres_parallel_link_issuance():
             async with admin.begin() as conn:await conn.execute(text('DROP SCHEMA IF EXISTS '+schema+' CASCADE'))
             await admin.dispose()
     asyncio.run(run())
+
+
+def test_reconciler_tick_pages_and_limits_parallel_work(tmp_path, caplog):
+    async def run():
+        engine = create_async_engine('sqlite+aiosqlite:///' + str(tmp_path / 'reconcile.db'))
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            sessions = async_sessionmaker(engine, expire_on_commit=False)
+            expected = set()
+            for telegram_id in range(100, 111):
+                await UserService(sessions).register(telegram_id, 'Test')
+                sub = await SubscriptionService(sessions).create_pending(telegram_id, 'month')
+                expected.add(sub.id)
+
+            class TrackingReconciler(NodeReconciler):
+                def __init__(self):
+                    super().__init__(sessions, batch_size=4, max_concurrent=3)
+                    self.active = self.maximum = 0
+                    self.seen = []
+                    self.failed = False
+
+                async def reconcile(self, subscription_id):
+                    self.active += 1
+                    self.maximum = max(self.maximum, self.active)
+                    self.seen.append(subscription_id)
+                    try:
+                        await asyncio.sleep(.01)
+                        if not self.failed:
+                            self.failed = True
+                            raise RuntimeError('simulated node failure')
+                    finally:
+                        self.active -= 1
+
+            worker = TrackingReconciler()
+            await worker.tick()
+            assert set(worker.seen) == expected
+            assert len(worker.seen) == len(expected)
+            assert worker.maximum == 3
+            assert worker.active == 0
+            assert caplog.text.count('Node reconciliation failed; retry scheduled') == 1
+            assert 'simulated node failure' not in caplog.text
+        finally:
+            await engine.dispose()
+
+    asyncio.run(run())
+
+
+def test_reconciler_requires_positive_limits():
+    with pytest.raises(ValueError):
+        NodeReconciler(None, batch_size=0)
+    with pytest.raises(ValueError):
+        NodeReconciler(None, max_concurrent=0)

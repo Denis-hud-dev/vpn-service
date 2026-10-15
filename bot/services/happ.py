@@ -13,6 +13,8 @@ from datetime import timedelta
 
 NODE_LEASE_SECONDS = 120
 NODE_RENEW_SECONDS = 60
+RECONCILE_BATCH_SIZE = 128
+MAX_CONCURRENT_RECONCILES = 16
 
 
 class AccessDenied(ValueError):
@@ -125,8 +127,12 @@ class NodeReconciler:
     roll back DB state, retry next tick. Gateway calls must be safe to repeat.
     Nodes are disabled rather than deleted, so old credentials can be removed.
     """
-    def __init__(self, sessions, gateway=None):
+    def __init__(self, sessions, gateway=None, *, batch_size=RECONCILE_BATCH_SIZE,
+                 max_concurrent=MAX_CONCURRENT_RECONCILES):
+        if batch_size < 1 or max_concurrent < 1:
+            raise ValueError('Reconciliation limits must be positive')
         self.sessions, self.gateway = sessions, gateway or DisabledNodeGateway()
+        self.batch_size, self.max_concurrent = batch_size, max_concurrent
 
     async def reconcile(self, subscription_id):
         # Persist a versioned intent before the remote call. A late old request
@@ -187,11 +193,28 @@ class NodeReconciler:
                 access.revocation_confirmed = not desired
 
     async def tick(self):
-        async with self.sessions() as session:
-            ids = (await session.scalars(select(Subscription.id))).all()
-        for sid in ids:
-            try: await self.reconcile(sid)
-            except Exception:
-                # No exception strings, node credentials or identifiers in logs.
-                import logging
-                logging.getLogger(__name__).warning('Node reconciliation failed; retry scheduled')
+        # Keyset paging avoids loading every customer into memory. Process only
+        # one bounded batch at a time so slow/offline nodes cannot serialize the
+        # entire population or spawn an unbounded number of gateway requests.
+        last_id = None
+        while True:
+            async with self.sessions() as session:
+                query = select(Subscription.id).order_by(Subscription.id).limit(self.batch_size)
+                if last_id is not None:
+                    query = query.where(Subscription.id > last_id)
+                ids = (await session.scalars(query)).all()
+            if not ids:
+                return
+            semaphore = asyncio.Semaphore(self.max_concurrent)
+
+            async def process(subscription_id):
+                async with semaphore:
+                    try:
+                        await self.reconcile(subscription_id)
+                    except Exception:
+                        # No exception strings, node credentials or identifiers in logs.
+                        import logging
+                        logging.getLogger(__name__).warning('Node reconciliation failed; retry scheduled')
+
+            await asyncio.gather(*(process(sid) for sid in ids))
+            last_id = ids[-1]
