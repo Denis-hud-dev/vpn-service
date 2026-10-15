@@ -1,7 +1,11 @@
-"""Contracts for future YooKassa/SBP integration; no HTTP calls today."""
+"""Offline order boundaries for future YooKassa/SBP integration.
+
+No production gateway, webhook endpoint or credential use is wired here.
+"""
 from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
+from urllib.parse import urlsplit
 from sqlalchemy import select
 from bot.db.models import Payment, User
 from bot.services import Tariff
@@ -15,7 +19,8 @@ class PaymentIntent:
 
 class PaymentGateway(Protocol):
     async def create(self, *, amount_kopecks: int, currency: str,
-                     idempotency_key: UUID, return_url: str) -> PaymentIntent: ...
+                     idempotency_key: UUID, order_id: UUID,
+                     return_url: str) -> PaymentIntent: ...
     async def verify(self, provider_id: str) -> str: ...
 
 
@@ -47,3 +52,64 @@ class PaymentRepository:
             session.add(payment)
             await session.flush()
             return payment
+
+    async def bind_provider_id(self, payment_id: UUID, provider_id: str) -> None:
+        if not provider_id or len(provider_id) > 128:
+            raise ValueError("Некорректный идентификатор платежа у провайдера")
+        async with self.sessions.begin() as session:
+            payment = await session.scalar(select(Payment).where(Payment.id == payment_id).with_for_update())
+            if payment is None or payment.status != "pending":
+                raise ValueError("Заказ не ожидает оплату")
+            if payment.provider_payment_id and payment.provider_payment_id != provider_id:
+                raise ValueError("Заказ связан с другим платежом")
+            payment.provider_payment_id = provider_id
+
+
+def _safe_confirmation_url(value: str, allowed_hosts: frozenset[str]) -> bool:
+    try:
+        parsed = urlsplit(value)
+        return (parsed.scheme == "https" and parsed.hostname in allowed_hosts
+                and parsed.username is None and parsed.password is None
+                and parsed.port in (None, 443) and not parsed.fragment)
+    except (TypeError, ValueError):
+        return False
+
+
+class PaymentCheckoutService:
+    """Prepare an order with a stable idempotency key; no bot wiring by default.
+
+    The injected gateway must use an authenticated provider API and include
+    ``order_id`` in provider metadata. Failed creates leave a pending order;
+    retrying with the same key must return the same provider payment.
+    """
+
+    def __init__(self, sessions, gateway: PaymentGateway, return_url: str,
+                 allowed_hosts: frozenset[str] = frozenset({"yoomoney.ru", "yookassa.ru"})):
+        parsed_return = urlsplit(return_url)
+        if (parsed_return.scheme != "https" or not parsed_return.hostname
+                or parsed_return.username or parsed_return.password):
+            raise ValueError("Для возврата требуется HTTPS")
+        self.repository = PaymentRepository(sessions)
+        self.gateway = gateway
+        self.return_url = return_url
+        self.allowed_hosts = allowed_hosts
+
+    async def create(self, telegram_id: int, tariff_id: str,
+                     idempotency_key: UUID) -> PaymentIntent:
+        from bot.services import TARIFFS
+        tariff = TARIFFS.get(tariff_id)
+        if tariff is None:
+            raise ValueError("Неизвестный тариф")
+        payment = await self.repository.create_pending(telegram_id, tariff, idempotency_key)
+        if payment.status != "pending":
+            raise ValueError("Заказ больше не ожидает оплату")
+        intent = await self.gateway.create(
+            amount_kopecks=payment.amount_kopecks, currency=payment.currency,
+            idempotency_key=idempotency_key, order_id=payment.id,
+            return_url=self.return_url)
+        if not isinstance(intent, PaymentIntent) or not intent.provider_id:
+            raise ValueError("Провайдер не вернул платёж")
+        if not _safe_confirmation_url(intent.confirmation_url, self.allowed_hosts):
+            raise ValueError("Провайдер вернул неподтверждённый адрес оплаты")
+        await self.repository.bind_provider_id(payment.id, intent.provider_id)
+        return intent

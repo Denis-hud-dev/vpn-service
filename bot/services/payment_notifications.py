@@ -1,0 +1,68 @@
+"""Offline handler for statuses fetched independently from YooKassa.
+
+The provider lookup is an injected, authenticated GET adapter. This module
+has no HTTP endpoint, credentials or network access of its own. Never pass a
+webhook body as the lookup result: it is merely a hint to re-fetch the payment.
+"""
+from uuid import UUID
+
+from sqlalchemy import select
+
+from bot.db.models import Payment
+from bot.services.subscriptions import SubscriptionService
+from bot.services.yookassa_verification import (
+    PaymentLookup, YooKassaPaymentVerifier, confirmed_from_lookup,
+    identity_from_lookup,
+)
+
+
+class PaymentNotificationProcessor:
+    def __init__(self, sessions, lookup: PaymentLookup):
+        self.sessions = sessions
+        self.lookup = lookup
+        self.lifecycle = SubscriptionService(sessions, YooKassaPaymentVerifier(lookup))
+
+    async def process(self, provider_payment_id: str) -> str:
+        """Return ``succeeded``, ``canceled`` or ``pending`` after provider GET.
+
+        A repeated notification is harmless; a mismatched or unverified
+        provider response fails closed. The payment's user is always selected
+        from our order row, never from callback data.
+        """
+        if not isinstance(provider_payment_id, str) or not provider_payment_id:
+            raise ValueError("Провайдер не подтвердил параметры оплаты")
+        data = await self.lookup.fetch(provider_payment_id)
+        try:
+            order_id = UUID(data['metadata']['order_id'])
+        except (KeyError, TypeError, ValueError, AttributeError):
+            raise ValueError("Провайдер не подтвердил параметры оплаты") from None
+        identity = identity_from_lookup(order_id, data)
+        if identity.provider_id != provider_payment_id:
+            raise ValueError("Провайдер не подтвердил параметры оплаты")
+
+        status = data.get('status')
+        if status == 'succeeded':
+            event = confirmed_from_lookup(order_id, data)
+            await self.lifecycle.apply_confirmed_payment(event)
+            return 'succeeded'
+        if status not in {'canceled', 'pending', 'waiting_for_capture'}:
+            raise ValueError("Неподдерживаемый статус платежа")
+        if status == 'canceled' and data.get('paid') is not False:
+            raise ValueError("Провайдер не подтвердил отмену")
+
+        async with self.sessions.begin() as session:
+            payment = await session.scalar(select(Payment).where(Payment.id == order_id).with_for_update())
+            if (payment is None or payment.provider != 'yookassa'
+                    or payment.amount_kopecks != identity.amount_kopecks
+                    or payment.currency != 'RUB'
+                    or (payment.provider_payment_id and payment.provider_payment_id != provider_payment_id)):
+                raise ValueError("Параметры платежа не совпадают с заказом")
+            if status == 'canceled':
+                if payment.status == 'succeeded':
+                    raise ValueError("Оплаченный заказ не может стать отменённым")
+                payment.status = 'canceled'
+                payment.provider_payment_id = provider_payment_id
+                return 'canceled'
+            if payment.status != 'pending':
+                raise ValueError("Заказ уже завершён")
+            return 'pending'
