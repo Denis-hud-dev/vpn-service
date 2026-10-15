@@ -9,14 +9,14 @@
 `codex/subscription-lifecycle` → `codex/happ-subscriptions` →
 `codex/xray-access-automation` → `codex/vpn-path-diagnostics` (PR #2) →
 `codex/commercial-readiness` (PR #3) → `codex/happ-link-delivery` (PR #4)
-→ `codex/payment-admin-prep`.
+→ `codex/payment-admin-prep` (PR #5).
 
 `codex/ci-foundation` (PR #1) ответвляется отдельно от Premium baseline. Его
 последний коммит не является предком PR #2/#3; часть CI изменений перенесена
 отдельным коммитом. Поэтому перед слиянием требуется сравнить обе ветки по файлам,
 а не считать их линейной цепочкой.
 
-Новые PR являются черновиками. PR #2 и #3 содержат изменения нижележащих
+Новые PR являются черновиками. PR #2–#5 содержат изменения нижележащих
 локальных веток; последовательность слияния нужно сверить по Git перед каждым
 merge. `main` остаётся старой рабочей версией, а Docker на DigitalOcean не получает
 код из PR автоматически. Не выполнять `git merge`, `docker compose up` или

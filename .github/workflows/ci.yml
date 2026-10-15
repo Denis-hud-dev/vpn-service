@@ -22,6 +22,7 @@ jobs:
     env:
       # A disposable database on this GitHub runner. No repository or production secrets.
       TEST_DATABASE_URL: postgresql+psycopg://ci:ci_local_only@127.0.0.1:5432/kudavpn_ci
+      LIFECYCLE_TEST_DATABASE_URL: postgresql+psycopg://ci:ci_local_only@127.0.0.1:5432/kudavpn_ci
       DATABASE_URL: ''
       BOT_TOKEN: ''
     services:
