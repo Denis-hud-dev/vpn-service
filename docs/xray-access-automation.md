@@ -26,9 +26,11 @@ target-network test.
    leave those intents pending for retry. The short lease is the fallback that
    prevents indefinitely active access when the central service is unavailable.
 
-The bot's tariff buttons still do **not** create real payments or send links.
-There is no automatic access from a button press or from a `pending` payment.
-The payment verifier and link delivery need separate integration and tests.
+The bot's tariff buttons still do **not** create real payments. The private
+connect screen can show the owner's personal Happ link when the optional
+subscription service, paid entitlement and healthy node are available.
+There is no automatic access from a button press or a `pending` payment.
+Production payment verification and HTTPS link hosting are not deployed.
 
 ## Trust boundaries and configuration
 
@@ -122,7 +124,11 @@ post-handshake record lengths. The test now allows 12 seconds to connect and
 18 seconds total, while still failing if no HTTP response arrives. It also
 checks that a newly attempted connection fails after `RemoveUser`.
 
-No mobile or real VPS traffic has been proven by these tests.
+These local tests alone do not prove mobile or real VPS traffic. Separately,
+on 17 October 2026 the owner confirmed HTTPS and YouTube through the static
+JustHost TCP/8443 test profile in Happ on a Russian home Wi-Fi network.
+That profile is not yet managed by the per-user node agent; see
+`docs/justhost-happ-integration.md` before considering rollout.
 Furthermore, Xray `RemoveUser` was checked for rejecting new sessions; whether
 already established tunnels terminate immediately requires explicit validation
 on a real node. Do not claim immediate session termination until that is shown.
