@@ -6,7 +6,10 @@ from urllib.parse import urlsplit
 
 
 def main() -> None:
-    hostname = urlsplit(os.environ['SUBSCRIPTION_PUBLIC_URL']).hostname
+    # Docker healthchecks run in a fresh process with Compose's environment,
+    # not with variables exported by pilot_bootstrap inside the feed process.
+    origin = os.environ.get('SUBSCRIPTION_PUBLIC_URL') or os.environ.get('PILOT_SUBSCRIPTION_PUBLIC_URL', '')
+    hostname = urlsplit(origin).hostname
     if not hostname:
         raise SystemExit('Missing subscription hostname')
     port = int(os.environ.get('SUBSCRIPTION_PORT', '18443'))

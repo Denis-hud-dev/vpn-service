@@ -111,3 +111,28 @@ def test_pilot_feed_is_opt_in_and_requires_its_own_private_tls_and_agent_files(t
     assert 'BOT_TOKEN' not in feed['environment']
     assert feed['command'] == ['python', '-m', 'bot.pilot_bootstrap', 'feed']
     assert feed['healthcheck']['test'] == ['CMD', 'python', '-m', 'bot.subscription_api.healthcheck']
+
+
+def test_feed_healthcheck_reads_the_compose_origin(monkeypatch):
+    from bot.subscription_api import healthcheck
+
+    seen = {}
+
+    class Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            pass
+
+    class Context:
+        def wrap_socket(self, connection, *, server_hostname):
+            seen['hostname'] = server_hostname
+            return Connection()
+
+    monkeypatch.delenv('SUBSCRIPTION_PUBLIC_URL', raising=False)
+    monkeypatch.setenv('PILOT_SUBSCRIPTION_PUBLIC_URL', 'https://pilot.example.org:18443')
+    monkeypatch.setattr(healthcheck.socket, 'create_connection', lambda addr, timeout: Connection())
+    monkeypatch.setattr(healthcheck.ssl, 'create_default_context', lambda: Context())
+    healthcheck.main()
+    assert seen['hostname'] == 'pilot.example.org'
