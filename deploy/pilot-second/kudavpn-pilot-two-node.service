@@ -1,0 +1,24 @@
+[Unit]
+Description=KudaVPN isolated Telegram pilot node (second one-user service)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kudavpn-pilot-two
+Group=kudavpn-pilot-two
+WorkingDirectory=/opt/kudavpn-pilot-two/app
+Environment=TMPDIR=/var/lib/kudavpn-pilot-two
+EnvironmentFile=/etc/kudavpn-pilot-two/agent.env
+ExecStart=/opt/kudavpn-pilot-two/venv/bin/python -m bot.node_agent.main
+Restart=on-failure
+RestartSec=3s
+KillMode=control-group
+TimeoutStopSec=10s
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/kudavpn-pilot-two
+
+[Install]
+WantedBy=multi-user.target
