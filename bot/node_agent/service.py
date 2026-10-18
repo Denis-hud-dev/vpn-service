@@ -66,6 +66,8 @@ class NodeAgent:
         # Avoid reacquiring the lock from apply().
         current = await self.xray.managed_users()
         wanted = self.store.desired(int(time.time()))
+        if len(wanted) > self.max_users:
+            raise RuntimeError('Node user limit exceeded')
         active = {self.xray.email(value) for value in wanted}
         removed = current - active
         for email in sorted(removed):

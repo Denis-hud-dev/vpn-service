@@ -4,6 +4,7 @@ import json
 import os
 import socket
 import time
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -38,6 +39,31 @@ def config_file(tmp_path, api_port, inbound_port):
     return path
 
 
+def test_pilot_templates_keep_working_listener_outside_managed_service(tmp_path):
+    root = Path(__file__).resolve().parents[1] / 'deploy' / 'pilot'
+    config = json.loads((root / 'xray-9443.json.template').read_text())
+    inbound, = config['inbounds']
+    environment = dict(line.split('=', 1) for line in
+        (root / 'agent.env.template').read_text().splitlines()
+        if line and not line.startswith('#'))
+    unit = (root / 'kudavpn-pilot-node.service').read_text()
+    assert environment['NODE_AGENT_MAX_USERS'] == '1'
+    assert environment['XRAY_RESERVED_PORTS'] == '443,8443'
+    assert environment['NODE_AGENT_LISTEN'] == '127.0.0.1'
+    assert environment['XRAY_API_ADDRESS'] == config['api']['listen']
+    assert environment['XRAY_INBOUND_TAG'] == inbound['tag']
+    assert int(environment['XRAY_INBOUND_PORT']) == inbound['port'] == 9443
+    assert inbound['settings']['clients'] == []
+    assert 'KillMode=control-group' in unit
+    assert 'User=kudavpn-pilot' in unit
+    assert 'REPLACE_WITH_NEW_PRIVATE_KEY_OUTSIDE_GIT' in json.dumps(config)
+    path = tmp_path / 'pilot.json'
+    path.write_text(json.dumps(config))
+    path.chmod(0o600)
+    validate_managed_config(str(path), XrayCLI(
+        '/fake/xray', environment['XRAY_API_ADDRESS'], inbound['tag'], 9443))
+
+
 def test_managed_config_rejects_static_users_and_reserved_ports(tmp_path):
     api_port, inbound_port = free_port(), free_port()
     path = config_file(tmp_path, api_port, inbound_port)
@@ -59,6 +85,11 @@ def test_managed_config_rejects_static_users_and_reserved_ports(tmp_path):
     path.write_text(json.dumps(data))
     with pytest.raises(ValueError, match='isolated'):
         validate_managed_config(str(path), cli, {inbound_port})
+    protected = XrayCLI('/fake/xray', f'127.0.0.1:{api_port}', 'kuda-managed', 8443)
+    data['inbounds'][0]['port'] = 8443
+    path.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match='isolated'):
+        validate_managed_config(str(path), protected, set())
     path.chmod(0o644)
     with pytest.raises(ValueError, match='private'):
         validate_managed_config(str(path), cli)
@@ -164,11 +195,42 @@ def test_failed_revoke_is_not_acknowledged_or_healthy(tmp_path, caplog):
     asyncio.run(scenario())
 
 
+def test_pilot_user_limit_fails_closed_on_restart(tmp_path):
+    class Xray:
+        users = set()
+        @staticmethod
+        def email(value):
+            return 'kuda-' + str(value)
+        async def managed_users(self):
+            return self.users.copy()
+        async def add_many(self, values):
+            self.users.update(self.email(value) for value in values)
+
+    async def scenario():
+        store = LeaseStore(str(tmp_path / 'leases.db'))
+        now = int(time.time())
+        first, second = uuid4(), uuid4()
+        store.apply(first, 1, True, now + 60, now)
+        store.apply(second, 1, True, now + 60, now)
+        xray = Xray()
+        agent = NodeAgent(store, xray, restart_xray=lambda: None, max_users=1)
+        with pytest.raises(RuntimeError, match='limit'):
+            await agent.reconcile()
+        assert agent.failed.is_set() and not xray.users
+        store.close()
+
+    asyncio.run(scenario())
+
+
 def test_owned_process_restart_closes_open_connections(tmp_path):
     """A disposable listener models an established tunnel in a child process."""
     async def scenario():
         api_port, inbound_port = free_port(), free_port()
+        other_api, other_inbound = free_port(), free_port()
         path = config_file(tmp_path, api_port, inbound_port)
+        other_dir = tmp_path / 'other'
+        other_dir.mkdir()
+        other_path = config_file(other_dir, other_api, other_inbound)
         binary = tmp_path / 'fake-xray'
         binary.write_text('''#!/usr/bin/env python3
 import json, selectors, socket, sys
@@ -198,19 +260,39 @@ while True:
                 await writer.wait_closed()
                 return set()
 
+        class OtherCLI:
+            address = f'127.0.0.1:{other_api}'
+            tag = 'kuda-managed'
+            port = other_inbound
+            async def managed_users(self):
+                reader, writer = await asyncio.open_connection('127.0.0.1', other_api)
+                writer.close()
+                await writer.wait_closed()
+                return set()
+
         managed = ManagedXray(str(binary), str(path), CLI())
+        other = ManagedXray(str(binary), str(other_path), OtherCLI())
         await managed.start()
+        await other.start()
         old = managed.process
+        other_pid = other.process.pid
         try:
             reader, writer = await asyncio.open_connection('127.0.0.1', inbound_port)
+            other_reader, other_writer = await asyncio.open_connection('127.0.0.1', other_inbound)
             await managed.restart()
             assert old.returncode is not None
             assert managed.process.pid != old.pid
             assert await asyncio.wait_for(reader.read(1), timeout=2) == b''
+            assert other.process.pid == other_pid and other.process.returncode is None
+            with pytest.raises(TimeoutError):
+                await asyncio.wait_for(other_reader.read(1), timeout=.2)
+            other_writer.close()
+            await other_writer.wait_closed()
             writer.close()
             await writer.wait_closed()
         finally:
             await managed.stop()
+            await other.stop()
         assert managed.process is None
 
     asyncio.run(scenario())

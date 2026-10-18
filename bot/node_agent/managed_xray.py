@@ -40,7 +40,7 @@ def validate_managed_config(path: str, cli: XrayCLI,
             or api.get('services') != ['HandlerService']
             or not isinstance(config.get('log'), dict)
             or config['log'].get('access') != 'none'
-            or cli.port in (reserved_ports if reserved_ports is not None else {443, 8443})):
+            or cli.port in ({443, 8443} | (reserved_ports or set()))):
         raise ValueError('Managed Xray config is not isolated or starts with users')
 
 
@@ -119,7 +119,10 @@ class ManagedXray:
         try:
             await asyncio.wait_for(process.wait(), timeout=4)
         except TimeoutError:
-            process.kill()
+            try:
+                process.kill()
+            except ProcessLookupError:
+                pass
             await process.wait()
 
     async def restart(self):
