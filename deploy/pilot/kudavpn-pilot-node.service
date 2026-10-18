@@ -8,6 +8,7 @@ Type=simple
 User=kudavpn-pilot
 Group=kudavpn-pilot
 WorkingDirectory=/opt/kudavpn-pilot/app
+Environment=TMPDIR=/var/lib/kudavpn-pilot
 EnvironmentFile=/etc/kudavpn-pilot/agent.env
 ExecStart=/opt/kudavpn-pilot/venv/bin/python -m bot.node_agent.main
 Restart=on-failure

@@ -56,6 +56,7 @@ def test_pilot_templates_keep_working_listener_outside_managed_service(tmp_path)
     assert inbound['settings']['clients'] == []
     assert 'KillMode=control-group' in unit
     assert 'User=kudavpn-pilot' in unit
+    assert 'Environment=TMPDIR=/var/lib/kudavpn-pilot' in unit
     assert 'REPLACE_WITH_NEW_PRIVATE_KEY_OUTSIDE_GIT' in json.dumps(config)
     path = tmp_path / 'pilot.json'
     path.write_text(json.dumps(config))
