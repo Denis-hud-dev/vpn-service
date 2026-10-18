@@ -280,6 +280,26 @@ def test_agent_outage_hides_feed_and_retries_revocation_without_affecting_others
                 assert access.credential == credential
             with pytest.raises(AccessDenied):
                 await feed.issue_for_user(602)
+
+            # A payment cannot silently override an administrative block.
+            renewal_intent = await checkout.create(601, 'month', uuid4())
+            async with sessions() as session:
+                renewal_payment = await session.scalar(select(Payment).where(
+                    Payment.provider_payment_id == renewal_intent.provider_id))
+            lookup.rows[renewal_intent.provider_id] = provider_row(renewal_payment)
+            with pytest.raises(ValueError, match='требуется решение администратора'):
+                await processor.process(renewal_intent.provider_id)
+            assert gateway.xray.users == set()
+            await SubscriptionService(sessions).set_status(sub_id, 'expired')
+            assert await processor.process(renewal_intent.provider_id) == 'succeeded'
+            await reconciler.reconcile(sub_id)
+            await NodeHealthMonitor(sessions, gateway).tick()
+            assert await feed.issue_for_user(601) == link
+            async with sessions() as session:
+                access = await session.scalar(select(NodeAccess).where(
+                    NodeAccess.subscription_id == sub_id))
+                assert access.credential == credential
+                assert access.enabled and len(gateway.xray.users) == 1
         finally:
             gateway.close()
             await engine.dispose()
