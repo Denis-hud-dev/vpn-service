@@ -1,0 +1,11 @@
+# Optional overlay only after a trusted HTTPS subscription endpoint exists.
+services:
+  bot:
+    environment:
+      PILOT_HAPP_LINK_SECRET_FILE: /run/secrets/pilot_happ_key
+    secrets:
+      - pilot_happ_key
+
+secrets:
+  pilot_happ_key:
+    file: ${PILOT_HAPP_LINK_SECRET_FILE:?Private pilot Happ key file required}
