@@ -45,6 +45,27 @@ def test_pilot_tunnel_requires_mtls_and_exact_loopback_node(tmp_path):
             config.chmod(0o644)
             with pytest.raises(ValueError, match='permissions'):
                 await verify(str(config), node_id, port)
+            config.chmod(0o600)
+            permissive = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+            permissive.verify_mode = ssl.CERT_OPTIONAL
+            permissive.load_cert_chain(str(tmp_path / 'server.crt'), str(tmp_path / 'server.key'))
+            permissive.load_verify_locations(cafile=str(ca))
+            weak_port = free_port()
+            # A distinct app is needed because an aiohttp application cannot
+            # be registered with two runners at once.
+            weak_app = web.Application()
+            weak_app.router.add_get('/v1/health', health)
+            weak_runner = web.AppRunner(weak_app, access_log=None)
+            await weak_runner.setup()
+            await web.TCPSite(weak_runner, '127.0.0.1', weak_port,
+                              ssl_context=permissive).start()
+            try:
+                entry['url'] = f'https://localhost:{weak_port}'
+                config.write_text(json.dumps({str(node_id): entry}))
+                with pytest.raises(RuntimeError, match='without a client certificate'):
+                    await verify(str(config), node_id, weak_port)
+            finally:
+                await weak_runner.cleanup()
         finally:
             await runner.cleanup()
     asyncio.run(run())

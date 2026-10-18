@@ -36,8 +36,7 @@ async def verify(config_path: str, node_id: UUID, local_port: int = 19444) -> No
     try:
         async with aiohttp.ClientSession(timeout=timeout, trust_env=False) as session:
             async with session.get(origin + '/v1/health', ssl=unauthenticated) as response:
-                if response.status == 200:
-                    raise RuntimeError('Pilot agent accepted a client without mTLS')
+                raise RuntimeError('Pilot agent completed HTTPS without a client certificate')
     except (aiohttp.ClientError, TimeoutError, ssl.SSLError):
         pass  # Expected TLS rejection after the authenticated probe succeeded.
 

@@ -12,7 +12,7 @@ def source(tmp_path):
     password = tmp_path / 'db-password'
     password.write_text('pilot-only-32-character-password-1234\n')
     token = tmp_path / 'bot-token'
-    token.write_text('123456:abcdefghijklmnopqrstuvwxyz123456\n')
+    token.write_text('123456:' + 'a' * 32 + '\n')
     return {
         'KUDAVPN_PILOT_MARKER': PILOT_MARKER,
         'PILOT_DB_PASSWORD_FILE': str(password),
