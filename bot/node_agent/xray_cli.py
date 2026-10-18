@@ -54,21 +54,40 @@ class XrayCLI:
                                   '-tag='+self.tag)
         try:
             payload = json.loads(raw)
-            candidates = {u['email'] for u in payload.get('users', [])
-                    if isinstance(u, dict) and isinstance(u.get('email'), str)
-                    and re.fullmatch(r'kuda-[0-9a-f-]{36}', u['email'])}
-            return {email for email in candidates
-                    if self.email(UUID(email.removeprefix('kuda-'))) == email}
+            # HandlerService serializes an empty list as `{}`. Missing users
+            # therefore means empty only when the top-level value is an object.
+            if not isinstance(payload, dict):
+                raise ValueError()
+            users = payload.get('users', [])
+            if not isinstance(users, list):
+                raise ValueError()
+            result = set()
+            for user in users:
+                email = user['email']
+                if (not isinstance(email, str) or
+                        not re.fullmatch(r'kuda-[0-9a-f-]{36}', email) or
+                        self.email(UUID(email.removeprefix('kuda-'))) != email):
+                    # This process is dedicated and starts with no static users.
+                    # An unexpected account must make the node unhealthy.
+                    raise ValueError()
+                result.add(email)
+            return result
         except (ValueError, TypeError, KeyError):
             raise XrayCommandError('Invalid Xray API response') from None
 
     async def add(self, credential: UUID):
+        await self.add_many([credential])
+
+    async def add_many(self, credentials):
         # adu reads a normal Xray config. Create it in a private temporary file,
         # keep command output only in memory, then unlink it in all cases.
+        credentials = list(credentials)
+        if not credentials:
+            return
         payload = {'inbounds': [{'tag': self.tag, 'port': self.port,
             'protocol': 'vless', 'settings': {'decryption': 'none',
                 'clients': [{'id': str(credential), 'email': self.email(credential),
-                             'flow': self.flow}]}}]}
+                             'flow': self.flow} for credential in credentials]}}]}
         path = None
         try:
             with tempfile.NamedTemporaryFile(mode='w', prefix='kuda-xray-user-',

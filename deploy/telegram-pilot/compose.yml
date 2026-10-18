@@ -1,0 +1,72 @@
+# Review-only. Explicit -f is required; do not combine with production compose.
+name: kudavpn-telegram-pilot
+services:
+  postgres:
+    image: postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+    environment:
+      POSTGRES_DB: kudavpn_telegram_pilot
+      POSTGRES_USER: kudavpn_pilot
+      POSTGRES_PASSWORD_FILE: /run/secrets/pilot_db_password
+    secrets:
+      - pilot_db_password
+    ports:
+      - '127.0.0.1:55433:5432'
+    volumes:
+      - pilot_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U kudavpn_pilot -d kudavpn_telegram_pilot']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: 'no'
+
+  migrate:
+    profiles: ['telegram']
+    build:
+      context: ../..
+      dockerfile: bot/Dockerfile
+    environment:
+      KUDAVPN_PILOT_MARKER: kudavpn-telegram-pilot-v1
+      PILOT_DB_PASSWORD_FILE: /run/secrets/pilot_db_password
+    secrets:
+      - pilot_db_password
+    command: ['python', '-m', 'bot.pilot_bootstrap', 'migrate']
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  bot:
+    profiles: ['telegram']
+    build:
+      context: ../..
+      dockerfile: bot/Dockerfile
+    environment:
+      KUDAVPN_PILOT_MARKER: kudavpn-telegram-pilot-v1
+      PILOT_DB_PASSWORD_FILE: /run/secrets/pilot_db_password
+      PILOT_BOT_TOKEN_FILE: /run/secrets/pilot_bot_token
+      PILOT_EXPECTED_BOT_ID: ${PILOT_EXPECTED_BOT_ID:?Use the separate test bot ID}
+      PILOT_SUBSCRIPTION_PUBLIC_URL: ${PILOT_SUBSCRIPTION_PUBLIC_URL:-}
+      PILOT_ALLOW_IP_CERT: ${PILOT_ALLOW_IP_CERT:-0}
+    secrets:
+      - pilot_db_password
+      - pilot_bot_token
+    command: ['python', '-m', 'bot.pilot_bootstrap', 'bot']
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: 'no'
+    healthcheck:
+      test: ['CMD', 'python', '-c', "import urllib.request; urllib.request.urlopen('http://127.0.0.1:18081/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  pilot_pg_data:
+
+secrets:
+  pilot_db_password:
+    file: ${PILOT_DB_PASSWORD_FILE:?Private pilot DB password file required}
+  pilot_bot_token:
+    file: ${PILOT_BOT_TOKEN_FILE:?Separate test bot token file required}

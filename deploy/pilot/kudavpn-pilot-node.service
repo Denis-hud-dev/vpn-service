@@ -1,0 +1,24 @@
+[Unit]
+Description=KudaVPN isolated one-user pilot node
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kudavpn-pilot
+Group=kudavpn-pilot
+WorkingDirectory=/opt/kudavpn-pilot/app
+Environment=TMPDIR=/var/lib/kudavpn-pilot
+EnvironmentFile=/etc/kudavpn-pilot/agent.env
+ExecStart=/opt/kudavpn-pilot/venv/bin/python -m bot.node_agent.main
+Restart=on-failure
+RestartSec=3s
+KillMode=control-group
+TimeoutStopSec=10s
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/kudavpn-pilot
+
+[Install]
+WantedBy=multi-user.target

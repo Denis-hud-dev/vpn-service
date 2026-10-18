@@ -18,6 +18,7 @@ NODE_LEASE_SECONDS = 120
 NODE_RENEW_SECONDS = 60
 RECONCILE_BATCH_SIZE = 128
 MAX_CONCURRENT_RECONCILES = 16
+NODE_APPLY_TIMEOUT_SECONDS = 30
 
 
 class AccessDenied(ValueError):
@@ -226,22 +227,34 @@ class NodeReconciler:
             rows = (await session.execute(select(NodeAccess, VPNNode).join(
                 VPNNode, VPNNode.id == NodeAccess.node_id).where(NodeAccess.subscription_id == sub.id)
                 .order_by(VPNNode.id).with_for_update())).all()
+            failed = False
             for access, node in rows:
-                desired = access.desired_enabled
-                expires = as_utc(access.desired_expires_at) if access.desired_expires_at else None
-                if desired and expires and expires <= utcnow():
-                    # A stale lease intent may never reactivate an expired right.
-                    continue
-                if (access.enabled == desired and
-                    ((not desired and access.revocation_confirmed) or
-                     (desired and access.applied_expires_at and
-                      as_utc(access.applied_expires_at) == expires))):
-                    continue
-                await asyncio.wait_for(self.gateway.apply(node, access.credential,
-                    enabled=desired, expires_at=expires, revision=access.lease_revision), timeout=5)
-                access.enabled = desired
-                access.applied_expires_at = expires if desired else None
-                access.revocation_confirmed = not desired
+                try:
+                    # One unreachable node must not roll back acknowledgements
+                    # from other nodes in the same Happ subscription.
+                    async with session.begin_nested():
+                        desired = access.desired_enabled
+                        expires = as_utc(access.desired_expires_at) if access.desired_expires_at else None
+                        if desired and expires and expires <= utcnow():
+                            # A stale lease intent may never reactivate an expired right.
+                            continue
+                        if (access.enabled == desired and
+                            ((not desired and access.revocation_confirmed) or
+                             (desired and access.applied_expires_at and
+                              as_utc(access.applied_expires_at) == expires))):
+                            continue
+                        await asyncio.wait_for(self.gateway.apply(node, access.credential,
+                            enabled=desired, expires_at=expires, revision=access.lease_revision),
+                            timeout=NODE_APPLY_TIMEOUT_SECONDS)
+                        access.enabled = desired
+                        access.applied_expires_at = expires if desired else None
+                        access.revocation_confirmed = not desired
+                except Exception:
+                    failed = True
+        if failed:
+            # The successful node ACKs have committed; the next tick retries
+            # failed intents. Never log node credentials or gateway exceptions.
+            raise RuntimeError('Node reconciliation incomplete')
 
     async def tick(self):
         # Keyset paging avoids loading every customer into memory. Process only

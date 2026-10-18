@@ -1,0 +1,8 @@
+{
+  "00000000-0000-0000-0000-000000000001": {
+    "url": "https://localhost:19444",
+    "ca": "/absolute/private/path/pilot-agent-ca.crt",
+    "cert": "/absolute/private/path/pilot-controller.crt",
+    "key": "/absolute/private/path/pilot-controller.key"
+  }
+}

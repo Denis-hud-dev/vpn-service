@@ -1,0 +1,28 @@
+{
+  "log": {"loglevel": "warning", "access": "none"},
+  "api": {
+    "tag": "api",
+    "listen": "127.0.0.1:19085",
+    "services": ["HandlerService"]
+  },
+  "inbounds": [
+    {
+      "tag": "kuda-pilot-9443",
+      "listen": "0.0.0.0",
+      "port": 9443,
+      "protocol": "vless",
+      "settings": {"decryption": "none", "clients": []},
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "dest": "REPLACE_WITH_VALID_TLS_DESTINATION:443",
+          "serverNames": ["REPLACE_WITH_MATCHING_SNI"],
+          "privateKey": "REPLACE_WITH_NEW_PRIVATE_KEY_OUTSIDE_GIT",
+          "shortIds": ["REPLACE_WITH_NEW_SHORT_ID"]
+        }
+      }
+    }
+  ],
+  "outbounds": [{"tag": "direct", "protocol": "freedom"}]
+}

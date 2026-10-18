@@ -15,9 +15,13 @@ target-network test.
    enabled node, then sends a short lease to the node over mutually authenticated
    HTTPS. A late or duplicate request cannot overwrite a newer revision.
 3. The node stores the lease in a private SQLite database **before** changing
-   Xray through its loopback-only HandlerService API. It compares the actual
-   managed user list with valid leases every five seconds. A lease lasts at most
+   Xray through its loopback-only HandlerService API. The agent owns a separate
+   Xray child process containing only that managed inbound. It compares the
+   actual user list with valid leases every five seconds. A lease lasts at most
    120 seconds and expires locally even when the central server is unavailable.
+   Removing a user also restarts only this managed Xray process, closing
+   established tunnels before acknowledgement. The separate static 8443
+   listener is never restarted by this agent.
 4. PostgreSQL records the applied lease only after the node confirms Xray state.
    The Happ feed advertises only confirmed, unexpired credentials. One HTTPS
    token identifies a subscription; adding/removing nodes changes its feed
@@ -26,17 +30,21 @@ target-network test.
    leave those intents pending for retry. The short lease is the fallback that
    prevents indefinitely active access when the central service is unavailable.
 
-The bot's tariff buttons still do **not** create real payments or send links.
-There is no automatic access from a button press or from a `pending` payment.
-The payment verifier and link delivery need separate integration and tests.
+The bot's tariff buttons still do **not** create real payments. The private
+connect screen can show the owner's personal Happ link when the optional
+subscription service, paid entitlement and healthy node are available.
+There is no automatic access from a button press or a `pending` payment.
+Production payment verification and HTTPS link hosting are not deployed.
 
 ## Trust boundaries and configuration
 
-Use a dedicated Xray inbound, initially with no static clients. Enable its
-`HandlerService` API on `127.0.0.1` only. Pin the Xray build and check the
-configuration with `xray run -test` before introducing the agent. The agent
-must reach that API in the **same network namespace**; never publish the API
-port. Run the agent as a dedicated non-root user, bind its mTLS HTTPS listener
+Use a dedicated Xray **process** with one inbound and zero static clients.
+The agent validates the private configuration, checks `xray run -test`, starts
+that process and reaches its `HandlerService` API on `127.0.0.1` only. Never
+publish the API port or point `XRAY_CONFIG` at the static 8443 configuration.
+Run the agent and its Xray child in **one systemd unit** with
+`KillMode=control-group` and `Restart=on-failure`; an agent crash must stop its
+Xray child. Run the unit as a dedicated non-root user, bind its mTLS listener
 to a private interface, and allow only the central server to reach it. Use a
 separate private CA per node, a node server certificate with the correct DNS
 name, and a central client certificate signed by that node's CA. Restrict
@@ -49,7 +57,7 @@ Set these environment variables **only for the separate processes**:
 | Process | Variables |
 | --- | --- |
 | central subscription API | `DATABASE_URL`, `SUBSCRIPTION_PUBLIC_URL`, `SUBSCRIPTION_TLS_CERT`, `SUBSCRIPTION_TLS_KEY`, `NODE_AGENT_CONFIG`, optional `SUBSCRIPTION_PORT` |
-| per-node agent | `NODE_AGENT_STATE`, `XRAY_BINARY`, `XRAY_API_ADDRESS`, `XRAY_INBOUND_TAG`, `XRAY_INBOUND_PORT`, `NODE_AGENT_CERT`, `NODE_AGENT_KEY`, `NODE_AGENT_CLIENT_CA`, optional `NODE_AGENT_LISTEN`, `NODE_AGENT_PORT` |
+| per-node agent | `NODE_AGENT_STATE`, `XRAY_BINARY`, `XRAY_CONFIG`, `XRAY_API_ADDRESS`, `XRAY_INBOUND_TAG`, `XRAY_INBOUND_PORT`, `NODE_AGENT_CERT`, `NODE_AGENT_KEY`, `NODE_AGENT_CLIENT_CA`, optional `NODE_AGENT_LISTEN`, `NODE_AGENT_PORT`, `NODE_AGENT_MAX_USERS` |
 
 `SUBSCRIPTION_PUBLIC_URL` must be a public HTTPS **origin** with a certificate
 trusted by Happ. The current process binds to loopback; a reverse proxy can
@@ -74,19 +82,28 @@ placeholders only:
 ```
 
 The central worker must run as **one active instance**. Its gateway config is
-trusted operator input, never user input. The agent takes a local process lock
-and rejects stale lease revisions. Back up its SQLite state and certificate
-material encrypted, with access restricted to operators. If state is lost, the
-agent removes all `kuda-*` users it sees; it cannot remove unrelated Xray users.
-Do not restore an old lease database while Xray remains live: stop just that
-node's agent and inbound, restore verified current state, then reconcile.
+trusted operator input, never user input. The agent takes a local process lock,
+rejects stale revisions and limits active users. Back up its SQLite state and
+certificate material encrypted. If state is lost, the managed process starts
+empty and remains empty until the central worker sends fresh leases. Never
+restore an old lease database while the managed node is running; stop only its
+unit, restore verified state, then start it and reconcile.
+
+A failed apply never produces a successful acknowledgement. The node becomes
+unhealthy and the unit stops its Xray child; the central database retains an
+unconfirmed revocation for retry. A feed cannot present an expired or unhealthy
+lease. Operators must alert on reconciliation failures, unavailable node health
+and unconfirmed revocations; a database update by itself is not proof of VPN
+enforcement. A revoke-triggered restart briefly interrupts other users on
+**that managed node**, so capacity and interruption tolerance need pilot testing.
 
 ## Rollout and rollback
 
 1. Back up PostgreSQL and the dedicated Xray configuration. Verify a restore
    on an isolated instance. Apply Alembic revision `0005_node_lease_intents`.
-2. Prepare one disposable node with its private CA, Xray loopback API, empty
-   dedicated inbound, and agent. Test mTLS rejection without a certificate,
+2. Prepare one disposable node with its private CA, a separate empty Xray
+   process owned by the agent, and a separate systemd unit. Test mTLS rejection
+   without a certificate,
    add/remove, lease expiry, REALITY + Vision traffic, and a blocked account.
 3. Introduce nodes one at a time. Confirm the external address, DNS, SNI,
    REALITY public key/short ID, and real Happ import on the target networks.
@@ -122,10 +139,16 @@ post-handshake record lengths. The test now allows 12 seconds to connect and
 18 seconds total, while still failing if no HTTP response arrives. It also
 checks that a newly attempted connection fails after `RemoveUser`.
 
-No mobile or real VPS traffic has been proven by these tests.
-Furthermore, Xray `RemoveUser` was checked for rejecting new sessions; whether
-already established tunnels terminate immediately requires explicit validation
-on a real node. Do not claim immediate session termination until that is shown.
+These local tests alone do not prove mobile or real VPS traffic. Separately,
+on 17 October 2026 the owner confirmed HTTPS and YouTube through the static
+JustHost TCP/8443 test profile in Happ on a Russian home Wi-Fi network.
+That profile is not yet managed by the per-user node agent; see
+`docs/justhost-happ-integration.md` before considering rollout.
+`RemoveUser` alone does not establish closure of an already open tunnel. The
+new managed-node path restarts its dedicated Xray process on revoke or expiry;
+local tests verify child termination and restoration of surviving UUIDs.
+Closure of an established Happ tunnel after revocation still needs the limited
+real-node acceptance test. No code in this branch has been deployed.
 
 Run local tests with trusted `TEST_XRAY_BINARY` and a disposable PostgreSQL URL;
 both data-plane probes run automatically when the binary is provided.
