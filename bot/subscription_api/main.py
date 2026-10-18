@@ -47,7 +47,8 @@ def main():
             await asyncio.gather(*tasks, return_exceptions=True)
             await database.close()
     app.cleanup_ctx.append(lifecycle)
-    web.run_app(app, host='127.0.0.1', port=int(os.getenv('SUBSCRIPTION_PORT','18443')),
+    web.run_app(app, host=os.getenv('SUBSCRIPTION_BIND_HOST', '127.0.0.1'),
+                port=int(os.getenv('SUBSCRIPTION_PORT','18443')),
                 ssl_context=tls, access_log=None, print=None)
 
 

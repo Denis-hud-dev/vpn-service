@@ -73,3 +73,41 @@ def test_pilot_compose_uses_own_volume_no_production_env_and_loopback_db():
     assert not {'DATABASE_URL', 'DATABASE_URL_DOCKER', 'BOT_TOKEN'} & set(compose['services']['bot']['environment'])
     assert 'ports' not in compose['services']['bot']
     assert 'NODE_AGENT_CONFIG' not in str(compose)
+
+
+def test_pilot_feed_is_opt_in_and_requires_its_own_private_tls_and_agent_files(tmp_path):
+    env = source(tmp_path)
+    env.pop('PILOT_BOT_TOKEN_FILE')
+    env.pop('PILOT_EXPECTED_BOT_ID')
+    env['PILOT_SUBSCRIPTION_PUBLIC_URL'] = 'https://pilot.example.org:18443'
+    with pytest.raises(ValueError, match='PILOT_TLS_CERT_FILE'):
+        prepare_environment('feed', env)
+    private = tmp_path / 'feed-private'
+    private.mkdir()
+    for name in ('tls.crt', 'tls.key', 'agent-config.json'):
+        path = private / name
+        path.write_text('placeholder')
+        path.chmod(0o600)
+    env.update(PILOT_TLS_CERT_FILE=str(private / 'tls.crt'),
+               PILOT_TLS_KEY_FILE=str(private / 'tls.key'),
+               PILOT_NODE_AGENT_CONFIG=str(private / 'agent-config.json'))
+    result = prepare_environment('feed', {**env, 'HAPP_LINK_SECRET': 'do-not-pass-to-feed'})
+    assert result['SUBSCRIPTION_BIND_HOST'] == '0.0.0.0'
+    assert result['SUBSCRIPTION_PORT'] == '18443'
+    assert result['NODE_AGENT_CONFIG'] == str(private / 'agent-config.json')
+    assert 'BOT_TOKEN' not in result
+    assert 'HAPP_LINK_SECRET' not in result
+    with pytest.raises(ValueError, match='Telegram token'):
+        prepare_environment('feed', {**env, 'BOT_TOKEN': 'production-token'})
+    (private / 'tls.key').chmod(0o644)
+    with pytest.raises(ValueError, match='private'):
+        prepare_environment('feed', env)
+
+    overlay = yaml.safe_load(Path('deploy/telegram-pilot/compose.happ.yml').read_text())
+    feed = overlay['services']['feed']
+    assert feed['profiles'] == ['happ']
+    assert feed['ports'] == ['127.0.0.1:18443:18443']
+    assert 'pilot_bot_token' not in feed.get('secrets', [])
+    assert 'BOT_TOKEN' not in feed['environment']
+    assert feed['command'] == ['python', '-m', 'bot.pilot_bootstrap', 'feed']
+    assert feed['healthcheck']['test'] == ['CMD', 'python', '-m', 'bot.subscription_api.healthcheck']

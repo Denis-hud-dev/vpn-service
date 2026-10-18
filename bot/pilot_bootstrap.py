@@ -18,7 +18,7 @@ PILOT_MARKER = 'kudavpn-telegram-pilot-v1'
 
 def prepare_environment(mode: str, source: dict[str, str] | None = None) -> dict[str, str]:
     env = dict(os.environ if source is None else source)
-    if mode not in {'migrate', 'bot'} or env.get('KUDAVPN_PILOT_MARKER') != PILOT_MARKER:
+    if mode not in {'migrate', 'bot', 'feed'} or env.get('KUDAVPN_PILOT_MARKER') != PILOT_MARKER:
         raise ValueError('Isolated pilot marker or mode is invalid')
     if env.get('DATABASE_URL') or env.get('DATABASE_URL_DOCKER'):
         raise ValueError('Refusing a pre-existing database URL in pilot mode')
@@ -32,20 +32,10 @@ def prepare_environment(mode: str, source: dict[str, str] | None = None) -> dict
     env['DATABASE_URL'] = ('postgresql+psycopg://kudavpn_pilot:'
                            f'{quote(password, safe="")}@postgres:5432/kudavpn_telegram_pilot')
 
-    if mode == 'bot':
-        token_path = Path(env.get('PILOT_BOT_TOKEN_FILE', ''))
-        if not token_path.is_file():
-            raise ValueError('Pilot Telegram token file is missing')
-        token = token_path.read_text().strip()
-        expected_id = env.get('PILOT_EXPECTED_BOT_ID', '')
-        if not re.fullmatch(r'[1-9][0-9]*', expected_id):
-            raise ValueError('Expected test bot ID is required')
-        if not re.fullmatch(r'[1-9][0-9]*:[A-Za-z0-9_-]{20,}', token):
-            raise ValueError('Pilot Telegram token format is invalid')
-        if token.partition(':')[0] != expected_id:
-            raise ValueError('Telegram token does not belong to expected test bot')
-        env['BOT_TOKEN'] = token
+    if mode in {'bot', 'feed'}:
         public_url = env.get('PILOT_SUBSCRIPTION_PUBLIC_URL', '').strip()
+        if mode == 'feed' and not public_url:
+            raise ValueError('Pilot feed requires a trusted HTTPS origin')
         if public_url:
             url = urlsplit(public_url)
             try:
@@ -61,6 +51,24 @@ def prepare_environment(mode: str, source: dict[str, str] | None = None) -> dict
                     or url.username or url.password or url.query or url.fragment
                     or url.path not in ('', '/')):
                 raise ValueError('Pilot subscription URL must be a trusted HTTPS origin')
+            env['SUBSCRIPTION_PUBLIC_URL'] = public_url.rstrip('/')
+        else:
+            env.pop('SUBSCRIPTION_PUBLIC_URL', None)
+
+    if mode == 'bot':
+        token_path = Path(env.get('PILOT_BOT_TOKEN_FILE', ''))
+        if not token_path.is_file():
+            raise ValueError('Pilot Telegram token file is missing')
+        token = token_path.read_text().strip()
+        expected_id = env.get('PILOT_EXPECTED_BOT_ID', '')
+        if not re.fullmatch(r'[1-9][0-9]*', expected_id):
+            raise ValueError('Expected test bot ID is required')
+        if not re.fullmatch(r'[1-9][0-9]*:[A-Za-z0-9_-]{20,}', token):
+            raise ValueError('Pilot Telegram token format is invalid')
+        if token.partition(':')[0] != expected_id:
+            raise ValueError('Telegram token does not belong to expected test bot')
+        env['BOT_TOKEN'] = token
+        if public_url:
             secret_path = Path(env.get('PILOT_HAPP_LINK_SECRET_FILE', ''))
             if not secret_path.is_file():
                 raise ValueError('Pilot Happ secret file is missing')
@@ -71,14 +79,30 @@ def prepare_environment(mode: str, source: dict[str, str] | None = None) -> dict
                 raw = b''
             if not re.fullmatch(r'[A-Za-z0-9_-]{43}', link_secret) or len(raw) != 32:
                 raise ValueError('Pilot Happ secret must be 32-byte base64url')
-            env['SUBSCRIPTION_PUBLIC_URL'] = public_url.rstrip('/')
             env['HAPP_LINK_SECRET'] = link_secret
         else:
             if env.get('PILOT_HAPP_LINK_SECRET_FILE'):
                 raise ValueError('Pilot Happ secret requires a subscription URL')
-            env.pop('SUBSCRIPTION_PUBLIC_URL', None)
             env.pop('HAPP_LINK_SECRET', None)
         env['HEALTH_PORT'] = '18081'
+    elif mode == 'feed':
+        # The feed has no Telegram credential. It reads only the pilot DB and
+        # talks to one private node agent through its own mTLS config.
+        if env.get('PILOT_BOT_TOKEN_FILE') or env.get('BOT_TOKEN'):
+            raise ValueError('Pilot feed must not receive a Telegram token')
+        env.pop('HAPP_LINK_SECRET', None)
+        for key in ('PILOT_TLS_CERT_FILE', 'PILOT_TLS_KEY_FILE', 'PILOT_NODE_AGENT_CONFIG'):
+            path = Path(env.get(key, ''))
+            if not path.is_file():
+                raise ValueError(f'{key} is missing')
+        for key in ('PILOT_TLS_KEY_FILE', 'PILOT_NODE_AGENT_CONFIG'):
+            if Path(env[key]).stat().st_mode & 0o077:
+                raise ValueError(f'{key} must be private')
+        env['SUBSCRIPTION_TLS_CERT'] = env['PILOT_TLS_CERT_FILE']
+        env['SUBSCRIPTION_TLS_KEY'] = env['PILOT_TLS_KEY_FILE']
+        env['NODE_AGENT_CONFIG'] = env['PILOT_NODE_AGENT_CONFIG']
+        env['SUBSCRIPTION_BIND_HOST'] = '0.0.0.0'
+        env['SUBSCRIPTION_PORT'] = '18443'
     return env
 
 
@@ -89,6 +113,7 @@ def main() -> None:
     except (ValueError, OSError) as exc:
         raise SystemExit(f'Pilot startup refused: {exc}') from None
     command = (['alembic', 'upgrade', 'head'] if mode == 'migrate'
+               else [sys.executable, '-m', 'bot.subscription_api.main'] if mode == 'feed'
                else [sys.executable, '-m', 'bot.main'])
     os.execvpe(command[0], command, env)
 

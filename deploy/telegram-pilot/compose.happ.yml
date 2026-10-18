@@ -1,10 +1,41 @@
-# Optional overlay only after a trusted HTTPS subscription endpoint exists.
+# Optional overlay. No public port is opened; an independently approved HTTPS
+# ingress must forward to the host's loopback port after certificate preflight.
 services:
   bot:
     environment:
       PILOT_HAPP_LINK_SECRET_FILE: /run/secrets/pilot_happ_key
     secrets:
       - pilot_happ_key
+
+  feed:
+    profiles: ['happ']
+    build:
+      context: ../..
+      dockerfile: bot/Dockerfile
+    environment:
+      KUDAVPN_PILOT_MARKER: kudavpn-telegram-pilot-v1
+      PILOT_DB_PASSWORD_FILE: /run/secrets/pilot_db_password
+      PILOT_SUBSCRIPTION_PUBLIC_URL: ${PILOT_SUBSCRIPTION_PUBLIC_URL:?Trusted pilot HTTPS origin required}
+      PILOT_ALLOW_IP_CERT: ${PILOT_ALLOW_IP_CERT:-0}
+      PILOT_TLS_CERT_FILE: /run/pilot-feed/tls.crt
+      PILOT_TLS_KEY_FILE: /run/pilot-feed/tls.key
+      PILOT_NODE_AGENT_CONFIG: /run/pilot-feed/agent-config.json
+    secrets:
+      - pilot_db_password
+    volumes:
+      - ${PILOT_FEED_PRIVATE_DIR:?Private feed directory required}:/run/pilot-feed:ro
+    ports:
+      - '127.0.0.1:18443:18443'
+    command: ['python', '-m', 'bot.pilot_bootstrap', 'feed']
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+    healthcheck:
+      test: ['CMD', 'python', '-m', 'bot.subscription_api.healthcheck']
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
 secrets:
   pilot_happ_key:
