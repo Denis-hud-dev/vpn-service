@@ -18,6 +18,7 @@ NODE_LEASE_SECONDS = 120
 NODE_RENEW_SECONDS = 60
 RECONCILE_BATCH_SIZE = 128
 MAX_CONCURRENT_RECONCILES = 16
+NODE_APPLY_TIMEOUT_SECONDS = 30
 
 
 class AccessDenied(ValueError):
@@ -243,7 +244,8 @@ class NodeReconciler:
                               as_utc(access.applied_expires_at) == expires))):
                             continue
                         await asyncio.wait_for(self.gateway.apply(node, access.credential,
-                            enabled=desired, expires_at=expires, revision=access.lease_revision), timeout=5)
+                            enabled=desired, expires_at=expires, revision=access.lease_revision),
+                            timeout=NODE_APPLY_TIMEOUT_SECONDS)
                         access.enabled = desired
                         access.applied_expires_at = expires if desired else None
                         access.revocation_confirmed = not desired

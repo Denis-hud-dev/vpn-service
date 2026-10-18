@@ -62,7 +62,9 @@ class HTTPSNodeGateway:
                    'enabled': enabled,
                    'expires_at': int(expires_at.timestamp()) if expires_at else None}
         try:
-            timeout = aiohttp.ClientTimeout(total=4, connect=2)
+            # A revoke ACK waits for the dedicated Xray process to restart and
+            # rehydrate surviving users, so the health-probe timeout is too short.
+            timeout = aiohttp.ClientTimeout(total=25, connect=2)
             async with aiohttp.ClientSession(timeout=timeout, trust_env=False) as session:
                 async with session.put(origin+'/v1/access', json=payload,
                                        ssl=context) as response:

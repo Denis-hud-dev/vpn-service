@@ -190,9 +190,17 @@ def test_lost_node_acknowledgement(tmp_path):
             with pytest.raises(AccessDenied):await feed.feed(token)
             await feed.revoke(sub.id)
             with pytest.raises(AccessDenied):await feed.issue(sub.id)
+            with pytest.raises(RuntimeError):await reconciler.reconcile(sub.id)
+            async with sessions() as session:
+                access=await session.scalar(select(NodeAccess))
+                assert access.desired_enabled is False
+                assert access.revocation_confirmed is False
             gateway.fail=False
             await reconciler.reconcile(sub.id)
             assert not gateway.active
+            async with sessions() as session:
+                access=await session.scalar(select(NodeAccess))
+                assert access.revocation_confirmed is True
             await feed.issue(sub.id)  # Rotation only after confirmed node removal.
         finally:await engine.dispose()
     asyncio.run(run())

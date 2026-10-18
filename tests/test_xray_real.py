@@ -239,6 +239,13 @@ def test_real_xray_node_lifecycle(tmp_path,reality):
                 await reconciler.reconcile(sub.id)
             proc=subprocess.Popen([xray,'run','-c',str(config_file)],stdout=server_log,stderr=server_log)
             await wait_tcp(api_port)
+            # A failed enforcement marks the agent unhealthy until its process
+            # restarts; model the restart instead of reusing the failed object.
+            await runner.cleanup()
+            agent=NodeAgent(store,cli)
+            runner=web.AppRunner(create_app(agent),access_log=None)
+            await runner.setup()
+            await web.TCPSite(runner,'127.0.0.1',agent_port,ssl_context=context).start()
             await agent.reconcile()
             await reconciler.reconcile(sub.id)
             assert cli.email(credential) in await cli.managed_users()
