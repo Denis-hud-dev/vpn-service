@@ -8,7 +8,8 @@ from bot.services.happ import AccessDenied
 
 async def connect(callback: CallbackQuery, navigation: Navigation, services: Services):
     link = None
-    if services.happ is not None:
+    private_chat = getattr(getattr(callback.message, 'chat', None), 'type', None) == 'private'
+    if private_chat and services.happ is not None:
         try:
             link = await services.happ.issue_for_user(callback.from_user.id)
         except AccessDenied:

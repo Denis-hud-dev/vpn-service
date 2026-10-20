@@ -25,7 +25,7 @@ def home() -> Screen:
     return Screen(f"{BRAND}\n<i>Ваше пространство подключения.</i>\n\nVPN, подписка и устройства — в одном меню.\nВыберите действие ниже.", main_menu())
 
 
-def account(snapshot: AccountSnapshot) -> Screen:
+def account(snapshot: AccountSnapshot, *, trial_available: bool = False) -> Screen:
     labels = {"inactive": "Не активна", "active": "Активна", "expired": "Истекла",
               "pending": "Ожидает активации", "blocked": "Заблокирована"}
     end = snapshot.expires_at.astimezone(timezone.utc).strftime("%d.%m.%Y %H:%M UTC") if snapshot.expires_at else "Нет данных"
@@ -35,7 +35,11 @@ def account(snapshot: AccountSnapshot) -> Screen:
     body = (f"Статус: <b>{labels.get(snapshot.status, 'Нет данных')}</b>\n"
             f"Тариф: {escape(snapshot.tariff_label or 'Нет данных')}\n"
             f"Действует до: {end}\nУстройства: {devices}\nТрафик: {traffic}")
-    return panel("👤 Личный кабинет", body, back_keyboard(("💎 Тарифы", "nav:tariffs"), ("📱 Устройства", "nav:devices")))
+    buttons = []
+    if trial_available:
+        buttons.append(("🎁 Бесплатный тест — 24 часа", "pilot:grant"))
+    buttons.extend((("💎 Тарифы", "nav:tariffs"), ("📱 Устройства", "nav:devices")))
+    return panel("👤 Личный кабинет", body, back_keyboard(*buttons))
 
 
 def tariffs() -> Screen:

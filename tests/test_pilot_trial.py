@@ -9,11 +9,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bot.db.models import Base, NodeAccess, Payment, Subscription, SubscriptionHistory, VPNNode
+from bot.services import Services
 from bot.services.happ import AccessDenied, HappService, NodeReconciler
 from bot.services.node_health import NodeHealthMonitor
 from bot.services.pilot_trial import PilotTrialService
 from bot.services.subscriptions import SubscriptionService, as_utc, utcnow
 from bot.services.users import UserService
+from tests.fake_telegram import TelegramHarness
 
 
 class FakeIsolatedGateway:
@@ -140,5 +142,44 @@ def test_trial_rejects_unregistered_owner_far_extension_and_blocked_user(tmp_pat
                 await trial.extend_to(101, utcnow() + timedelta(days=1))
             assert (await trial.grant_once(101)).status == 'blocked'
         finally:
+            await engine.dispose()
+    asyncio.run(run())
+
+
+def test_test_bot_trial_button_is_owner_only_and_does_not_create_payment(tmp_path):
+    async def run():
+        engine = create_async_engine('sqlite+aiosqlite:///' + str(tmp_path / 'button.db'))
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        sessions = async_sessionmaker(engine, expire_on_commit=False)
+        app = TelegramHarness(services=Services.persistent(sessions, trial_owner_id=101))
+        try:
+            await app.text('/start', user_id=101)
+            await app.callback('nav:account', user_id=101)
+            keyboard = app.navigation.views[101].screen.keyboard
+            assert any(button.callback_data == 'pilot:grant'
+                       for row in keyboard.inline_keyboard for button in row)
+            await app.text('/start', user_id=202)
+            await app.callback('nav:account', user_id=202)
+            keyboard = app.navigation.views[202].screen.keyboard
+            assert not any(button.callback_data == 'pilot:grant'
+                           for row in keyboard.inline_keyboard for button in row)
+            await app.callback('pilot:grant', user_id=202)
+            await app.callback('pilot:grant', user_id=101, inline=True)
+            async with sessions() as db:
+                assert await db.scalar(select(func.count()).select_from(Subscription)) == 0
+            await app.callback('pilot:grant', user_id=101)
+            await app.callback('pilot:grant', user_id=101)
+            async with sessions() as db:
+                assert await db.scalar(select(func.count()).select_from(Subscription)) == 1
+                assert await db.scalar(select(func.count()).select_from(Payment)) == 0
+                assert await db.scalar(select(func.count()).select_from(SubscriptionHistory).where(
+                    SubscriptionHistory.reason == 'pilot_trial_grant')) == 1
+            await app.callback('nav:account', user_id=101)
+            keyboard = app.navigation.views[101].screen.keyboard
+            assert not any(button.callback_data == 'pilot:grant'
+                           for row in keyboard.inline_keyboard for button in row)
+        finally:
+            await app.close()
             await engine.dispose()
     asyncio.run(run())

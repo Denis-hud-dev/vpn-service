@@ -29,8 +29,11 @@ def prepare_environment(mode: str, source: dict[str, str] | None = None) -> dict
     password = password_path.read_text().strip()
     if len(password) < 24 or '\n' in password:
         raise ValueError('Pilot database password is invalid')
+    db_host = env.get('PILOT_DB_HOST', 'postgres')
+    if db_host not in ('postgres', '127.0.0.1'):
+        raise ValueError('Pilot database host must be the isolated Compose service or loopback')
     env['DATABASE_URL'] = ('postgresql+psycopg://kudavpn_pilot:'
-                           f'{quote(password, safe="")}@postgres:5432/kudavpn_telegram_pilot')
+                           f'{quote(password, safe="")}@{db_host}:5432/kudavpn_telegram_pilot')
     owner_id = env.get('PILOT_TRIAL_OWNER_ID', '')
     if owner_id and not re.fullmatch(r'[1-9][0-9]*', owner_id):
         raise ValueError('Pilot trial owner ID must be a positive Telegram ID')
@@ -142,7 +145,7 @@ def main() -> None:
             raise SystemExit(f'Pilot trial refused: {exc}') from None
         print('Pilot trial operation completed')
         return
-    command = (['alembic', 'upgrade', 'head'] if mode == 'migrate'
+    command = ([sys.executable, '-m', 'alembic', 'upgrade', 'head'] if mode == 'migrate'
                else [sys.executable, '-m', 'bot.subscription_api.main'] if mode == 'feed'
                else [sys.executable, '-m', 'bot.main'])
     os.execvpe(command[0], command, env)

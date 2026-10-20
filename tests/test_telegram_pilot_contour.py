@@ -38,6 +38,10 @@ def test_pilot_database_identity_is_fixed_and_credentials_not_printed(tmp_path):
         prepare_environment('trial-grant', {**env, 'PILOT_TRIAL_OWNER_ID': '0'})
     grant = prepare_environment('trial-grant', {**env, 'PILOT_TRIAL_OWNER_ID': '101'})
     assert grant['DATABASE_URL'].endswith('@postgres:5432/kudavpn_telegram_pilot')
+    baremetal = prepare_environment('migrate', {**env, 'PILOT_DB_HOST': '127.0.0.1'})
+    assert baremetal['DATABASE_URL'].endswith('@127.0.0.1:5432/kudavpn_telegram_pilot')
+    with pytest.raises(ValueError, match='database host'):
+        prepare_environment('migrate', {**env, 'PILOT_DB_HOST': '209.38.196.186'})
 
 
 def test_pilot_bot_requires_distinct_expected_identity_and_https_link(tmp_path):
@@ -142,3 +146,18 @@ def test_feed_healthcheck_reads_the_compose_origin(monkeypatch):
     monkeypatch.setattr(healthcheck.ssl, 'create_default_context', lambda: Context())
     healthcheck.main()
     assert seen['hostname'] == 'pilot.example.org'
+
+
+def test_pilot_migration_uses_the_active_python_environment(monkeypatch):
+    from bot import pilot_bootstrap
+
+    called = {}
+    monkeypatch.setattr(pilot_bootstrap.sys, 'argv', ['pilot_bootstrap', 'migrate'])
+    monkeypatch.setattr(pilot_bootstrap, 'prepare_environment', lambda mode: {'PILOT': mode})
+    monkeypatch.setattr(pilot_bootstrap.os, 'execvpe',
+                        lambda executable, args, env: called.update(
+                            executable=executable, args=args, env=env))
+    pilot_bootstrap.main()
+    assert called['executable'] == pilot_bootstrap.sys.executable
+    assert called['args'] == [pilot_bootstrap.sys.executable, '-m', 'alembic', 'upgrade', 'head']
+    assert called['env'] == {'PILOT': 'migrate'}
