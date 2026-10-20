@@ -31,13 +31,23 @@ def token_digest(token):
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-async def entitled(session, sub):
-    return bool(sub.status == 'active' and sub.expires_at and as_utc(sub.expires_at) > utcnow()
-        and await session.scalar(select(exists().where(
+async def entitled(session, sub, *, trial_owner_id=None):
+    if sub.status != 'active' or not sub.expires_at or as_utc(sub.expires_at) <= utcnow():
+        return False
+    paid = await session.scalar(select(exists().where(
             SubscriptionHistory.subscription_id == sub.id,
             SubscriptionHistory.payment_id == Payment.id,
             Payment.status == 'succeeded', Payment.subscription_id == sub.id,
-            Payment.user_id == sub.user_id))))
+            Payment.user_id == sub.user_id)))
+    if paid:
+        return True
+    if not trial_owner_id or sub.tariff_id != 'pilot_trial_24h':
+        return False
+    owner_id = await session.scalar(select(User.telegram_id).where(User.id == sub.user_id))
+    return bool(owner_id == trial_owner_id and await session.scalar(select(exists().where(
+        SubscriptionHistory.subscription_id == sub.id,
+        SubscriptionHistory.payment_id.is_(None),
+        SubscriptionHistory.reason == 'pilot_trial_grant'))))
 
 
 class NodeGateway(Protocol):
@@ -56,12 +66,15 @@ class DisabledNodeGateway:
 
 
 class HappService:
-    def __init__(self, sessions, public_url, *, link_key: str | None = None):
+    def __init__(self, sessions, public_url, *, link_key: str | None = None,
+                 trial_owner_id=None, trial_node_port=None):
         url = urlsplit(public_url)
         if (url.scheme != 'https' or not url.hostname or url.username or url.password
                 or url.query or url.fragment or url.path not in ('', '/')):
             raise ValueError('Subscription origin must be HTTPS')
         self.sessions, self.public_url = sessions, public_url.rstrip('/')
+        self.trial_owner_id = trial_owner_id
+        self.trial_node_port = trial_node_port
         self.link_key = None
         if link_key is not None:
             try:
@@ -92,7 +105,8 @@ class HappService:
             .order_by(VPNNode.name))).all()
         now = utcnow()
         return [(node, access) for node, access, health in rows
-                if health.available and as_utc(health.checked_at) > now - timedelta(seconds=HEALTH_TTL_SECONDS)
+                if (self.trial_node_port is None or node.port == self.trial_node_port)
+                and health.available and as_utc(health.checked_at) > now - timedelta(seconds=HEALTH_TTL_SECONDS)
                 and health.config_digest == node_config_digest(node)
                 and access.applied_expires_at and as_utc(access.applied_expires_at) > now]
 
@@ -103,7 +117,7 @@ class HappService:
         async with self.sessions() as session:
             sub = await session.scalar(select(Subscription).join(User, User.id == Subscription.user_id)
                 .where(User.telegram_id == telegram_id))
-            if sub is None or not await entitled(session, sub) or not await self._live_nodes(session, sub.id):
+            if sub is None or not await entitled(session, sub, trial_owner_id=self.trial_owner_id) or not await self._live_nodes(session, sub.id):
                 raise AccessDenied('Subscription unavailable')
             subscription_id = sub.id
         return await self.issue(subscription_id)
@@ -111,8 +125,8 @@ class HappService:
     async def issue(self, subscription_id):
         async with self.sessions.begin() as session:
             sub = await session.scalar(select(Subscription).where(Subscription.id == subscription_id).with_for_update())
-            if sub is None or not await entitled(session, sub):
-                raise AccessDenied('Active paid subscription required')
+            if sub is None or not await entitled(session, sub, trial_owner_id=self.trial_owner_id):
+                raise AccessDenied('Active subscription required')
             previous = await session.scalar(select(SubscriptionToken).where(SubscriptionToken.subscription_id == sub.id))
             if previous and not previous.revoked:
                 if self.link_key is not None and previous.derivation_nonce:
@@ -157,7 +171,7 @@ class HappService:
         async with self.sessions() as session:
             row = await session.scalar(select(SubscriptionToken).where(SubscriptionToken.digest == digest, SubscriptionToken.revoked.is_(False)))
             sub = await session.get(Subscription, row.subscription_id) if row else None
-            if sub is None or not await entitled(session, sub):
+            if sub is None or not await entitled(session, sub, trial_owner_id=self.trial_owner_id):
                 raise AccessDenied('Subscription unavailable')
             rows = await self._live_nodes(session, sub.id)
             lines = []
@@ -180,10 +194,13 @@ class NodeReconciler:
     Nodes are disabled rather than deleted, so old credentials can be removed.
     """
     def __init__(self, sessions, gateway=None, *, batch_size=RECONCILE_BATCH_SIZE,
-                 max_concurrent=MAX_CONCURRENT_RECONCILES):
+                 max_concurrent=MAX_CONCURRENT_RECONCILES, trial_owner_id=None,
+                 trial_node_port=None):
         if batch_size < 1 or max_concurrent < 1:
             raise ValueError('Reconciliation limits must be positive')
         self.sessions, self.gateway = sessions, gateway or DisabledNodeGateway()
+        self.trial_owner_id = trial_owner_id
+        self.trial_node_port = trial_node_port
         self.batch_size, self.max_concurrent = batch_size, max_concurrent
 
     async def reconcile(self, subscription_id):
@@ -196,13 +213,15 @@ class NodeReconciler:
             token = await session.scalar(select(SubscriptionToken).where(SubscriptionToken.subscription_id == sub.id))
             # A verified payment is enough to provision access. The HTTPS link
             # may be issued later, while an explicit revoke remains authoritative.
-            allowed = bool((token is None or not token.revoked) and await entitled(session, sub))
+            allowed = bool((token is None or not token.revoked) and
+                           await entitled(session, sub, trial_owner_id=self.trial_owner_id))
             nodes = (await session.scalars(select(VPNNode).order_by(VPNNode.id))).all()
             now = utcnow()
             for node in nodes:
                 access = await session.scalar(select(NodeAccess).where(
                     NodeAccess.subscription_id == sub.id, NodeAccess.node_id == node.id))
-                desired = allowed and node.enabled
+                desired = allowed and node.enabled and (
+                    self.trial_node_port is None or node.port == self.trial_node_port)
                 if access is None:
                     if not desired:
                         continue

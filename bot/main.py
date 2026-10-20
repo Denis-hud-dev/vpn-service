@@ -20,7 +20,8 @@ async def run(config: Config) -> None:
     database = Database(config.database_url) if config.database_url else None
     services = (Services.persistent(database.sessions,
         subscription_public_url=config.subscription_public_url,
-        happ_link_secret=config.happ_link_secret) if database else Services.demo())
+        happ_link_secret=config.happ_link_secret,
+        trial_owner_id=config.pilot_trial_owner_id) if database else Services.demo())
     dispatcher = Dispatcher(config=config, services=services, navigation=Navigation(PostgresScreenStore(database.sessions) if database else None))
     dispatcher.include_router(create_router())
     ready = False

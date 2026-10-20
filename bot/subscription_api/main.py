@@ -18,7 +18,13 @@ def main():
     for handler in logging.getLogger().handlers:
         handler.addFilter(SafeDependencyLogs())
     database = Database(os.environ['DATABASE_URL'])
-    service = HappService(database.sessions, os.environ['SUBSCRIPTION_PUBLIC_URL'])
+    trial_owner_id = (int(os.getenv('PILOT_TRIAL_OWNER_ID'))
+                      if os.getenv('KUDAVPN_PILOT_MARKER') == 'kudavpn-telegram-pilot-v1'
+                      and os.getenv('PILOT_TRIAL_OWNER_ID', '').isascii()
+                      and os.getenv('PILOT_TRIAL_OWNER_ID', '').isdigit() else None)
+    service = HappService(database.sessions, os.environ['SUBSCRIPTION_PUBLIC_URL'],
+                          trial_owner_id=trial_owner_id,
+                          trial_node_port=10443 if trial_owner_id else None)
     from bot.services.node_gateway import HTTPSNodeGateway
     gateway = HTTPSNodeGateway(os.environ['NODE_AGENT_CONFIG'])
     tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -37,7 +43,9 @@ def main():
         tasks = [
             asyncio.create_task(worker(NodeHealthMonitor(database.sessions, gateway),
                                        'Node health monitoring failed; retry scheduled')),
-            asyncio.create_task(worker(NodeReconciler(database.sessions, gateway),
+            asyncio.create_task(worker(NodeReconciler(database.sessions, gateway,
+                                                     trial_owner_id=trial_owner_id,
+                                                     trial_node_port=10443 if trial_owner_id else None),
                                        'Node reconciliation failed; retry scheduled')),
         ]
         try:yield

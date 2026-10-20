@@ -142,7 +142,9 @@ class SubscriptionService:
                 sub.status = "expired"
                 self.history(session, sub, "expired", before=before)
             tariff = TARIFFS.get(sub.tariff_id)
-            return AccountSnapshot(status=sub.status, tariff_label=tariff.label if tariff else sub.tariff_id,
+            label = ('Пробный доступ — 24 часа' if sub.tariff_id == 'pilot_trial_24h'
+                     else tariff.label if tariff else sub.tariff_id)
+            return AccountSnapshot(status=sub.status, tariff_label=label,
                 expires_at=as_utc(sub.expires_at) if sub.expires_at else None, device_count=count)
 
     async def describe(self, telegram_id: int) -> str:

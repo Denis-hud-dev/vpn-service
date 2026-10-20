@@ -12,6 +12,7 @@ class Config:
     database_url: str = ""
     subscription_public_url: str = ""
     happ_link_secret: str = ""
+    pilot_trial_owner_id: int | None = None
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -28,4 +29,9 @@ class Config:
         link_secret = os.getenv("HAPP_LINK_SECRET", "").strip()
         if link_secret and not public_url:
             raise ValueError("Для HAPP_LINK_SECRET нужен SUBSCRIPTION_PUBLIC_URL.")
-        return cls(token, support, port, os.getenv("DATABASE_URL", "").strip(), public_url, link_secret)
+        trial_owner = (int(os.getenv('PILOT_TRIAL_OWNER_ID'))
+                       if os.getenv('KUDAVPN_PILOT_MARKER') == 'kudavpn-telegram-pilot-v1'
+                       and os.getenv('PILOT_TRIAL_OWNER_ID', '').isascii()
+                       and os.getenv('PILOT_TRIAL_OWNER_ID', '').isdigit() else None)
+        return cls(token, support, port, os.getenv("DATABASE_URL", "").strip(), public_url,
+                   link_secret, trial_owner)

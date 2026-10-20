@@ -96,14 +96,17 @@ class Services:
 
 
     @classmethod
-    def persistent(cls, sessions, *, subscription_public_url: str = "", happ_link_secret: str = "") -> "Services":
+    def persistent(cls, sessions, *, subscription_public_url: str = "", happ_link_secret: str = "",
+                   trial_owner_id: int | None = None) -> "Services":
         from bot.services.users import UserService
         from bot.services.subscriptions import SubscriptionService
         from bot.services.devices import DeviceService
         from bot.services.vpn import VPNService
         # Payment selection remains a demo; no automatic charge or activation.
         from bot.services.happ import HappService
-        happ = (HappService(sessions, subscription_public_url, link_key=happ_link_secret)
+        happ = (HappService(sessions, subscription_public_url, link_key=happ_link_secret,
+                            trial_owner_id=trial_owner_id,
+                            trial_node_port=10443 if trial_owner_id else None)
                 if subscription_public_url and happ_link_secret else None)
         return cls(DemoPaymentService(), SubscriptionService(sessions), MemoryReferralService(),
                    UserService(sessions), DeviceService(sessions, VPNService(sessions)), happ)

@@ -32,6 +32,12 @@ def test_pilot_database_identity_is_fixed_and_credentials_not_printed(tmp_path):
             prepare_environment('migrate', {**env, key: 'postgresql+psycopg://production'})
     with pytest.raises(ValueError, match='marker'):
         prepare_environment('bot', {**env, 'KUDAVPN_PILOT_MARKER': 'production'})
+    with pytest.raises(ValueError, match='owner ID is required'):
+        prepare_environment('trial-grant', env)
+    with pytest.raises(ValueError, match='positive Telegram ID'):
+        prepare_environment('trial-grant', {**env, 'PILOT_TRIAL_OWNER_ID': '0'})
+    grant = prepare_environment('trial-grant', {**env, 'PILOT_TRIAL_OWNER_ID': '101'})
+    assert grant['DATABASE_URL'].endswith('@postgres:5432/kudavpn_telegram_pilot')
 
 
 def test_pilot_bot_requires_distinct_expected_identity_and_https_link(tmp_path):
