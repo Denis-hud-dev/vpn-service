@@ -95,6 +95,8 @@ class Services:
     happ: HappLinkIssuer | None = None
     trial: TrialActivator | None = None
     pilot_connect_page_enabled: bool = False
+    test_checkout: object | None = None
+    test_payment_owner_id: int | None = None
 
     @classmethod
     def demo(cls) -> "Services":

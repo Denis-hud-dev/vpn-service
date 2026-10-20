@@ -3,12 +3,14 @@
 No production gateway, webhook endpoint or credential use is wired here.
 """
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Protocol
-from uuid import UUID
+from uuid import UUID, uuid4
 from urllib.parse import urlsplit
 from sqlalchemy import select
 from bot.db.models import Payment, User
 from bot.services import Tariff
+from bot.services.subscriptions import as_utc, utcnow
 
 
 @dataclass(frozen=True)
@@ -52,6 +54,35 @@ class PaymentRepository:
             session.add(payment)
             await session.flush()
             return payment
+
+    async def create_or_reuse_pending(self, telegram_id: int, tariff: Tariff) -> Payment:
+        """Serialize repeated button presses on the user row, reusing a recent order."""
+        async with self.sessions.begin() as session:
+            user = await session.scalar(select(User).where(User.telegram_id == telegram_id).with_for_update())
+            if user is None:
+                raise ValueError('Пользователь не зарегистрирован')
+            rows = (await session.scalars(select(Payment).where(
+                Payment.user_id == user.id, Payment.tariff_id == tariff.id,
+                Payment.provider == 'yookassa', Payment.status == 'pending')
+                .order_by(Payment.created_at.desc()).limit(1))).all()
+            recent = rows[0] if rows else None
+            if recent and recent.created_at and as_utc(recent.created_at) > utcnow() - timedelta(minutes=30):
+                return recent
+            payment = Payment(user_id=user.id, tariff_id=tariff.id,
+                              amount_kopecks=tariff.price_rub * 100,
+                              idempotency_key=uuid4(), currency='RUB',
+                              provider='yookassa', status='pending')
+            session.add(payment)
+            await session.flush()
+            return payment
+
+    async def pending_provider_ids(self) -> list[str]:
+        async with self.sessions() as session:
+            rows = await session.scalars(select(Payment.provider_payment_id).where(
+                Payment.provider == 'yookassa', Payment.status == 'pending',
+                Payment.provider_payment_id.is_not(None))
+                .order_by(Payment.created_at))
+            return [value for value in rows if value]
 
     async def bind_provider_id(self, payment_id: UUID, provider_id: str) -> None:
         if not provider_id or len(provider_id) > 128:
@@ -101,11 +132,23 @@ class PaymentCheckoutService:
         if tariff is None:
             raise ValueError("Неизвестный тариф")
         payment = await self.repository.create_pending(telegram_id, tariff, idempotency_key)
+        return await self._start(payment)
+
+    async def create_for_user(self, telegram_id: int, tariff_id: str) -> PaymentIntent:
+        """Owner-only bot entry point; callback retries keep the same order/key."""
+        from bot.services import TARIFFS
+        tariff = TARIFFS.get(tariff_id)
+        if tariff is None:
+            raise ValueError('Неизвестный тариф')
+        payment = await self.repository.create_or_reuse_pending(telegram_id, tariff)
+        return await self._start(payment)
+
+    async def _start(self, payment: Payment) -> PaymentIntent:
         if payment.status != "pending":
             raise ValueError("Заказ больше не ожидает оплату")
         intent = await self.gateway.create(
             amount_kopecks=payment.amount_kopecks, currency=payment.currency,
-            idempotency_key=idempotency_key, order_id=payment.id,
+            idempotency_key=payment.idempotency_key, order_id=payment.id,
             return_url=self.return_url)
         if not isinstance(intent, PaymentIntent) or not intent.provider_id:
             raise ValueError("Провайдер не вернул платёж")

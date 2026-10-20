@@ -42,15 +42,27 @@ def account(snapshot: AccountSnapshot, *, trial_available: bool = False) -> Scre
     return panel("👤 Личный кабинет", body, back_keyboard(*buttons))
 
 
-def tariffs() -> Screen:
-    return panel("💎 Тарифы", "Выберите срок подписки.\n\nОплата пока не подключена.", tariffs_keyboard())
+def tariffs(*, test_payment: bool = False) -> Screen:
+    note = ("Доступна только тестовая оплата без списания денег."
+            if test_payment else "Оплата пока не подключена.")
+    return panel("💎 Тарифы", "Выберите срок подписки.\n\n" + note, tariffs_keyboard())
 
 
-def tariff_details(tariff_id: str) -> Screen:
+def tariff_details(tariff_id: str, *, test_payment: bool = False) -> Screen:
     tariff = TARIFFS.get(tariff_id)
     if tariff is None:
         return panel("💎 Тарифы", "Тариф не найден. Выберите один из доступных вариантов.", back_keyboard(back="nav:tariffs"))
+    if test_payment:
+        return panel("💎 Ваш выбор", f"<b>{escape(tariff.label)}</b>\n\nТолько тестовый магазин YooKassa: настоящие деньги не списываются.\nНажмите кнопку, чтобы создать тестовый заказ.",
+                     back_keyboard(("🧪 Создать тестовый заказ", f"paytest:{tariff.id}"), back="nav:tariffs"))
     return panel("💎 Ваш выбор", f"<b>{escape(tariff.label)}</b>\n\nОплата ещё не подключена.\nПлатёж не создан.", back_keyboard(back="nav:tariffs"))
+
+
+def test_checkout(tariff_id: str, confirmation_url: str) -> Screen:
+    tariff = TARIFFS[tariff_id]
+    keyboard = back_keyboard(("👤 Проверить подписку", "nav:account"), back="nav:tariffs")
+    keyboard.inline_keyboard.insert(0, [InlineKeyboardButton(text="🧪 Открыть тестовую оплату", url=confirmation_url)])
+    return panel("🧪 Тестовый заказ", f"<b>{escape(tariff.label)}</b>\n\nОткройте тестовую страницу YooKassa. После подтверждения бот независимо проверит платёж в тестовом магазине и обновит подписку. Обычно это занимает до минуты. Настоящие деньги не списываются.", keyboard)
 
 
 def connect(link: str | None = None, *, page_url: str | None = None) -> Screen:
