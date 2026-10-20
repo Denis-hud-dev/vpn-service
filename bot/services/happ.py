@@ -97,6 +97,15 @@ class HappService:
         key = hmac.new(self.link_key, b'kudavpn-happ-v1:' + subscription_id.bytes + nonce_bytes, hashlib.sha256).digest()
         return base64.urlsafe_b64encode(key).rstrip(b'=').decode()
 
+    def connection_page_url(self, link: str) -> str:
+        """Map an issued feed URL to its first-party page without changing its token."""
+        prefix = self.public_url + '/s/'
+        if not link.startswith(prefix):
+            raise AccessDenied('Subscription unavailable')
+        token = link[len(prefix):]
+        token_digest(token)
+        return self.public_url + '/connect/' + token
+
     async def _live_nodes(self, session, subscription_id):
         rows = (await session.execute(select(VPNNode, NodeAccess, NodeHealth)
             .join(NodeAccess, NodeAccess.node_id == VPNNode.id)
