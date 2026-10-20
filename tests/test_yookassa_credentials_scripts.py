@@ -66,3 +66,24 @@ def test_auth_check_rejects_world_readable_secret(tmp_path):
             pass
         else:
             raise AssertionError('Unsafe secret file was accepted')
+
+
+def test_replace_secret_is_private_and_does_not_touch_shop_id(tmp_path, capsys):
+    module = load_script('replace_yookassa_test_secret')
+    tmp_path.chmod(0o700)
+    shop = tmp_path / 'yookassa-test-shop-id'
+    secret = tmp_path / 'yookassa-test-secret'
+    shop.write_text('1503208\n')
+    secret.write_text('dummy-old\n')
+    shop.chmod(0o600)
+    secret.chmod(0o600)
+    with mock.patch.object(module, 'TARGET', tmp_path), \
+         mock.patch.object(module.sys, 'argv', ['replace', '--shop-id', '1503208']), \
+         mock.patch.object(module.sys.stdin, 'isatty', return_value=True), \
+         mock.patch.object(module.sys.stderr, 'isatty', return_value=True), \
+         mock.patch.object(module.getpass, 'getpass', return_value='dummy-new'):
+        module.main()
+    assert shop.read_text() == '1503208\n'
+    assert secret.read_text() == 'dummy-new\n'
+    assert stat.S_IMODE(secret.stat().st_mode) == 0o600
+    assert 'dummy-' not in capsys.readouterr().out
