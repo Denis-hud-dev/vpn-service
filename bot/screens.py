@@ -53,10 +53,12 @@ def tariff_details(tariff_id: str) -> Screen:
     return panel("💎 Ваш выбор", f"<b>{escape(tariff.label)}</b>\n\nОплата ещё не подключена.\nПлатёж не создан.", back_keyboard(back="nav:tariffs"))
 
 
-def connect(link: str | None = None) -> Screen:
+def connect(link: str | None = None, *, page_url: str | None = None) -> Screen:
     keyboard = back_keyboard(("📖 Настройка Happ", "nav:happ"), ("💎 Тарифы", "nav:tariffs"))
     if link:
         keyboard.inline_keyboard.insert(0, [InlineKeyboardButton(text="🔗 Открыть подписку", url=link)])
+        if page_url:
+            keyboard.inline_keyboard.insert(0, [InlineKeyboardButton(text="✦ KudaVPN Premium · Подключить", url=page_url)])
         body = ("Подключение через <b>Happ</b>.\n\nСкопируйте личную HTTPS-ссылку и импортируйте её в Happ:\n"
                 f"<code>{escape(link)}</code>\n\nНе передавайте ссылку другим: она даёт доступ к подписке.")
     else:

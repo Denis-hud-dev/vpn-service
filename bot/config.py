@@ -13,6 +13,7 @@ class Config:
     subscription_public_url: str = ""
     happ_link_secret: str = ""
     pilot_trial_owner_id: int | None = None
+    pilot_connect_page_enabled: bool = False
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -33,5 +34,6 @@ class Config:
                        if os.getenv('KUDAVPN_PILOT_MARKER') == 'kudavpn-telegram-pilot-v1'
                        and os.getenv('PILOT_TRIAL_OWNER_ID', '').isascii()
                        and os.getenv('PILOT_TRIAL_OWNER_ID', '').isdigit() else None)
+        connect_page = bool(trial_owner and os.getenv('PILOT_CONNECT_PAGE_ENABLED') == '1')
         return cls(token, support, port, os.getenv("DATABASE_URL", "").strip(), public_url,
-                   link_secret, trial_owner)
+                   link_secret, trial_owner, connect_page)

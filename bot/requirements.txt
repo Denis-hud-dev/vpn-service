@@ -3,3 +3,4 @@ aiohttp>=3.9,<3.14
 SQLAlchemy[asyncio]>=2.0.36,<2.1
 psycopg[binary]>=3.2,<3.4
 alembic>=1.14,<2
+qrcode==8.2
