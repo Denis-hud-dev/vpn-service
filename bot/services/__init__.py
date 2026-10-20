@@ -79,6 +79,11 @@ class HappLinkIssuer(Protocol):
     async def issue_for_user(self, telegram_id: int) -> str: ...
 
 
+class TrialActivator(Protocol):
+    owner_telegram_id: int
+    async def grant_once(self, telegram_id: int): ...
+
+
 @dataclass
 class Services:
     payments: PaymentService
@@ -88,6 +93,7 @@ class Services:
     users: UserRegistry | None = None
     devices: DeviceReader | None = None
     happ: HappLinkIssuer | None = None
+    trial: TrialActivator | None = None
 
     @classmethod
     def demo(cls) -> "Services":
@@ -96,14 +102,19 @@ class Services:
 
 
     @classmethod
-    def persistent(cls, sessions, *, subscription_public_url: str = "", happ_link_secret: str = "") -> "Services":
+    def persistent(cls, sessions, *, subscription_public_url: str = "", happ_link_secret: str = "",
+                   trial_owner_id: int | None = None) -> "Services":
         from bot.services.users import UserService
         from bot.services.subscriptions import SubscriptionService
         from bot.services.devices import DeviceService
         from bot.services.vpn import VPNService
         # Payment selection remains a demo; no automatic charge or activation.
         from bot.services.happ import HappService
-        happ = (HappService(sessions, subscription_public_url, link_key=happ_link_secret)
+        from bot.services.pilot_trial import PilotTrialService
+        happ = (HappService(sessions, subscription_public_url, link_key=happ_link_secret,
+                            trial_owner_id=trial_owner_id,
+                            trial_node_port=10443 if trial_owner_id else None)
                 if subscription_public_url and happ_link_secret else None)
+        trial = PilotTrialService(sessions, trial_owner_id) if trial_owner_id else None
         return cls(DemoPaymentService(), SubscriptionService(sessions), MemoryReferralService(),
-                   UserService(sessions), DeviceService(sessions, VPNService(sessions)), happ)
+                   UserService(sessions), DeviceService(sessions, VPNService(sessions)), happ, trial)

@@ -15,6 +15,7 @@ services:
     environment:
       KUDAVPN_PILOT_MARKER: kudavpn-telegram-pilot-v1
       PILOT_DB_PASSWORD_FILE: /run/secrets/pilot_db_password
+      PILOT_TRIAL_OWNER_ID: ${PILOT_TRIAL_OWNER_ID:-}
       PILOT_SUBSCRIPTION_PUBLIC_URL: ${PILOT_SUBSCRIPTION_PUBLIC_URL:?Trusted pilot HTTPS origin required}
       PILOT_ALLOW_IP_CERT: ${PILOT_ALLOW_IP_CERT:-0}
       PILOT_TLS_CERT_FILE: /run/pilot-feed/tls.crt

@@ -18,7 +18,7 @@ PILOT_MARKER = 'kudavpn-telegram-pilot-v1'
 
 def prepare_environment(mode: str, source: dict[str, str] | None = None) -> dict[str, str]:
     env = dict(os.environ if source is None else source)
-    if mode not in {'migrate', 'bot', 'feed'} or env.get('KUDAVPN_PILOT_MARKER') != PILOT_MARKER:
+    if mode not in {'migrate', 'bot', 'feed', 'trial-grant', 'trial-extend'} or env.get('KUDAVPN_PILOT_MARKER') != PILOT_MARKER:
         raise ValueError('Isolated pilot marker or mode is invalid')
     if env.get('DATABASE_URL') or env.get('DATABASE_URL_DOCKER'):
         raise ValueError('Refusing a pre-existing database URL in pilot mode')
@@ -29,8 +29,16 @@ def prepare_environment(mode: str, source: dict[str, str] | None = None) -> dict
     password = password_path.read_text().strip()
     if len(password) < 24 or '\n' in password:
         raise ValueError('Pilot database password is invalid')
+    db_host = env.get('PILOT_DB_HOST', 'postgres')
+    if db_host not in ('postgres', '127.0.0.1'):
+        raise ValueError('Pilot database host must be the isolated Compose service or loopback')
     env['DATABASE_URL'] = ('postgresql+psycopg://kudavpn_pilot:'
-                           f'{quote(password, safe="")}@postgres:5432/kudavpn_telegram_pilot')
+                           f'{quote(password, safe="")}@{db_host}:5432/kudavpn_telegram_pilot')
+    owner_id = env.get('PILOT_TRIAL_OWNER_ID', '')
+    if owner_id and not re.fullmatch(r'[1-9][0-9]*', owner_id):
+        raise ValueError('Pilot trial owner ID must be a positive Telegram ID')
+    if mode in {'trial-grant', 'trial-extend'} and not owner_id:
+        raise ValueError('Pilot trial owner ID is required')
 
     if mode in {'bot', 'feed'}:
         public_url = env.get('PILOT_SUBSCRIPTION_PUBLIC_URL', '').strip()
@@ -107,12 +115,37 @@ def prepare_environment(mode: str, source: dict[str, str] | None = None) -> dict
 
 
 def main() -> None:
-    mode = sys.argv[1] if len(sys.argv) == 2 else ''
+    mode = sys.argv[1] if len(sys.argv) >= 2 else ''
     try:
         env = prepare_environment(mode)
     except (ValueError, OSError) as exc:
         raise SystemExit(f'Pilot startup refused: {exc}') from None
-    command = (['alembic', 'upgrade', 'head'] if mode == 'migrate'
+    if mode in {'trial-grant', 'trial-extend'}:
+        from datetime import datetime
+        from bot.db.session import Database
+        from bot.services.pilot_trial import PilotTrialService
+        import asyncio
+
+        async def operate():
+            database = Database(env['DATABASE_URL'])
+            try:
+                await database.check()
+                trial = PilotTrialService(database.sessions, int(env['PILOT_TRIAL_OWNER_ID']))
+                if mode == 'trial-grant' and len(sys.argv) == 2:
+                    await trial.grant_once(trial.owner_telegram_id)
+                elif mode == 'trial-extend' and len(sys.argv) == 3:
+                    await trial.extend_to(trial.owner_telegram_id, datetime.fromisoformat(sys.argv[2]))
+                else:
+                    raise ValueError('Trial command arguments are invalid')
+            finally:
+                await database.close()
+        try:
+            asyncio.run(operate())
+        except (ValueError, PermissionError) as exc:
+            raise SystemExit(f'Pilot trial refused: {exc}') from None
+        print('Pilot trial operation completed')
+        return
+    command = ([sys.executable, '-m', 'alembic', 'upgrade', 'head'] if mode == 'migrate'
                else [sys.executable, '-m', 'bot.subscription_api.main'] if mode == 'feed'
                else [sys.executable, '-m', 'bot.main'])
     os.execvpe(command[0], command, env)

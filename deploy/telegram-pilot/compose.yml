@@ -28,6 +28,7 @@ services:
     environment:
       KUDAVPN_PILOT_MARKER: kudavpn-telegram-pilot-v1
       PILOT_DB_PASSWORD_FILE: /run/secrets/pilot_db_password
+      PILOT_TRIAL_OWNER_ID: ${PILOT_TRIAL_OWNER_ID:-}
     secrets:
       - pilot_db_password
     command: ['python', '-m', 'bot.pilot_bootstrap', 'migrate']
@@ -46,6 +47,7 @@ services:
       PILOT_DB_PASSWORD_FILE: /run/secrets/pilot_db_password
       PILOT_BOT_TOKEN_FILE: /run/secrets/pilot_bot_token
       PILOT_EXPECTED_BOT_ID: ${PILOT_EXPECTED_BOT_ID:?Use the separate test bot ID}
+      PILOT_TRIAL_OWNER_ID: ${PILOT_TRIAL_OWNER_ID:-}
       PILOT_SUBSCRIPTION_PUBLIC_URL: ${PILOT_SUBSCRIPTION_PUBLIC_URL:-}
       PILOT_ALLOW_IP_CERT: ${PILOT_ALLOW_IP_CERT:-0}
     secrets:
