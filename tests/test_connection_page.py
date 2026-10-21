@@ -42,9 +42,15 @@ def test_page_reuses_feed_entitlement_and_keeps_private_headers():
             assert 'vless://private-credential' not in body
             assert 'ДЕЙСТВУЕТ ДО' in body
             assert 'https://subscriptions.example/s/' in body
+            assert 'id="import-steps"' in body
+            assert 'официального сайта Happ' in body
+            assert 'rel="noreferrer noopener"' in body
+            assert 'happ://' not in body  # No unverified subscription deep link.
             for name in ('connect.css', 'connect.js'):
                 asset = await client.get('/assets/' + name)
                 assert asset.status == 200 and (await asset.read())
+                assert asset.headers['Cache-Control'] == 'no-store, private'
+                assert TOKEN not in (await asset.text())
             assert (await client.get('/assets/unknown.js')).status == 404
             response = await client.get('/s/' + TOKEN)
             assert response.status == 200 and 'vless://' in await response.text()

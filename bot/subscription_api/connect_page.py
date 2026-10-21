@@ -32,9 +32,11 @@ def render_connection_page(feed_url: str, expires: int) -> str:
     <button type="button" role="tab" aria-selected="false" data-platform="macos">macOS</button>
    </div>
    <div class="separator"></div><div class="card-top"><span class="step-index">02 / 02</span><span class="card-caption">ДОБАВЬТЕ ПОДПИСКУ</span></div>
-   <div class="action-layout"><div><h2>Подключить VPN</h2><p id="platform-instruction">Скопируйте личную ссылку, откройте Happ на Android и импортируйте подписку из буфера обмена.</p>
+   <div class="action-layout"><div><h2>Подключить VPN</h2><p id="platform-instruction">На Android добавьте личную HTTPS-подписку в Happ из буфера обмена.</p>
    <button class="primary" id="copy-primary" type="button" data-subscription="{safe_url}"><span>Скопировать ссылку для Happ</span><span aria-hidden="true">↗</span></button>
-   <p class="feedback" id="copy-feedback" role="status" aria-live="polite">После копирования откройте Happ и добавьте подписку из буфера обмена.</p>
+   <p class="feedback" id="copy-feedback" role="status" aria-live="polite">Ссылка копируется одним нажатием. Импорт в Happ выполняется в приложении.</p>
+   <ol class="import-steps" id="import-steps"><li>Скопируйте ссылку кнопкой выше.</li><li>Откройте Happ, нажмите «+» и добавьте подписку из буфера обмена.</li><li>Выберите KudaVPN и включите VPN.</li></ol>
+   <p class="install-note">Нет Happ? Установите приложение с <a href="https://www.happ.su/main/ru" rel="noreferrer noopener" target="_blank">официального сайта Happ</a>, затем вернитесь к этим шагам.</p>
    <div class="secondary-actions"><button type="button" id="show-link">Показать ссылку</button><button type="button" id="show-qr">Показать QR-код</button></div>
    <div class="private-link" id="private-link" hidden><span>Личная HTTPS-ссылка</span><code>{safe_url}</code><button type="button" id="copy-backup">Копировать</button></div>
    </div><div class="device-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="device"><div class="device-bar"></div><div class="device-shield">✦</div><span>KUDAVPN</span><b>Вы защищены</b><div class="device-wave"></div></div></div></div>
