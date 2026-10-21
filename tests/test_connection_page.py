@@ -53,6 +53,11 @@ def test_page_reuses_feed_entitlement_and_keeps_private_headers():
             assert response.status == 404
             assert TOKEN not in await response.text()
             assert (await client.get('/connect/' + 'b' * 43)).status == 404
+            # Unknown routes also pass through private headers without the
+            # deprecated aiohttp HTTPException-as-response behaviour.
+            unknown = await client.get('/missing')
+            assert unknown.status == 404
+            assert unknown.headers['Cache-Control'] == 'no-store, private'
         finally:
             await client.close()
     asyncio.run(run())

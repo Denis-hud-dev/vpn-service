@@ -4,6 +4,7 @@ from bot.handlers import start, subscription, devices, instructions, referral, s
 from bot.navigation import Navigation, NavigationMiddleware
 from bot.screens import home, panel
 from bot.observability import UpdateTimingMiddleware
+from bot.services import Services
 
 
 def create_router() -> Router:
@@ -17,9 +18,9 @@ def create_router() -> Router:
     fallback = Router(name="fallback")
 
     @fallback.message()
-    async def unknown(message: Message, navigation: Navigation):
+    async def unknown(message: Message, navigation: Navigation, services: Services):
         # Old reply keyboard buttons and arbitrary text return to the inline menu.
-        await navigation.message(message, home())
+        await navigation.message(message, home(premium_account=services.premium_account_enabled))
 
     @fallback.callback_query()
     async def unknown_callback(callback: CallbackQuery, navigation: Navigation):

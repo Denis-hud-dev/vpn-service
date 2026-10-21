@@ -4,7 +4,7 @@ from datetime import timedelta
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
-from aiogram.methods import SendMessage
+from aiogram.methods import AnswerCallbackQuery, SendMessage
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -36,6 +36,47 @@ def test_premium_menu_account_devices_help_and_renewal():
             await app.callback('nav:devices')
             assert 'отключение одного устройства пока недоступны' in app.navigation.views[123].screen.text
             assert not [method for method in app.calls if isinstance(method, SendMessage)][1:]
+        finally:
+            await app.close()
+    asyncio.run(run())
+
+
+def test_premium_client_navigation_and_unrecognised_text_keep_one_screen():
+    async def run():
+        services = Services.demo()
+        services.premium_account_enabled = True
+        services.subscriptions.snapshot = AsyncMock(return_value=AccountSnapshot(
+            status='active', tariff_label='1 месяц — 299 ₽',
+            expires_at=utcnow() + timedelta(days=10)))
+        services.happ = AsyncMock()
+        services.happ.issue_for_user.return_value = 'https://subscriptions.example/s/' + 'a' * 43
+        app = TelegramHarness(services=services)
+        try:
+            await app.text('/start')
+            screen_id = app.navigation.views[123].message_id
+            for route, expected in (
+                ('nav:account', 'Действует до:'),
+                ('nav:renew', 'Тарифы'),
+                ('tariff:month', '1 месяц — 299 ₽'),
+                ('nav:home', 'Ваше пространство подключения.'),
+                ('nav:devices', 'отключение одного устройства пока недоступны'),
+                ('nav:connect', 'https://subscriptions.example/s/'),
+                ('nav:happ', 'Настройка Happ'),
+                ('nav:help', 'Как подключиться?'),
+                ('nav:home', 'Ваше пространство подключения.'),
+            ):
+                before = len([call for call in app.calls if isinstance(call, AnswerCallbackQuery)])
+                await app.callback(route)
+                assert expected in app.navigation.views[123].screen.text
+                assert len([call for call in app.calls if isinstance(call, AnswerCallbackQuery)]) == before + 1
+                assert app.navigation.views[123].message_id == screen_id
+            await app.text('старое меню')
+            buttons = [button.callback_data for row in app.navigation.views[123].screen.keyboard.inline_keyboard
+                       for button in row]
+            assert buttons == ['nav:connect', 'nav:account', 'nav:tariffs', 'nav:devices', 'nav:help']
+            assert app.navigation.views[123].message_id == screen_id
+            assert len([call for call in app.calls if isinstance(call, SendMessage)]) == 1
+            services.happ.issue_for_user.assert_awaited_once_with(123)
         finally:
             await app.close()
     asyncio.run(run())

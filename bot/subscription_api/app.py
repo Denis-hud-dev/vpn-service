@@ -17,7 +17,8 @@ async def private_response(request, handler):
     except AccessDenied:
         response = web.Response(status=404, text='Subscription unavailable')
     except web.HTTPException as exc:
-        response = exc
+        # aiohttp no longer supports returning HTTPException as a response.
+        response = web.Response(status=exc.status, text=exc.text)
     except Exception:
         # Never log request URL, bearer token or exception text/tracebacks.
         response = web.Response(status=503, text='Temporarily unavailable')
