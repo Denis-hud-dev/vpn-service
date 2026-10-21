@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100" role="img" aria-label="Сервер">
+  <title>KudaVPN Premium — Сервер</title>
+  <defs><filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="2.5"/></filter></defs>
+  <rect x="9" y="9" width="82" height="82" rx="23" fill="#111A22" stroke="#315165" stroke-width="2"/>
+  <path d="M 21.6 63.5 A 32 32 0 0 1 78.4 36.5" fill="none" stroke="#25475A" stroke-width="2"/>
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <rect x="29" y="31" width="42" height="16" rx="4" stroke="#D9F7FF" stroke-width="3.3" fill="none"/>
+    <circle cx="37" cy="39" r="2" stroke="#55D6FF" stroke-width="2" fill="#55D6FF"/>
+    <polyline points="48,39 64,39" stroke="#6594A6" stroke-width="2.5" fill="none"/>
+    <rect x="29" y="51" width="42" height="16" rx="4" stroke="#D9F7FF" stroke-width="3.3" fill="none"/>
+    <circle cx="37" cy="59" r="2" stroke="#55D6FF" stroke-width="2" fill="#55D6FF"/>
+    <polyline points="48,59 64,59" stroke="#6594A6" stroke-width="2.5" fill="none"/>
+  </g>
+  <circle cx="0" cy="0" r="5" fill="#55D6FF" opacity="0.35" filter="url(#glow)">
+    <animateMotion dur="2s" repeatCount="indefinite" path="M 50 16 A 34 34 0 1 1 49.99 16"/>
+  </circle>
+  <circle cx="0" cy="0" r="2.3" fill="#55D6FF">
+    <animateMotion dur="2s" repeatCount="indefinite" path="M 50 16 A 34 34 0 1 1 49.99 16"/>
+  </circle>
+</svg>

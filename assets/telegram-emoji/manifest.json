@@ -1,0 +1,103 @@
+{
+  "name": "KudaVPN Premium / Quiet Current",
+  "status": "demo-not-published",
+  "telegram_type": "custom_emoji",
+  "format": "video/webm",
+  "duration_seconds": 2,
+  "fps": 24,
+  "size_px": [
+    100,
+    100
+  ],
+  "palette": {
+    "graphite": "#111A22",
+    "electric_cyan": "#55D6FF",
+    "ice": "#D9F7FF"
+  },
+  "icons": [
+    {
+      "name": "connect",
+      "label": "Подключение",
+      "alt": "🔗",
+      "summary": "Сомкнутые звенья и линия канала"
+    },
+    {
+      "name": "protect",
+      "label": "Защита",
+      "alt": "🛡️",
+      "summary": "Щит с защищённым ядром"
+    },
+    {
+      "name": "premium",
+      "label": "Premium",
+      "alt": "💎",
+      "summary": "Огранённый знак KudaVPN"
+    },
+    {
+      "name": "subscription",
+      "label": "Подписка",
+      "alt": "🎟️",
+      "summary": "Карточка доступа с проверкой"
+    },
+    {
+      "name": "plans",
+      "label": "Тарифы",
+      "alt": "📊",
+      "summary": "Три ступени тарифа"
+    },
+    {
+      "name": "devices",
+      "label": "Устройства",
+      "alt": "📱",
+      "summary": "Телефон и ноутбук"
+    },
+    {
+      "name": "payment",
+      "label": "Оплата",
+      "alt": "💳",
+      "summary": "Платёжная карта"
+    },
+    {
+      "name": "renew",
+      "label": "Продление",
+      "alt": "🔄",
+      "summary": "Циклическая стрелка"
+    },
+    {
+      "name": "support",
+      "label": "Поддержка",
+      "alt": "🎧",
+      "summary": "Гарнитура поддержки"
+    },
+    {
+      "name": "gift",
+      "label": "Подарок",
+      "alt": "🎁",
+      "summary": "Коробка с лентой"
+    },
+    {
+      "name": "server",
+      "label": "Сервер",
+      "alt": "🖥️",
+      "summary": "Два серверных модуля"
+    },
+    {
+      "name": "status",
+      "label": "Статус",
+      "alt": "🟢",
+      "summary": "Радиальный индикатор"
+    },
+    {
+      "name": "speed",
+      "label": "Скорость",
+      "alt": "⚡",
+      "summary": "Электрический импульс"
+    },
+    {
+      "name": "world",
+      "label": "Локации",
+      "alt": "🌐",
+      "summary": "Глобус с меридианом"
+    }
+  ]
+}
