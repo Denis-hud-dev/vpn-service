@@ -7,6 +7,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from aiohttp.test_utils import TestClient, TestServer
 
 from bot.db.models import Base, Payment, Subscription, SubscriptionHistory
 from bot.config import Config
@@ -15,6 +16,8 @@ from bot.services.payment_polling import TestPaymentPoller as PaymentPoller
 from bot.services.payments import PaymentCheckoutService
 from bot.services.users import UserService
 from bot.services.yookassa_api import PaymentProviderUnavailable, YooKassaTestClient
+from bot.services.payment_notifications import PaymentNotificationProcessor
+from bot.subscription_api.app import create_app
 from tests.fake_telegram import TelegramHarness
 
 
@@ -91,6 +94,114 @@ def test_test_shop_checkout_polling_duplicate_renewal_and_cancellation(tmp_path)
                 assert (await session.scalar(select(Subscription))).expires_at == expiry
         finally:
             await engine.dispose()
+    asyncio.run(run())
+
+
+def test_webhook_is_only_a_hint_and_duplicate_does_not_extend(tmp_path):
+    async def run():
+        engine, sessions, fake, client, checkout = await setup(tmp_path)
+        async with TestClient(TestServer(create_app(object(), test_payment_processor=
+                                         PaymentNotificationProcessor(sessions, client)))) as http:
+            try:
+                intent = await checkout.create_for_user(501, 'month')
+                fake.rows[intent.provider_id].update(
+                    status='succeeded', paid=True, captured_at=datetime.now(timezone.utc).isoformat())
+                event = {'type': 'notification', 'event': 'payment.succeeded',
+                         'object': {'id': intent.provider_id, 'status': 'canceled', 'paid': False}}
+                for _ in range(2):
+                    response = await http.post('/yookassa/test-webhook', json=event)
+                    assert response.status == 200
+                async with sessions() as session:
+                    sub = await session.scalar(select(Subscription))
+                    assert sub.status == 'active'
+                    assert await session.scalar(select(func.count()).select_from(
+                        SubscriptionHistory).where(SubscriptionHistory.reason == 'payment')) == 1
+                reads = len([call for call in fake.calls if call[0] == 'GET'])
+                unknown = await http.post('/yookassa/test-webhook', json={
+                    'type': 'notification', 'event': 'payment.succeeded',
+                    'object': {'id': 'unbound-provider'}})
+                assert unknown.status == 200
+                assert len([call for call in fake.calls if call[0] == 'GET']) == reads
+                assert (await http.post('/yookassa/test-webhook', json={
+                    'type': 'notification', 'event': 'payment.succeeded',
+                    'object': {'id': '../unsafe'}})).status == 400
+            finally:
+                await engine.dispose()
+    asyncio.run(run())
+
+
+def test_webhook_retries_provider_outage_without_grant(tmp_path):
+    async def run():
+        engine, sessions, fake, client, checkout = await setup(tmp_path)
+        intent = await checkout.create_for_user(501, 'month')
+
+        class UnavailableLookup:
+            async def fetch(self, provider_id):
+                raise PaymentProviderUnavailable('unavailable')
+
+        async with TestClient(TestServer(create_app(object(), test_payment_processor=
+                                         PaymentNotificationProcessor(sessions, UnavailableLookup())))) as http:
+            response = await http.post('/yookassa/test-webhook', json={
+                'type': 'notification', 'event': 'payment.succeeded',
+                'object': {'id': intent.provider_id}})
+            assert response.status == 503
+        async with sessions() as session:
+            assert await session.scalar(select(func.count()).select_from(Subscription)) == 0
+        await engine.dispose()
+    asyncio.run(run())
+
+
+def test_webhook_pending_and_canceled_never_grant_access(tmp_path):
+    async def run():
+        engine, sessions, fake, client, checkout = await setup(tmp_path)
+        try:
+            intent = await checkout.create_for_user(501, 'month')
+            async with TestClient(TestServer(create_app(object(), test_payment_processor=
+                                             PaymentNotificationProcessor(sessions, client)))) as http:
+                event = {'type': 'notification', 'event': 'payment.succeeded',
+                         'object': {'id': intent.provider_id, 'paid': True}}
+                # A forged success cannot override the provider's pending state.
+                assert (await http.post('/yookassa/test-webhook', json=event)).status == 200
+                async with sessions() as session:
+                    assert await session.scalar(select(func.count()).select_from(Subscription)) == 0
+                fake.rows[intent.provider_id].update(status='canceled', paid=False)
+                event['event'] = 'payment.canceled'
+                for _ in range(2):
+                    assert (await http.post('/yookassa/test-webhook', json=event)).status == 200
+                async with sessions() as session:
+                    payment = await session.scalar(select(Payment).where(
+                        Payment.provider_payment_id == intent.provider_id))
+                    assert payment.status == 'canceled'
+                    assert await session.scalar(select(func.count()).select_from(Subscription)) == 0
+        finally:
+            await engine.dispose()
+    asyncio.run(run())
+
+
+def test_webhook_is_absent_without_explicit_opt_in():
+    async def run():
+        async with TestClient(TestServer(create_app(object()))) as http:
+            response = await http.post('/yookassa/test-webhook', json={
+                'type': 'notification', 'event': 'payment.succeeded',
+                'object': {'id': 'any'}})
+            assert response.status == 404
+    asyncio.run(run())
+
+
+def test_sbp_request_is_explicit_and_disabled_by_default():
+    async def run():
+        fake = FakeYooKassa()
+        order = uuid4()
+        key = uuid4()
+        smart = YooKassaTestClient('123456', 'test-secret', transport=fake)
+        await smart.create(amount_kopecks=29900, currency='RUB', idempotency_key=key,
+                           order_id=order, return_url='https://example.org/return')
+        assert 'payment_method_data' not in fake.calls[-1][2]
+        sbp = YooKassaTestClient('123456', 'test-secret', transport=fake, payment_method='sbp')
+        await sbp.create(amount_kopecks=29900, currency='RUB', idempotency_key=key,
+                         order_id=order, return_url='https://example.org/return')
+        assert fake.calls[-1][2]['payment_method_data'] == {'type': 'sbp'}
+        assert fake.calls[-1][2]['capture'] is True
     asyncio.run(run())
 
 

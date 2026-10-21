@@ -19,18 +19,23 @@ class PaymentProviderUnavailable(RuntimeError):
 
 
 class YooKassaTestClient:
-    def __init__(self, shop_id: str, secret_key: str, *, transport=None):
+    def __init__(self, shop_id: str, secret_key: str, *, transport=None,
+                 payment_method: str = 'smart'):
         if not re.fullmatch(r'[0-9]{4,20}', shop_id) or not secret_key or '\n' in secret_key:
             raise ValueError('Неверные параметры тестового магазина')
+        if payment_method not in {'smart', 'sbp'}:
+            raise ValueError('Неподдерживаемый способ тестовой оплаты')
         self.shop_id, self._secret_key = shop_id, secret_key
         self._transport = transport
+        self.payment_method = payment_method
 
     @classmethod
-    def from_private_files(cls, shop_id_file: str, secret_key_file: str):
+    def from_private_files(cls, shop_id_file: str, secret_key_file: str, *,
+                           payment_method: str = 'smart'):
         paths = [Path(shop_id_file), Path(secret_key_file)]
         if any(not path.is_file() or path.stat().st_mode & 0o077 for path in paths):
             raise ValueError('Файлы тестового магазина должны иметь права 0600')
-        return cls(*(path.read_text().strip() for path in paths))
+        return cls(*(path.read_text().strip() for path in paths), payment_method=payment_method)
 
     async def _request(self, method: str, path: str, *, payload=None, key=None) -> dict[str, Any]:
         if self._transport is not None:
@@ -62,6 +67,8 @@ class YooKassaTestClient:
                    'capture': True, 'confirmation': {'type': 'redirect', 'return_url': return_url},
                    'description': f'KudaVPN test order {order_id}',
                    'metadata': {'order_id': str(order_id)}}
+        if self.payment_method == 'sbp':
+            payload['payment_method_data'] = {'type': 'sbp'}
         data = await self._request('POST', '/v3/payments', payload=payload, key=idempotency_key)
         identity = identity_from_lookup(order_id, data)
         if identity.amount_kopecks != amount_kopecks or data.get('status') != 'pending':

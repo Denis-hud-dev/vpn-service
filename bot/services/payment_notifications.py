@@ -31,6 +31,14 @@ class PaymentNotificationProcessor:
         """
         if not isinstance(provider_payment_id, str) or not provider_payment_id:
             raise ValueError("Провайдер не подтвердил параметры оплаты")
+        # An untrusted webhook may name any ID. Never query YooKassa or reveal
+        # order state for a payment that our checkout has not bound yet.
+        async with self.sessions() as session:
+            known = await session.scalar(select(Payment.id).where(
+                Payment.provider == 'yookassa',
+                Payment.provider_payment_id == provider_payment_id))
+        if known is None:
+            raise ValueError("Платёж не найден")
         data = await self.lookup.fetch(provider_payment_id)
         try:
             order_id = UUID(data['metadata']['order_id'])
@@ -55,7 +63,7 @@ class PaymentNotificationProcessor:
             if (payment is None or payment.provider != 'yookassa'
                     or payment.amount_kopecks != identity.amount_kopecks
                     or payment.currency != 'RUB'
-                    or (payment.provider_payment_id and payment.provider_payment_id != provider_payment_id)):
+                    or payment.provider_payment_id != provider_payment_id):
                 raise ValueError("Параметры платежа не совпадают с заказом")
             if status == 'canceled':
                 if payment.status == 'succeeded':

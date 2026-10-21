@@ -28,8 +28,11 @@ async def private_response(request, handler):
     return response
 
 
-def create_app(service):
+def create_app(service, *, test_payment_processor=None):
     app = web.Application(middlewares=[private_response], client_max_size=1024)
+    if test_payment_processor is not None:
+        from bot.subscription_api.payment_webhook import install_test_payment_webhook
+        install_test_payment_webhook(app, test_payment_processor)
     async def feed(request):
         body, expires = await service.feed(request.match_info['token'])
         return web.Response(text=body, content_type='text/plain', headers={
