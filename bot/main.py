@@ -35,7 +35,9 @@ async def run(config: Config) -> None:
             database.sessions, client, config.pilot_payment_return_url)
         services.test_payment_owner_id = config.pilot_trial_owner_id
         payment_poller = TestPaymentPoller(database.sessions, client)
-    dispatcher = Dispatcher(config=config, services=services, navigation=Navigation(PostgresScreenStore(database.sessions) if database else None))
+    dispatcher = Dispatcher(config=config, services=services,
+        navigation=Navigation(PostgresScreenStore(database.sessions) if database else None,
+                              custom_emoji=config.pilot_custom_emoji_enabled))
     dispatcher.include_router(create_router())
     ready = False
     expiry_task = None
@@ -63,7 +65,8 @@ async def run(config: Config) -> None:
         else:
             logger.warning("DATABASE_URL not set: demo mode, data is not persistent")
         me = await bot.get_me()
-        if (config.pilot_test_payments_enabled or config.pilot_premium_account_enabled) and (me.username or '').lower() != 'kudavpn_test_bot':
+        if (config.pilot_test_payments_enabled or config.pilot_premium_account_enabled
+                or config.pilot_custom_emoji_enabled) and (me.username or '').lower() != 'kudavpn_test_bot':
             raise RuntimeError('Пилотные функции разрешены только для отдельного бота')
         dispatcher["bot_username"] = me.username or "KudaVpnBot"
         if payment_poller:
