@@ -9,6 +9,7 @@ from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 from aiogram.types import CallbackQuery, Message, LinkPreviewOptions
 from sqlalchemy.exc import SQLAlchemyError
 from bot.screens import Screen, database_error
+from bot.premium_emoji import decorate as decorate_emoji
 from bot.services.navigation import MemoryScreenStore, ScreenStore
 
 logger = logging.getLogger(__name__)
@@ -27,8 +28,9 @@ class EditResult(Enum):
 
 
 class Navigation:
-    def __init__(self, store: ScreenStore | None = None):
+    def __init__(self, store: ScreenStore | None = None, *, custom_emoji: bool = False):
         self.store = store or MemoryScreenStore()
+        self.custom_emoji = custom_emoji
         self.views: dict[int, View] = {}
         self.locks: dict[int, asyncio.Lock] = {}
 
@@ -46,7 +48,8 @@ class Navigation:
         await self.store.save(chat_id, chat_id, message_id)
         self.views[chat_id] = View(message_id, screen)
 
-    async def edit(self, bot, chat_id: int, message_id: int, screen: Screen, *, verify: bool = False) -> EditResult:
+    async def edit(self, bot, chat_id: int, message_id: int, screen: Screen, *, verify: bool = False,
+                   plain: Screen | None = None) -> EditResult:
         view = self.views.get(chat_id)
         if not verify and view and view.message_id == message_id and view.screen == screen:
             return EditResult.UPDATED
@@ -60,7 +63,12 @@ class Navigation:
                 logger.warning("Screen edit rejected: %s", type(exc).__name__)
                 permanent = ("message to edit not found", "message can't be edited", "message cannot be edited",
                              "message_id_invalid", "message edit time expired")
-                return EditResult.REPLACE if any(item in reason for item in permanent) else EditResult.RETRY
+                if any(item in reason for item in permanent):
+                    return EditResult.REPLACE
+                if plain is not None and self._emoji_rejection(reason):
+                    self.custom_emoji = False
+                    return await self.edit(bot, chat_id, message_id, plain, verify=True)
+                return EditResult.RETRY
         except TelegramAPIError as exc:
             # Network/rate-limit errors do not prove the old message is unusable.
             logger.warning("Screen edit unavailable: %s", type(exc).__name__)
@@ -68,11 +76,24 @@ class Navigation:
         self.views[chat_id] = View(message_id, screen)
         return EditResult.UPDATED
 
-    async def replace(self, bot, chat_id: int, screen: Screen, previous: View | None) -> None:
+    @staticmethod
+    def _emoji_rejection(reason: str) -> bool:
+        return any(term in reason for term in ("custom emoji", "custom_emoji", "premium",
+            "unsupported start tag", "can't parse entities"))
+
+    async def replace(self, bot, chat_id: int, screen: Screen, previous: View | None,
+                      *, plain: Screen | None = None) -> None:
         try:
             sent = await bot.send_message(chat_id=chat_id, text=screen.text, parse_mode="HTML",
                                           reply_markup=screen.keyboard,
                                           link_preview_options=LinkPreviewOptions(is_disabled=True))
+        except TelegramBadRequest as exc:
+            if plain is None or not self._emoji_rejection(exc.message.lower()):
+                logger.warning("Navigation screen send unavailable: %s", type(exc).__name__)
+                return
+            self.custom_emoji = False
+            logger.warning("Custom emoji unavailable; using plain pilot navigation")
+            return await self.replace(bot, chat_id, plain, previous)
         except TelegramAPIError as exc:
             logger.warning("Navigation screen send unavailable: %s", type(exc).__name__)
             return
@@ -94,12 +115,17 @@ class Navigation:
                 logger.info("Previous navigation screen could not be removed")
 
     async def show(self, bot, chat_id: int, screen: Screen, *, verify: bool = False) -> None:
+        plain = screen
+        if self.custom_emoji:
+            screen = decorate_emoji(screen)
         previous = await self.load(chat_id)
         if previous:
-            result = await self.edit(bot, chat_id, previous.message_id, screen, verify=verify)
+            result = await self.edit(bot, chat_id, previous.message_id, screen, verify=verify,
+                                     plain=plain if screen != plain else None)
             if result != EditResult.REPLACE:
                 return
-        await self.replace(bot, chat_id, screen, previous)
+        await self.replace(bot, chat_id, screen, previous,
+                           plain=plain if self.custom_emoji and screen != plain else None)
 
     async def callback(self, query: CallbackQuery, screen: Screen) -> None:
         if isinstance(query.message, Message):
@@ -118,8 +144,13 @@ class Navigation:
                   "💎 Ваш выбор", "🚀 Подключить VPN", "📖 Настройка Happ", "📊 Мой трафик",
                   "🎁 Бонусы", "💬 Поддержка", "❔ Помощь", "📱 Мои устройства",
                   "◈ Навигация", "◈ Сервис временно недоступен"}
+        titles.update({"🛡️ Ваше пространство подключения.", "🎫 Личный кабинет",
+                       "📊 Тарифы", "📊 Ваш выбор", "🔗 Подключить VPN",
+                       "🔗 Настройка Happ", "🎧 Помощь", "📱 Мои устройства",
+                       "💳 Тестовый заказ", "⚡ Мой трафик", "🎧 Поддержка"})
         return bool(message.from_user and message.from_user.id == message.bot.id and message.reply_markup
-                    and len(lines) > 1 and lines[0] == "KudaVPN Premium" and lines[1] in titles)
+                    and len(lines) > 1 and lines[0] in {"KudaVPN Premium", "💎 KudaVPN Premium"}
+                    and lines[1] in titles)
 
 
 class NavigationMiddleware(BaseMiddleware):
