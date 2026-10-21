@@ -12,7 +12,7 @@
   async function copy() {
     try {
       await navigator.clipboard.writeText(link);
-      feedback.textContent = 'Ссылка скопирована. Откройте Happ и выберите импорт подписки из буфера обмена.';
+      feedback.textContent = 'Ссылка скопирована. Откройте Happ, нажмите «+» и добавьте подписку из буфера обмена.';
       button.classList.add('copied');
     } catch (_) {
       document.getElementById('private-link').hidden = false;

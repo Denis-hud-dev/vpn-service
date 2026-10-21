@@ -33,8 +33,8 @@ def render_connection_page(feed_url: str, expires: int) -> str:
    </div>
    <div class="separator"></div><div class="card-top"><span class="step-index">02 / 02</span><span class="card-caption">ДОБАВЬТЕ ПОДПИСКУ</span></div>
    <div class="action-layout"><div><h2>Подключить VPN</h2><p id="platform-instruction">Скопируйте личную ссылку, откройте Happ на Android и импортируйте подписку из буфера обмена.</p>
-   <button class="primary" id="copy-primary" type="button" data-subscription="{safe_url}"><span>Подключить VPN</span><span aria-hidden="true">↗</span></button>
-   <p class="feedback" id="copy-feedback" role="status" aria-live="polite">Кнопка скопирует ссылку. Автоматический импорт в Happ ещё проверяется.</p>
+   <button class="primary" id="copy-primary" type="button" data-subscription="{safe_url}"><span>Скопировать ссылку для Happ</span><span aria-hidden="true">↗</span></button>
+   <p class="feedback" id="copy-feedback" role="status" aria-live="polite">После копирования откройте Happ и добавьте подписку из буфера обмена.</p>
    <div class="secondary-actions"><button type="button" id="show-link">Показать ссылку</button><button type="button" id="show-qr">Показать QR-код</button></div>
    <div class="private-link" id="private-link" hidden><span>Личная HTTPS-ссылка</span><code>{safe_url}</code><button type="button" id="copy-backup">Копировать</button></div>
    </div><div class="device-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="device"><div class="device-bar"></div><div class="device-shield">✦</div><span>KUDAVPN</span><b>Вы защищены</b><div class="device-wave"></div></div></div></div>
