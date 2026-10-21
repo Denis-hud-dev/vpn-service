@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100" role="img" aria-label="Тарифы">
+  <title>KudaVPN Premium — Тарифы</title>
+  <defs><filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="2.5"/></filter></defs>
+  <rect x="9" y="9" width="82" height="82" rx="23" fill="#111A22" stroke="#315165" stroke-width="2"/>
+  <path d="M 21.6 63.5 A 32 32 0 0 1 78.4 36.5" fill="none" stroke="#25475A" stroke-width="2"/>
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="31,68 69,68" stroke="#6594A6" stroke-width="3" fill="none"/>
+    <rect x="34" y="54" width="7" height="11" rx="2.5" stroke="#D9F7FF" stroke-width="2.3" fill="none"/>
+    <rect x="47" y="43" width="7" height="22" rx="2.5" stroke="#D9F7FF" stroke-width="2.3" fill="none"/>
+    <rect x="60" y="33" width="7" height="32" rx="2.5" stroke="#55D6FF" stroke-width="2.3" fill="none"/>
+  </g>
+  <circle cx="0" cy="0" r="5" fill="#55D6FF" opacity="0.35" filter="url(#glow)">
+    <animateMotion dur="2s" repeatCount="indefinite" path="M 50 16 A 34 34 0 1 1 49.99 16"/>
+  </circle>
+  <circle cx="0" cy="0" r="2.3" fill="#55D6FF">
+    <animateMotion dur="2s" repeatCount="indefinite" path="M 50 16 A 34 34 0 1 1 49.99 16"/>
+  </circle>
+</svg>
