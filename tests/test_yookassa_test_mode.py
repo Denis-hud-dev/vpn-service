@@ -151,6 +151,33 @@ def test_webhook_retries_provider_outage_without_grant(tmp_path):
     asyncio.run(run())
 
 
+def test_webhook_pending_and_canceled_never_grant_access(tmp_path):
+    async def run():
+        engine, sessions, fake, client, checkout = await setup(tmp_path)
+        try:
+            intent = await checkout.create_for_user(501, 'month')
+            async with TestClient(TestServer(create_app(object(), test_payment_processor=
+                                             PaymentNotificationProcessor(sessions, client)))) as http:
+                event = {'type': 'notification', 'event': 'payment.succeeded',
+                         'object': {'id': intent.provider_id, 'paid': True}}
+                # A forged success cannot override the provider's pending state.
+                assert (await http.post('/yookassa/test-webhook', json=event)).status == 200
+                async with sessions() as session:
+                    assert await session.scalar(select(func.count()).select_from(Subscription)) == 0
+                fake.rows[intent.provider_id].update(status='canceled', paid=False)
+                event['event'] = 'payment.canceled'
+                for _ in range(2):
+                    assert (await http.post('/yookassa/test-webhook', json=event)).status == 200
+                async with sessions() as session:
+                    payment = await session.scalar(select(Payment).where(
+                        Payment.provider_payment_id == intent.provider_id))
+                    assert payment.status == 'canceled'
+                    assert await session.scalar(select(func.count()).select_from(Subscription)) == 0
+        finally:
+            await engine.dispose()
+    asyncio.run(run())
+
+
 def test_webhook_is_absent_without_explicit_opt_in():
     async def run():
         async with TestClient(TestServer(create_app(object()))) as http:
