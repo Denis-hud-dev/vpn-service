@@ -18,6 +18,7 @@ class Config:
     pilot_yookassa_shop_id_file: str = ""
     pilot_yookassa_secret_file: str = ""
     pilot_payment_return_url: str = ""
+    pilot_premium_account_enabled: bool = False
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -40,6 +41,7 @@ class Config:
                        and os.getenv('PILOT_TRIAL_OWNER_ID', '').isdigit() else None)
         connect_page = bool(trial_owner and os.getenv('PILOT_CONNECT_PAGE_ENABLED') == '1')
         test_payments = os.getenv('PILOT_TEST_PAYMENTS_ENABLED') == '1'
+        premium_account = bool(trial_owner and os.getenv('PILOT_PREMIUM_ACCOUNT_ENABLED') == '1')
         database_url = os.getenv("DATABASE_URL", "").strip()
         shop_file = os.getenv('PILOT_YOOKASSA_TEST_SHOP_ID_FILE', '')
         secret_file = os.getenv('PILOT_YOOKASSA_TEST_SECRET_FILE', '')
@@ -53,4 +55,4 @@ class Config:
         return cls(token, support, port, database_url, public_url,
                    link_secret, trial_owner, connect_page, test_payments,
                    shop_file if test_payments else '', secret_file if test_payments else '',
-                   return_url if test_payments else '')
+                   return_url if test_payments else '', premium_account)

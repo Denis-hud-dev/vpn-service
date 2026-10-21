@@ -21,15 +21,20 @@ def panel(title: str, body: str, keyboard: InlineKeyboardMarkup | None = None) -
     return Screen(f"{BRAND}\n\n<b>{title}</b>\n\n{body}", keyboard or back_keyboard())
 
 
-def home() -> Screen:
-    return Screen(f"{BRAND}\n<i>Ваше пространство подключения.</i>\n\nVPN, подписка и устройства — в одном меню.\nВыберите действие ниже.", main_menu())
+def home(*, premium_account: bool = False) -> Screen:
+    intro = ("VPN и подписка всегда под рукой.\nВыберите действие ниже."
+             if premium_account else "VPN, подписка и устройства — в одном меню.\nВыберите действие ниже.")
+    return Screen(f"{BRAND}\n<i>Ваше пространство подключения.</i>\n\n{intro}",
+                  main_menu(premium_account=premium_account))
 
 
-def account(snapshot: AccountSnapshot, *, trial_available: bool = False) -> Screen:
+def account(snapshot: AccountSnapshot, *, trial_available: bool = False,
+            premium_account: bool = False) -> Screen:
     labels = {"inactive": "Не активна", "active": "Активна", "expired": "Истекла",
               "pending": "Ожидает активации", "blocked": "Заблокирована"}
     end = snapshot.expires_at.astimezone(timezone.utc).strftime("%d.%m.%Y %H:%M UTC") if snapshot.expires_at else "Нет данных"
-    devices = str(snapshot.device_count) if snapshot.device_count is not None else "Нет данных"
+    devices = ("Управляются в Happ" if premium_account else
+               str(snapshot.device_count) if snapshot.device_count is not None else "Нет данных")
     # WireGuard metrics are not connected. Future traffic comes from the read model.
     traffic = f"{snapshot.traffic_bytes / (1024 ** 3):.2f} ГБ" if snapshot.traffic_bytes is not None else "Нет данных"
     body = (f"Статус: <b>{labels.get(snapshot.status, 'Нет данных')}</b>\n"
@@ -38,8 +43,42 @@ def account(snapshot: AccountSnapshot, *, trial_available: bool = False) -> Scre
     buttons = []
     if trial_available:
         buttons.append(("🎁 Бесплатный тест — 24 часа", "pilot:grant"))
-    buttons.extend((("💎 Тарифы", "nav:tariffs"), ("📱 Устройства", "nav:devices")))
+    if premium_account:
+        buttons.extend((("🚀 Подключить VPN", "nav:connect"),
+                        ("↻ Продлить подписку" if snapshot.status == "active" else "💎 Выбрать тариф",
+                         "nav:renew"),
+                        ("📱 Устройства", "nav:devices"), ("❔ Помощь", "nav:help")))
+    else:
+        buttons.extend((("💎 Тарифы", "nav:tariffs"), ("📱 Устройства", "nav:devices")))
     return panel("👤 Личный кабинет", body, back_keyboard(*buttons))
+
+
+def premium_devices(status: str) -> Screen:
+    if status == "active":
+        body = ("Подключите Android, iOS, Windows или macOS через вашу личную HTTPS-подписку. "
+                "Она остаётся прежней после продления.\n\n"
+                "Отдельный список подключённых устройств и отключение одного устройства пока недоступны: "
+                "доступ управляется подпиской целиком. Не передавайте личную ссылку другим.")
+        buttons = (("🚀 Открыть подключение", "nav:connect"), ("📖 Инструкция Happ", "nav:happ"))
+    else:
+        body = "Для подключения устройства сначала активируйте подписку."
+        buttons = (("💎 Выбрать тариф", "nav:tariffs"),)
+    return panel("📱 Мои устройства", body, back_keyboard(*buttons, back="nav:account"))
+
+
+def help_center(username: str) -> Screen:
+    body = ("<b>Как подключиться?</b> Откройте раздел подключения, скопируйте личную ссылку "
+            "и добавьте её в Happ из буфера обмена.\n\n"
+            "<b>Как продлить?</b> В личном кабинете нажмите «Продлить подписку», выберите тариф "
+            "и завершите оплату. Оставшееся оплаченное время сохранится.\n\n"
+            "<b>Не открываются сайты?</b> Проверьте срок подписки и выбранный профиль в Happ. "
+            "Если проблема остаётся, обратитесь в поддержку.")
+    keyboard = back_keyboard(("📖 Настройка Happ", "nav:happ"),
+                            ("👤 Личный кабинет", "nav:account"))
+    if username:
+        keyboard.inline_keyboard.insert(0, [InlineKeyboardButton(
+            text="💬 Написать в поддержку", url=f"https://t.me/{username}")])
+    return panel("❔ Помощь", body, keyboard)
 
 
 def tariffs(*, test_payment: bool = False) -> Screen:

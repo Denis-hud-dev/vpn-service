@@ -22,7 +22,8 @@ async def run(config: Config) -> None:
         subscription_public_url=config.subscription_public_url,
         happ_link_secret=config.happ_link_secret,
         trial_owner_id=config.pilot_trial_owner_id,
-        pilot_connect_page_enabled=config.pilot_connect_page_enabled) if database else Services.demo())
+        pilot_connect_page_enabled=config.pilot_connect_page_enabled,
+        premium_account_enabled=config.pilot_premium_account_enabled) if database else Services.demo())
     payment_poller = None
     if config.pilot_test_payments_enabled:
         from bot.services.yookassa_api import YooKassaTestClient
@@ -39,6 +40,7 @@ async def run(config: Config) -> None:
     ready = False
     expiry_task = None
     payment_task = None
+    notice_task = None
 
     async def health(request: web.Request) -> web.Response:
         return web.json_response({"status": "alive"})
@@ -53,7 +55,7 @@ async def run(config: Config) -> None:
         return web.json_response({"ready": available}, status=200 if available else 503)
 
     async def startup(bot: Bot) -> None:
-        nonlocal ready, expiry_task, payment_task
+        nonlocal ready, expiry_task, payment_task, notice_task
         if database:
             await database.check()
             from bot.services.expiry import expiry_worker
@@ -61,12 +63,16 @@ async def run(config: Config) -> None:
         else:
             logger.warning("DATABASE_URL not set: demo mode, data is not persistent")
         me = await bot.get_me()
-        if config.pilot_test_payments_enabled and (me.username or '').lower() != 'kudavpn_test_bot':
-            raise RuntimeError('Тестовые платежи разрешены только для отдельного бота')
+        if (config.pilot_test_payments_enabled or config.pilot_premium_account_enabled) and (me.username or '').lower() != 'kudavpn_test_bot':
+            raise RuntimeError('Пилотные функции разрешены только для отдельного бота')
         dispatcher["bot_username"] = me.username or "KudaVpnBot"
         if payment_poller:
             from bot.services.payment_polling import run_test_payment_poller
             payment_task = asyncio.create_task(run_test_payment_poller(payment_poller))
+        if config.pilot_premium_account_enabled:
+            from bot.services.premium_notices import PremiumNoticeService, run_premium_notices
+            notice_task = asyncio.create_task(run_premium_notices(
+                PremiumNoticeService(database.sessions, config.pilot_trial_owner_id), bot))
         ready = True
         logger.info("KudaVPN started as @%s", me.username)
 
@@ -103,6 +109,12 @@ async def run(config: Config) -> None:
                 payment_task.cancel()
                 try:
                     await payment_task
+                except asyncio.CancelledError:
+                    pass
+            if notice_task:
+                notice_task.cancel()
+                try:
+                    await notice_task
                 except asyncio.CancelledError:
                     pass
             await runner.cleanup()

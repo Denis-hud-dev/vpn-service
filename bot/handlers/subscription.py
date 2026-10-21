@@ -41,7 +41,8 @@ async def subscription(callback: CallbackQuery, services: Services, navigation: 
     trial_available = bool(services.trial and
         callback.from_user.id == services.trial.owner_telegram_id and
         snapshot.status == 'inactive')
-    await navigation.callback(callback, screens.account(snapshot, trial_available=trial_available))
+    await navigation.callback(callback, screens.account(snapshot, trial_available=trial_available,
+        premium_account=services.premium_account_enabled))
 
 
 async def grant_trial(callback: CallbackQuery, services: Services, navigation: Navigation):
@@ -65,7 +66,7 @@ async def grant_trial(callback: CallbackQuery, services: Services, navigation: N
 
 def create_router() -> Router:
     router = Router(name="subscription")
-    router.callback_query.register(buy, F.data.in_({"nav:tariffs", "buy"}))
+    router.callback_query.register(buy, F.data.in_({"nav:tariffs", "nav:renew", "buy"}))
     router.callback_query.register(select_tariff, F.data.startswith("tariff:"))
     router.callback_query.register(create_test_order, F.data.startswith("paytest:"))
     router.callback_query.register(subscription, F.data == "nav:account")
