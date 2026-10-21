@@ -14,6 +14,10 @@ class Config:
     happ_link_secret: str = ""
     pilot_trial_owner_id: int | None = None
     pilot_connect_page_enabled: bool = False
+    pilot_test_payments_enabled: bool = False
+    pilot_yookassa_shop_id_file: str = ""
+    pilot_yookassa_secret_file: str = ""
+    pilot_payment_return_url: str = ""
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -35,5 +39,18 @@ class Config:
                        and os.getenv('PILOT_TRIAL_OWNER_ID', '').isascii()
                        and os.getenv('PILOT_TRIAL_OWNER_ID', '').isdigit() else None)
         connect_page = bool(trial_owner and os.getenv('PILOT_CONNECT_PAGE_ENABLED') == '1')
-        return cls(token, support, port, os.getenv("DATABASE_URL", "").strip(), public_url,
-                   link_secret, trial_owner, connect_page)
+        test_payments = os.getenv('PILOT_TEST_PAYMENTS_ENABLED') == '1'
+        database_url = os.getenv("DATABASE_URL", "").strip()
+        shop_file = os.getenv('PILOT_YOOKASSA_TEST_SHOP_ID_FILE', '')
+        secret_file = os.getenv('PILOT_YOOKASSA_TEST_SECRET_FILE', '')
+        return_url = os.getenv('PILOT_PAYMENT_RETURN_URL', '')
+        if test_payments and (not trial_owner or not shop_file or not secret_file
+                              or not public_url or not link_secret
+                              or not database_url.startswith('postgresql+psycopg://')
+                              or database_url.rsplit('/', 1)[-1] != 'kudavpn_telegram_pilot'
+                              or return_url != 'https://t.me/KudaVPN_Test_Bot'):
+            raise ValueError('Тестовые платежи требуют изолированный бот, владельца и файлы тестового магазина')
+        return cls(token, support, port, database_url, public_url,
+                   link_secret, trial_owner, connect_page, test_payments,
+                   shop_file if test_payments else '', secret_file if test_payments else '',
+                   return_url if test_payments else '')

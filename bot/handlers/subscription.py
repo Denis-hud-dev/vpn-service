@@ -5,13 +5,35 @@ from bot import screens
 from bot.services import Services
 
 
-async def buy(callback: CallbackQuery, navigation: Navigation):
-    await navigation.callback(callback, screens.tariffs())
+def pilot_payment_allowed(callback: CallbackQuery, services: Services) -> bool:
+    return bool(services.test_checkout is not None and services.test_payment_owner_id
+                and callback.from_user.id == services.test_payment_owner_id
+                and getattr(getattr(callback.message, 'chat', None), 'type', None) == 'private')
 
 
-async def select_tariff(callback: CallbackQuery, navigation: Navigation):
-    # Selection is presentation only. Future payment confirmation stays separate.
-    await navigation.callback(callback, screens.tariff_details((callback.data or "").partition(":")[2]))
+async def buy(callback: CallbackQuery, services: Services, navigation: Navigation):
+    await navigation.callback(callback, screens.tariffs(test_payment=pilot_payment_allowed(callback, services)))
+
+
+async def select_tariff(callback: CallbackQuery, services: Services, navigation: Navigation):
+    # Selecting a tariff does not create an order; a second explicit tap does.
+    await navigation.callback(callback, screens.tariff_details(
+        (callback.data or "").partition(":")[2],
+        test_payment=pilot_payment_allowed(callback, services)))
+
+
+async def create_test_order(callback: CallbackQuery, services: Services, navigation: Navigation):
+    if not pilot_payment_allowed(callback, services):
+        await navigation.callback(callback, screens.panel('🧪 Тестовая оплата', 'Недоступно для этого аккаунта.'))
+        return
+    tariff_id = (callback.data or '').partition(':')[2]
+    try:
+        intent = await services.test_checkout.create_for_user(callback.from_user.id, tariff_id)
+    except (ValueError, RuntimeError, OSError, TimeoutError):
+        await navigation.callback(callback, screens.panel('🧪 Тестовая оплата',
+            'Создать тестовый заказ пока не удалось. Повторите попытку позже.'))
+        return
+    await navigation.callback(callback, screens.test_checkout(tariff_id, intent.confirmation_url))
 
 
 async def subscription(callback: CallbackQuery, services: Services, navigation: Navigation):
@@ -45,6 +67,7 @@ def create_router() -> Router:
     router = Router(name="subscription")
     router.callback_query.register(buy, F.data.in_({"nav:tariffs", "buy"}))
     router.callback_query.register(select_tariff, F.data.startswith("tariff:"))
+    router.callback_query.register(create_test_order, F.data.startswith("paytest:"))
     router.callback_query.register(subscription, F.data == "nav:account")
     router.callback_query.register(grant_trial, F.data == "pilot:grant")
     return router
