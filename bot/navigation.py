@@ -116,7 +116,8 @@ class Navigation:
         lines = [line.strip() for line in text.splitlines() if line.strip()]
         titles = {"Ваше пространство подключения.", "👤 Личный кабинет", "📱 Устройства", "💎 Тарифы",
                   "💎 Ваш выбор", "🚀 Подключить VPN", "📖 Настройка Happ", "📊 Мой трафик",
-                  "🎁 Бонусы", "💬 Поддержка", "◈ Навигация", "◈ Сервис временно недоступен"}
+                  "🎁 Бонусы", "💬 Поддержка", "❔ Помощь", "📱 Мои устройства",
+                  "◈ Навигация", "◈ Сервис временно недоступен"}
         return bool(message.from_user and message.from_user.id == message.bot.id and message.reply_markup
                     and len(lines) > 1 and lines[0] == "KudaVPN Premium" and lines[1] in titles)
 

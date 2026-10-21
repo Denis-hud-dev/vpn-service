@@ -104,6 +104,18 @@ class Payment(Record, Base):
     )
 
 
+class PremiumNotice(Base):
+    """Delivery ledger for pilot-only Telegram notices; contains no links or secrets."""
+    __tablename__ = "premium_notices"
+    event_key: Mapped[str] = mapped_column(String(128), primary_key=True)
+    telegram_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    claimed_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (CheckConstraint("telegram_id > 0", name="premium_notice_positive_user"),
+                     CheckConstraint("kind IN ('payment','expiry')", name="premium_notice_kind"))
+
+
 class ActiveScreen(Base):
     __tablename__ = "active_screens"
     user_id: Mapped[int] = mapped_column(ForeignKey("users.telegram_id", ondelete="RESTRICT"), primary_key=True)

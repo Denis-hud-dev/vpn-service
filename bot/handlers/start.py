@@ -18,7 +18,7 @@ async def start(message: Message, command: CommandObject, services: Services, na
         else:
             await services.referrals.register(message.from_user.id, parse_referrer(command.args))
     # Always ask Telegram: a cached home screen may have been manually deleted.
-    await navigation.message(message, home(), verify=True)
+    await navigation.message(message, home(premium_account=services.premium_account_enabled), verify=True)
     try:
         await message.delete()
     except TelegramAPIError:
@@ -26,8 +26,8 @@ async def start(message: Message, command: CommandObject, services: Services, na
         logger.debug("Start command could not be removed")
 
 
-async def back(callback: CallbackQuery, navigation: Navigation):
-    await navigation.callback(callback, home())
+async def back(callback: CallbackQuery, navigation: Navigation, services: Services):
+    await navigation.callback(callback, home(premium_account=services.premium_account_enabled))
 
 
 def create_router() -> Router:

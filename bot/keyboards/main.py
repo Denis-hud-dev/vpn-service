@@ -16,7 +16,13 @@ def button(text: str, destination: str) -> InlineKeyboardButton:
     return InlineKeyboardButton(text=text, callback_data=destination)
 
 
-def main_menu() -> InlineKeyboardMarkup:
+def main_menu(*, premium_account: bool = False) -> InlineKeyboardMarkup:
+    if premium_account:
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [button(CONNECT, "nav:connect")],
+            [button(SUBSCRIPTION, "nav:account"), button(BUY, "nav:tariffs")],
+            [button("📱 Мои устройства", "nav:devices"), button("❔ Помощь", "nav:help")],
+        ])
     return InlineKeyboardMarkup(inline_keyboard=[
         [button(CONNECT, "nav:connect")],
         [button(SUBSCRIPTION, "nav:account"), button(BUY, "nav:tariffs")],

@@ -97,6 +97,7 @@ class Services:
     pilot_connect_page_enabled: bool = False
     test_checkout: object | None = None
     test_payment_owner_id: int | None = None
+    premium_account_enabled: bool = False
 
     @classmethod
     def demo(cls) -> "Services":
@@ -106,7 +107,8 @@ class Services:
 
     @classmethod
     def persistent(cls, sessions, *, subscription_public_url: str = "", happ_link_secret: str = "",
-                   trial_owner_id: int | None = None, pilot_connect_page_enabled: bool = False) -> "Services":
+                   trial_owner_id: int | None = None, pilot_connect_page_enabled: bool = False,
+                   premium_account_enabled: bool = False) -> "Services":
         from bot.services.users import UserService
         from bot.services.subscriptions import SubscriptionService
         from bot.services.devices import DeviceService
@@ -121,4 +123,5 @@ class Services:
         trial = PilotTrialService(sessions, trial_owner_id) if trial_owner_id else None
         return cls(DemoPaymentService(), SubscriptionService(sessions), MemoryReferralService(),
                    UserService(sessions), DeviceService(sessions, VPNService(sessions)), happ, trial,
-                   pilot_connect_page_enabled and bool(trial_owner_id))
+                   pilot_connect_page_enabled and bool(trial_owner_id),
+                   premium_account_enabled=premium_account_enabled and bool(trial_owner_id))
