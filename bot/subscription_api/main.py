@@ -30,7 +30,20 @@ def main():
     tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     tls.minimum_version = ssl.TLSVersion.TLSv1_2
     tls.load_cert_chain(os.environ['SUBSCRIPTION_TLS_CERT'], os.environ['SUBSCRIPTION_TLS_KEY'])
-    app = create_app(service)
+    test_payment_processor = None
+    if os.getenv('PILOT_PAYMENT_WEBHOOK_ENABLED') == '1':
+        if (os.getenv('KUDAVPN_PILOT_MARKER') != 'kudavpn-telegram-pilot-v1'
+                or not trial_owner_id
+                or not os.environ['DATABASE_URL'].startswith('postgresql+psycopg://')
+                or os.environ['DATABASE_URL'].rsplit('/', 1)[-1] != 'kudavpn_telegram_pilot'):
+            raise RuntimeError('Webhook разрешён только для изолированного тестового контура')
+        from bot.services.payment_notifications import PaymentNotificationProcessor
+        from bot.services.yookassa_api import YooKassaTestClient
+        client = YooKassaTestClient.from_private_files(
+            os.environ['PILOT_YOOKASSA_TEST_SHOP_ID_FILE'],
+            os.environ['PILOT_YOOKASSA_TEST_SECRET_FILE'])
+        test_payment_processor = PaymentNotificationProcessor(database.sessions, client)
+    app = create_app(service, test_payment_processor=test_payment_processor)
     async def lifecycle(app):
         await database.check()
         async def worker(action, failure_message):
