@@ -186,3 +186,48 @@ class NodeAccess(Record, Base):
     desired_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     lease_revision: Mapped[int] = mapped_column(Integer, default=0)
     __table_args__ = (UniqueConstraint("subscription_id", "node_id", name="node_access_owner"),)
+
+
+class DeviceProfile(Record, Base):
+    """A separately revocable Happ profile, not a verified physical device.
+
+    A user may copy a profile to another phone. Never infer hardware identity or
+    last activity from profile creation or subscription downloads.
+    """
+    __tablename__ = "device_profiles"
+    subscription_id: Mapped[UUID] = mapped_column(ForeignKey("subscriptions.id", ondelete="RESTRICT"), index=True)
+    node_id: Mapped[UUID] = mapped_column(ForeignKey("vpn_nodes.id", ondelete="RESTRICT"), index=True)
+    credential: Mapped[UUID] = mapped_column(Uuid, default=uuid4, unique=True)
+    name: Mapped[str] = mapped_column(String(64))
+    platform: Mapped[str] = mapped_column(String(16))
+    state: Mapped[str] = mapped_column(String(16), default="pending")
+    # Remote acknowledgement is recorded separately from the requested state.
+    applied_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    lease_revision: Mapped[int] = mapped_column(Integer, default=0)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (
+        # The current agent must restart its entire owned process to close a
+        # session. One profile per dedicated process/node is therefore required.
+        UniqueConstraint("node_id", name="device_profile_dedicated_node"),
+        CheckConstraint("platform IN ('ios','android','windows','macos')", name="device_profile_platform"),
+        CheckConstraint("state IN ('pending','active','revoking','revoked')", name="device_profile_state"),
+        CheckConstraint("length(name) > 0", name="device_profile_name"),
+    )
+
+
+class ProfileTraffic(Base):
+    """Last Xray counters and confirmed usage; unknown data stays unknown."""
+    __tablename__ = "profile_traffic"
+    profile_id: Mapped[UUID] = mapped_column(ForeignKey("device_profiles.id", ondelete="CASCADE"), primary_key=True)
+    total_up: Mapped[int] = mapped_column(BigInteger, default=0)
+    total_down: Mapped[int] = mapped_column(BigInteger, default=0)
+    last_up: Mapped[int | None] = mapped_column(BigInteger)
+    last_down: Mapped[int | None] = mapped_column(BigInteger)
+    source_generation: Mapped[str | None] = mapped_column(String(64))
+    sampled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    complete: Mapped[bool] = mapped_column(Boolean, default=False)
+    __table_args__ = (
+        CheckConstraint("total_up >= 0 AND total_down >= 0", name="profile_traffic_total_nonnegative"),
+        CheckConstraint("last_up IS NULL OR last_up >= 0", name="profile_traffic_up_nonnegative"),
+        CheckConstraint("last_down IS NULL OR last_down >= 0", name="profile_traffic_down_nonnegative"),
+    )

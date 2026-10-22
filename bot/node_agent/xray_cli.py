@@ -103,3 +103,34 @@ class XrayCLI:
     async def remove(self, credential: UUID):
         await self._command('rmu', '--server='+self.address,
                             '-tag='+self.tag, self.email(credential))
+
+    async def user_stats(self) -> dict[UUID, tuple[int | None, int | None]]:
+        """Read per-user counters locally without putting UUIDs in argv/logs.
+
+        Missing directions remain None, not zero. StatsService and per-user
+        policy must be enabled on a dedicated test process before use.
+        """
+        raw = await self._command('statsquery', '--server='+self.address,
+                                  '-pattern', 'user>>>kuda-')
+        try:
+            payload = json.loads(raw)
+            stats = payload.get('stat', [])
+            if not isinstance(stats, list):
+                raise ValueError()
+            values: dict[UUID, list[int | None]] = {}
+            for item in stats:
+                name, value = item['name'], item['value']
+                match = re.fullmatch(r'user>>>(kuda-[0-9a-f-]{36})>>>traffic>>>(uplink|downlink)', name)
+                if (match is None or type(value) is not int or value < 0):
+                    raise ValueError()
+                credential = UUID(match.group(1).removeprefix('kuda-'))
+                if self.email(credential) != match.group(1):
+                    raise ValueError()
+                pair = values.setdefault(credential, [None, None])
+                index = 0 if match.group(2) == 'uplink' else 1
+                if pair[index] is not None:
+                    raise ValueError()
+                pair[index] = value
+            return {credential: (pair[0], pair[1]) for credential, pair in values.items()}
+        except (ValueError, TypeError, KeyError, AttributeError):
+            raise XrayCommandError('Invalid Xray statistics response') from None
