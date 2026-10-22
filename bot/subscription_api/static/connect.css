@@ -3,3 +3,23 @@
 @keyframes appear{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 .hero{animation:appear .45s ease-out both}.status{animation:appear .55s .08s ease-out both}.connect-card{animation:appear .6s .14s ease-out both}
 .import-steps{margin:8px 0 0;padding-left:22px;color:#b4c4d5;font-size:13px;line-height:1.55}.import-steps li{padding:2px 0}.import-steps li::marker{color:#65bbff;font-weight:700}.install-note{font-size:12px;margin:12px 0 0}.install-note a{color:#8dc9ff;text-decoration:underline;text-underline-offset:3px}
+/* KudaVPN Premium identity. The original logo is served byte-for-byte from this host. */
+:root{--bg:#030507;--surface:#0a1019;--surface2:#101b29;--line:#18304b;--text:#f5f9ff;--muted:#a2b2c7;--blue:#067cff;--cyan:#55d7ff}
+body{background:radial-gradient(ellipse 55% 35% at 77% 8%,#0a2751 0,transparent 80%),linear-gradient(180deg,#030507,#07101a 64%,#030507)}
+.ambient{background:linear-gradient(90deg,transparent 0,rgba(7,124,255,.025) 50%,transparent 100%)}
+.shell{max-width:1160px;padding-top:25px}
+.brand{font-size:19px;letter-spacing:-.035em;gap:14px}.brand em{color:#71caff;font-weight:600}
+.brand-mark{display:block;width:54px;height:54px;object-fit:cover;border:1px solid #193a65;border-radius:12px;box-shadow:0 0 22px #007dff25}
+.brand-dot{background:#5bd5ff}
+.hero{max-width:none;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(250px,.85fr);align-items:center;gap:22px;min-height:445px;padding:33px 0 26px}
+.hero-copy{position:relative;z-index:1}.hero h1{font-size:clamp(44px,6.3vw,78px);line-height:1.03;margin:20px 0 19px}.hero h1 span{background:linear-gradient(95deg,#dff8ff,#58c7ff 45%,#006dff);background-clip:text}
+.hero-logo{display:block;width:min(100%,430px);justify-self:center;mix-blend-mode:screen;filter:drop-shadow(0 8px 38px #0868e622)}
+.hero-line{display:block;color:#2a96fa;letter-spacing:.4em;font-size:11px;margin-top:36px;opacity:.7}
+.eyebrow{color:#61d5ff}.spark{background:#4ac6ff}
+.status{background:#1a3149;border-color:#1a3149;box-shadow:0 16px 45px #0006}.status>div{background:#0a1420}.status strong{color:#f0f7ff}.status-label{color:#779fc1}
+.connect-card{background:linear-gradient(130deg,#101d2d,#08111d 70%);border-color:#1d4367;box-shadow:0 26px 90px #0009,0 0 45px #007dff0d;padding:32px 38px}
+.platforms button{background:#0c1725;border-color:#25435f}.platforms button[aria-selected=true]{background:linear-gradient(135deg,#06376f,#104f91);border-color:#3daaff;box-shadow:0 0 28px #007dff2e}
+.separator{background:#254361}.primary{background:linear-gradient(105deg,#005cf0,#0aa8ff);box-shadow:0 10px 34px #006cfa55;border-color:#66ceff}.primary:hover{box-shadow:0 12px 36px #007dff88}
+.action-layout{grid-template-columns:minmax(0,1fr) minmax(230px,300px)}.security-note{position:relative;overflow:hidden;min-height:285px;padding:27px;border:1px solid #23517c;border-radius:18px;background:radial-gradient(circle at 95% 5%,#114474 0,transparent 45%),linear-gradient(145deg,#0c1a2b,#07101b);display:flex;flex-direction:column;justify-content:center;gap:11px}.note-symbol{font-size:31px;color:#55caff;text-shadow:0 0 25px #047dff}.note-label{font-size:10px;letter-spacing:.21em;color:#79c8ff;font-weight:750}.security-note strong{font-size:26px;letter-spacing:-.05em;line-height:1.1}.security-note p{font-size:12px;color:#adc4d8;line-height:1.6;margin:2px 0;max-width:210px}.note-orbit{width:220px;height:90px;border:1px solid #298bd466;border-radius:50%;position:absolute;right:-100px;bottom:-27px;transform:rotate(-25deg);box-shadow:0 0 35px #007dff36}
+.qr-panel{background:#081522;border-color:#24557d}.private-link{background:#060e18;border-color:#255070}footer span:first-child{color:#59c9ff}
+@media(max-width:700px){.shell{padding:18px 17px 25px}.brand-mark{width:45px;height:45px}.brand{font-size:17px}.hero{grid-template-columns:1fr;min-height:0;padding:35px 0 25px;gap:0}.hero-copy{order:2}.hero-logo{order:1;width:min(66vw,270px);margin:-15px auto -4px}.hero h1{font-size:clamp(41px,10vw,58px)}.hero-line{margin-top:24px}.connect-card{padding:22px 17px}.action-layout{grid-template-columns:1fr}.security-note{min-height:168px;padding:20px}.security-note strong{font-size:22px}.status strong{white-space:normal;line-height:1.3}.secondary-actions{flex-wrap:wrap}}

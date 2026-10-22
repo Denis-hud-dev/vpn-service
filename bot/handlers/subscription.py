@@ -24,14 +24,14 @@ async def select_tariff(callback: CallbackQuery, services: Services, navigation:
 
 async def create_test_order(callback: CallbackQuery, services: Services, navigation: Navigation):
     if not pilot_payment_allowed(callback, services):
-        await navigation.callback(callback, screens.panel('🧪 Тестовая оплата', 'Недоступно для этого аккаунта.'))
+        await navigation.callback(callback, screens.panel('🧪 Тестовая оплата', '◆ Доступно только владельцу тестового аккаунта.'))
         return
     tariff_id = (callback.data or '').partition(':')[2]
     try:
         intent = await services.test_checkout.create_for_user(callback.from_user.id, tariff_id)
     except (ValueError, RuntimeError, OSError, TimeoutError):
         await navigation.callback(callback, screens.panel('🧪 Тестовая оплата',
-            'Создать тестовый заказ пока не удалось. Повторите попытку позже.'))
+            '◆ Создать тестовый заказ пока не удалось.\n╰ Повторите попытку позже.'))
         return
     await navigation.callback(callback, screens.test_checkout(tariff_id, intent.confirmation_url))
 
@@ -49,17 +49,17 @@ async def grant_trial(callback: CallbackQuery, services: Services, navigation: N
     private_chat = getattr(getattr(callback.message, 'chat', None), 'type', None) == 'private'
     if not private_chat or services.trial is None or callback.from_user.id != services.trial.owner_telegram_id:
         await navigation.callback(callback, screens.panel('🎁 Пробный доступ',
-            'Пробный доступ недоступен для этого аккаунта.'))
+            '◆ Пробный доступ недоступен для этого аккаунта.'))
         return
     try:
         await services.trial.grant_once(callback.from_user.id)
     except (ValueError, PermissionError):
         await navigation.callback(callback, screens.panel('🎁 Пробный доступ',
-            'Активировать пробный доступ не удалось. Проверьте статус в личном кабинете.'))
+            '◆ Активировать пробный доступ не удалось.\n╰ Проверьте статус в личном кабинете.'))
         return
     await navigation.callback(callback, screens.panel('🎁 Пробный доступ активирован',
-        'Ваши 24 часа начались. Настройка персонального доступа может занять до минуты. '
-        'Откройте раздел подключения и получите ссылку для Happ.',
+        '◆ Ваши 24 часа начались.\n├ Настройка личного доступа может занять до минуты.\n'
+        '╰ Откройте раздел подключения и получите ссылку для Happ.',
         screens.back_keyboard(("🚀 Подключить VPN", "nav:connect"),
                               ("👤 Личный кабинет", "nav:account"))))
 
