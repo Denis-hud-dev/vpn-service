@@ -21,6 +21,7 @@ def main_menu(*, premium_account: bool = False) -> InlineKeyboardMarkup:
         return InlineKeyboardMarkup(inline_keyboard=[
             [button(CONNECT, "nav:connect")],
             [button(SUBSCRIPTION, "nav:account"), button("💎 Тарифы и продление", "nav:tariffs")],
+            [button("◈ Kuda Smart · скоро", "nav:smart")],
             [button("❔ Инструкции и поддержка", "nav:help")],
         ])
     return InlineKeyboardMarkup(inline_keyboard=[

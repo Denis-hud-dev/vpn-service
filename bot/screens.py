@@ -37,6 +37,21 @@ def home(*, premium_account: bool = False) -> Screen:
                   main_menu(premium_account=premium_account))
 
 
+def kuda_smart() -> Screen:
+    """Informational pilot screen; no connection mode is activated here."""
+    body = ("◆ <b>Умный выбор сервера — в разработке</b>\n"
+            "├ Happ умеет показывать задержку серверов в подписке.\n"
+            "├ Автовыбор по задержке при запуске требует отдельной проверки в Happ.\n"
+            "╰ Автоматическое переключение при обрыве пока не подтверждено.\n\n"
+            "◈ <b>Будущие режимы</b>\n"
+            "├ Smart · лучший доступный узел\n"
+            "├ Максимальная скорость · после проверки реальной пропускной способности\n"
+            "╰ Выбрать страну · когда появятся проверенные узлы в других странах\n\n"
+            "Сейчас эти режимы не включаются. Ваша действующая подписка работает как прежде.")
+    return panel("◈ Kuda Smart", body,
+                 back_keyboard(("🚀 Подключить VPN", "nav:connect")))
+
+
 def account(snapshot: AccountSnapshot, *, trial_available: bool = False,
             premium_account: bool = False) -> Screen:
     labels = {"inactive": "Не активна", "active": "Активна", "expired": "Истекла",
