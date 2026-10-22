@@ -66,8 +66,9 @@ class PremiumNoticeService:
                 renewed = (history.old_expires_at is not None and
                            as_utc(history.old_expires_at) > as_utc(history.new_starts_at))
                 action = 'продлена' if renewed else 'активирована'
-                return (f'✦ KudaVPN Premium\n\nТестовая оплата подтверждена. Подписка {action}. '
-                        'Срок доступа указан в личном кабинете. Подключение может обновиться в течение минуты.')
+                return (f'◆ KudaVPN Premium\n\n┃ Тестовая оплата подтверждена.\n'
+                        f'├ Подписка {action}.\n'
+                        '╰ Срок доступа указан в личном кабинете. Подключение может обновиться в течение минуты.')
             if kind == 'expiry':
                 try:
                     sub_id, expiry = value.split(':', 1)
@@ -83,8 +84,8 @@ class PremiumNoticeService:
                 if int(as_utc(sub.expires_at).timestamp()) != expiry_ts or not timedelta(0) < remaining <= threshold:
                     return None
                 label = 'менее часа' if sub.tariff_id == 'pilot_trial_24h' else 'менее суток'
-                return (f'✦ KudaVPN Premium\n\nДо окончания подписки осталось {label}. '
-                        'Продлите её через «Личный кабинет», чтобы сохранить доступ и прежнюю ссылку Happ.')
+                return (f'◆ KudaVPN Premium\n\n┃ До окончания подписки осталось {label}.\n'
+                        '╰ Продлите её через «Личный кабинет», чтобы сохранить доступ и прежнюю ссылку Happ.')
         return None
 
     async def deliver(self, bot) -> None:

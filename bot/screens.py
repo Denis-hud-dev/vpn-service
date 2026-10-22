@@ -18,13 +18,14 @@ class Screen:
 
 
 def panel(title: str, body: str, keyboard: InlineKeyboardMarkup | None = None) -> Screen:
-    return Screen(f"{BRAND}\n\n<b>{title}</b>\n\n{body}", keyboard or back_keyboard())
+    return Screen(f"{BRAND}\n<b>{title}</b>\n\n┃ {body}\n\n◆ KudaVPN · личное пространство", keyboard or back_keyboard())
 
 
 def home(*, premium_account: bool = False) -> Screen:
-    intro = ("VPN и подписка всегда под рукой.\nВыберите действие ниже."
-             if premium_account else "VPN, подписка и устройства — в одном меню.\nВыберите действие ниже.")
-    return Screen(f"{BRAND}\n<i>Ваше пространство подключения.</i>\n\n{intro}",
+    intro = ("Ваш VPN и подписка всегда под рукой."
+             if premium_account else "VPN, подписка и устройства — в одном месте.")
+    return Screen(f"{BRAND}\n<i>Ваше пространство подключения.</i>\n\n"
+                  f"◆ {intro}\n┃ Выберите действие ниже.\n╰ Безопасный доступ начинается здесь.",
                   main_menu(premium_account=premium_account))
 
 
@@ -37,9 +38,11 @@ def account(snapshot: AccountSnapshot, *, trial_available: bool = False,
                str(snapshot.device_count) if snapshot.device_count is not None else "Нет данных")
     # WireGuard metrics are not connected. Future traffic comes from the read model.
     traffic = f"{snapshot.traffic_bytes / (1024 ** 3):.2f} ГБ" if snapshot.traffic_bytes is not None else "Нет данных"
-    body = (f"Статус: <b>{labels.get(snapshot.status, 'Нет данных')}</b>\n"
-            f"Тариф: {escape(snapshot.tariff_label or 'Нет данных')}\n"
-            f"Действует до: {end}\nУстройства: {devices}\nТрафик: {traffic}")
+    body = (f"◆ Статус: <b>{labels.get(snapshot.status, 'Нет данных')}</b>\n"
+            f"├ Тариф: {escape(snapshot.tariff_label or 'Нет данных')}\n"
+            f"├ Действует до: {end}\n"
+            f"├ Устройства: {devices}\n"
+            f"╰ Трафик: {traffic}")
     buttons = []
     if trial_available:
         buttons.append(("🎁 Бесплатный тест — 24 часа", "pilot:grant"))
@@ -55,9 +58,9 @@ def account(snapshot: AccountSnapshot, *, trial_available: bool = False,
 
 def premium_devices(status: str) -> Screen:
     if status == "active":
-        body = ("Подключите Android, iOS, Windows или macOS через вашу личную HTTPS-подписку. "
-                "Она остаётся прежней после продления.\n\n"
-                "Отдельный список подключённых устройств и отключение одного устройства пока недоступны: "
+        body = ("◆ Android · iPhone · Windows · macOS\n"
+                "├ Добавьте личную HTTPS-подписку в Happ. После продления ссылка остаётся прежней.\n"
+                "╰ Отдельный список подключённых устройств и отключение одного устройства пока недоступны: "
                 "доступ управляется подпиской целиком. Не передавайте личную ссылку другим.")
         buttons = (("🚀 Открыть подключение", "nav:connect"), ("📖 Инструкция Happ", "nav:happ"))
     else:
@@ -67,11 +70,10 @@ def premium_devices(status: str) -> Screen:
 
 
 def help_center(username: str) -> Screen:
-    body = ("<b>Как подключиться?</b> Откройте раздел подключения, скопируйте личную ссылку "
-            "и добавьте её в Happ из буфера обмена.\n\n"
-            "<b>Как продлить?</b> В личном кабинете нажмите «Продлить подписку», выберите тариф "
-            "и завершите оплату. Оставшееся оплаченное время сохранится.\n\n"
-            "<b>Не открываются сайты?</b> Проверьте срок подписки и выбранный профиль в Happ. "
+    body = ("◆ <b>Как подключиться?</b>\n├ Откройте страницу подключения, скопируйте личную ссылку и добавьте её в Happ.\n\n"
+            "◆ <b>Продление</b>\n├ В личном кабинете выберите тариф и завершите оплату. "
+            "Оставшееся оплаченное время сохранится.\n\n"
+            "◆ <b>Если сайты не открываются</b>\n╰ Проверьте срок подписки и выбранный профиль в Happ. "
             "Если проблема остаётся, обратитесь в поддержку.")
     keyboard = back_keyboard(("📖 Настройка Happ", "nav:happ"),
                             ("👤 Личный кабинет", "nav:account"))
@@ -84,7 +86,12 @@ def help_center(username: str) -> Screen:
 def tariffs(*, test_payment: bool = False) -> Screen:
     note = ("Доступна только тестовая оплата без списания денег."
             if test_payment else "Оплата пока не подключена.")
-    return panel("💎 Тарифы", "Выберите срок подписки.\n\n" + note, tariffs_keyboard())
+    plans = list(TARIFFS.values())
+    body = ("◆ Выберите срок доступа\n"
+            + "\n".join(("├ " if idx < len(plans) - 1 else "╰ ") + escape(t.label)
+                        for idx, t in enumerate(plans))
+            + "\n\n" + note)
+    return panel("💎 Тарифы", body, tariffs_keyboard())
 
 
 def tariff_details(tariff_id: str, *, test_payment: bool = False) -> Screen:
@@ -92,16 +99,16 @@ def tariff_details(tariff_id: str, *, test_payment: bool = False) -> Screen:
     if tariff is None:
         return panel("💎 Тарифы", "Тариф не найден. Выберите один из доступных вариантов.", back_keyboard(back="nav:tariffs"))
     if test_payment:
-        return panel("💎 Ваш выбор", f"<b>{escape(tariff.label)}</b>\n\nТолько тестовый магазин YooKassa: настоящие деньги не списываются.\nНажмите кнопку, чтобы создать тестовый заказ.",
+        return panel("💎 Ваш выбор", f"◆ <b>{escape(tariff.label)}</b>\n├ Тестовый магазин YooKassa. Настоящие деньги не списываются.\n╰ Создайте тестовый заказ кнопкой ниже.",
                      back_keyboard(("🧪 Создать тестовый заказ", f"paytest:{tariff.id}"), back="nav:tariffs"))
-    return panel("💎 Ваш выбор", f"<b>{escape(tariff.label)}</b>\n\nОплата ещё не подключена.\nПлатёж не создан.", back_keyboard(back="nav:tariffs"))
+    return panel("💎 Ваш выбор", f"◆ <b>{escape(tariff.label)}</b>\n╰ Оплата ещё не подключена. Платёж не создан.", back_keyboard(back="nav:tariffs"))
 
 
 def test_checkout(tariff_id: str, confirmation_url: str) -> Screen:
     tariff = TARIFFS[tariff_id]
     keyboard = back_keyboard(("👤 Проверить подписку", "nav:account"), back="nav:tariffs")
     keyboard.inline_keyboard.insert(0, [InlineKeyboardButton(text="🧪 Открыть тестовую оплату", url=confirmation_url)])
-    return panel("🧪 Тестовый заказ", f"<b>{escape(tariff.label)}</b>\n\nОткройте тестовую страницу YooKassa. После подтверждения бот независимо проверит платёж в тестовом магазине и обновит подписку. Обычно это занимает до минуты. Настоящие деньги не списываются.", keyboard)
+    return panel("🧪 Тестовый заказ", f"◆ <b>{escape(tariff.label)}</b>\n├ Откройте тестовую страницу YooKassa.\n├ После подтверждения бот проверит платёж и обновит подписку. Обычно это занимает до минуты.\n╰ Настоящие деньги не списываются.", keyboard)
 
 
 def connect(link: str | None = None, *, page_url: str | None = None) -> Screen:
@@ -110,36 +117,44 @@ def connect(link: str | None = None, *, page_url: str | None = None) -> Screen:
         keyboard.inline_keyboard.insert(0, [InlineKeyboardButton(text="🔗 Открыть подписку", url=link)])
         if page_url:
             keyboard.inline_keyboard.insert(0, [InlineKeyboardButton(text="✦ KudaVPN Premium · Подключить", url=page_url)])
-        body = ("Подключение через <b>Happ</b>.\n\nСкопируйте личную HTTPS-ссылку и импортируйте её в Happ:\n"
-                f"<code>{escape(link)}</code>\n\nНе передавайте ссылку другим: она даёт доступ к подписке.")
+        body = ("◆ Подключение через <b>Happ</b>\n"
+                "├ Откройте фирменную страницу или скопируйте личную HTTPS-ссылку:\n"
+                f"<code>{escape(link)}</code>\n"
+                "╰ Не передавайте ссылку другим: она даёт доступ к подписке.")
     else:
-        body = ("Подключение через <b>Happ</b>.\n\nПерсональная ссылка появится после активации "
-                "оплаченной подписки и проверки VPN-сервера.")
+        body = ("◆ Подключение через <b>Happ</b>\n"
+                "╰ Личная ссылка появится после активации подписки и проверки VPN-сервера.")
     return panel("🚀 Подключить VPN", body, keyboard)
 
 
 def happ() -> Screen:
-    return panel("📖 Настройка Happ", "<b>Подключение на Android:</b>\n\n1. Установите Happ.\n2. Откройте раздел «Подключить VPN» и скопируйте личную ссылку, если она доступна.\n3. Импортируйте подписку в Happ из буфера обмена.\n4. Выберите сервер и включите VPN.\n\nЕсли ссылка пока недоступна, проверьте статус подписки позже.", back_keyboard(back="nav:connect"))
+    return panel("📖 Настройка Happ", "◆ <b>Android и iPhone</b>\n"
+                 "├ Установите Happ на своё устройство.\n"
+                 "├ Откройте «Подключить VPN» и скопируйте личную ссылку.\n"
+                 "├ В Happ нажмите «+» и добавьте подписку из буфера обмена.\n"
+                 "╰ Выберите KudaVPN и включите VPN.\n\n"
+                 "Если ссылка пока недоступна, проверьте статус подписки позже.",
+                 back_keyboard(back="nav:connect"))
 
 
 def traffic() -> Screen:
-    return panel("📊 Мой трафик", "Использовано: <b>Нет данных</b>\n\nУчёт трафика ещё не подключён.")
+    return panel("📊 Мой трафик", "◆ Использовано: <b>Нет данных</b>\n╰ Учёт трафика ещё не подключён.")
 
 
 def bonuses() -> Screen:
-    return panel("🎁 Бонусы", "Реферальная программа ещё не запущена.\n\nБонусы и начисления пока недоступны.")
+    return panel("🎁 Бонусы", "◆ Реферальная программа ещё не запущена.\n╰ Бонусы и начисления пока недоступны.")
 
 
 def support(username: str) -> Screen:
     keyboard = back_keyboard()
-    body = "Вопрос о подписке или подключении?"
+    body = "◆ Вопрос о подписке или подключении?"
     if username:
         keyboard.inline_keyboard.insert(0, [InlineKeyboardButton(text="💬 Написать в поддержку", url=f"https://t.me/{username}")])
-        body += "\nСвяжитесь с командой KudaVPN."
+        body += "\n╰ Свяжитесь с командой KudaVPN."
     else:
-        body += "\n\nКонтакт поддержки пока не настроен."
+        body += "\n╰ Контакт поддержки пока не настроен."
     return panel("💬 Поддержка", body, keyboard)
 
 
 def database_error() -> Screen:
-    return panel("◈ Сервис временно недоступен", "Не удалось загрузить данные.\nПопробуйте вернуться в меню чуть позже.")
+    return panel("◈ Сервис временно недоступен", "◆ Не удалось загрузить данные.\n╰ Попробуйте вернуться в меню чуть позже.")

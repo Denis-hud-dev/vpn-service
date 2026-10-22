@@ -49,9 +49,10 @@ def create_app(service, *, test_payment_processor=None):
 
     async def asset(request):
         name = request.match_info['name']
-        if name not in ('connect.css', 'connect.js'):
+        if name not in ('connect.css', 'connect.js', 'kudavpn-original-logo.jpeg'):
             raise web.HTTPNotFound()
-        content_type = 'text/css' if name.endswith('.css') else 'application/javascript'
+        content_type = ('text/css' if name.endswith('.css') else
+                        'application/javascript' if name.endswith('.js') else 'image/jpeg')
         return web.Response(body=(ASSETS / name).read_bytes(), content_type=content_type)
     app.router.add_get('/assets/{name}', asset)
     return app
