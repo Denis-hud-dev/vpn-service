@@ -27,14 +27,18 @@ def test_premium_menu_account_devices_help_and_renewal():
             await app.text('/start')
             menu = app.navigation.views[123].screen
             assert [button.callback_data for row in menu.keyboard.inline_keyboard for button in row] == [
-                'nav:connect', 'nav:account', 'nav:tariffs', 'nav:devices', 'nav:help']
+                'nav:connect', 'nav:account', 'nav:tariffs', 'nav:help']
             for route, title in [('nav:account', 'Личный кабинет'), ('nav:renew', 'Тарифы'),
-                                 ('nav:devices', 'Мои устройства'), ('nav:help', 'Помощь'),
+                                 ('nav:subscription', 'Моя подписка'),
+                                 ('nav:devices', 'Мои устройства'), ('nav:traffic', 'Мой трафик'),
+                                 ('nav:billing', 'Оплата и автопродление'),
+                                 ('nav:gift', 'Подарить подписку'), ('nav:invite', 'Пригласить друга'),
+                                 ('nav:help', 'Помощь'),
                                  ('nav:happ', 'Настройка Happ'), ('nav:home', 'KudaVPN Premium')]:
                 await app.callback(route)
                 assert title in app.navigation.views[123].screen.text
             await app.callback('nav:devices')
-            assert 'отключение одного устройства пока недоступны' in app.navigation.views[123].screen.text
+            assert 'отключение пока недоступны' in app.navigation.views[123].screen.text
             assert not [method for method in app.calls if isinstance(method, SendMessage)][1:]
         finally:
             await app.close()
@@ -56,10 +60,15 @@ def test_premium_client_navigation_and_unrecognised_text_keep_one_screen():
             screen_id = app.navigation.views[123].message_id
             for route, expected in (
                 ('nav:account', 'Действует до:'),
+                ('nav:subscription', 'Действует до:'),
                 ('nav:renew', 'Тарифы'),
                 ('tariff:month', '1 месяц — 299 ₽'),
                 ('nav:home', 'Ваше пространство подключения.'),
-                ('nav:devices', 'отключение одного устройства пока недоступны'),
+                ('nav:devices', 'отключение пока недоступны'),
+                ('nav:traffic', 'Нет данных'),
+                ('nav:billing', 'Автопродление'),
+                ('nav:gift', 'пока не выдаются'),
+                ('nav:invite', 'не запущены'),
                 ('nav:connect', 'https://subscriptions.example/s/'),
                 ('nav:happ', 'Настройка Happ'),
                 ('nav:help', 'Как подключиться?'),
@@ -73,7 +82,7 @@ def test_premium_client_navigation_and_unrecognised_text_keep_one_screen():
             await app.text('старое меню')
             buttons = [button.callback_data for row in app.navigation.views[123].screen.keyboard.inline_keyboard
                        for button in row]
-            assert buttons == ['nav:connect', 'nav:account', 'nav:tariffs', 'nav:devices', 'nav:help']
+            assert buttons == ['nav:connect', 'nav:account', 'nav:tariffs', 'nav:help']
             assert app.navigation.views[123].message_id == screen_id
             assert len([call for call in app.calls if isinstance(call, SendMessage)]) == 1
             services.happ.issue_for_user.assert_awaited_once_with(123)

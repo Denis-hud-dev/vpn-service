@@ -45,6 +45,20 @@ async def subscription(callback: CallbackQuery, services: Services, navigation: 
         premium_account=services.premium_account_enabled))
 
 
+async def subscription_details(callback: CallbackQuery, services: Services, navigation: Navigation):
+    snapshot = await services.subscriptions.snapshot(callback.from_user.id)
+    await navigation.callback(callback, screens.subscription_details(snapshot))
+
+
+async def billing(callback: CallbackQuery, services: Services, navigation: Navigation):
+    await navigation.callback(callback, screens.billing(
+        test_payment=pilot_payment_allowed(callback, services)))
+
+
+async def gift(callback: CallbackQuery, navigation: Navigation):
+    await navigation.callback(callback, screens.gift())
+
+
 async def grant_trial(callback: CallbackQuery, services: Services, navigation: Navigation):
     private_chat = getattr(getattr(callback.message, 'chat', None), 'type', None) == 'private'
     if not private_chat or services.trial is None or callback.from_user.id != services.trial.owner_telegram_id:
@@ -70,5 +84,8 @@ def create_router() -> Router:
     router.callback_query.register(select_tariff, F.data.startswith("tariff:"))
     router.callback_query.register(create_test_order, F.data.startswith("paytest:"))
     router.callback_query.register(subscription, F.data == "nav:account")
+    router.callback_query.register(subscription_details, F.data == "nav:subscription")
+    router.callback_query.register(billing, F.data == "nav:billing")
+    router.callback_query.register(gift, F.data == "nav:gift")
     router.callback_query.register(grant_trial, F.data == "pilot:grant")
     return router

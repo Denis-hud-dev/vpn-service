@@ -1,7 +1,7 @@
 """Russian HTML presentation, independent of Telegram delivery and DB writes."""
 from dataclasses import dataclass
 from html import escape
-from datetime import timezone
+from datetime import datetime, timezone
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from bot.keyboards.main import back_keyboard, main_menu
 from bot.keyboards.tariffs import tariffs_keyboard
@@ -9,6 +9,14 @@ from bot.services import TARIFFS
 from bot.services.account import AccountSnapshot
 
 BRAND = "<b>KudaVPN Premium</b>"
+
+
+def expiry_label(value: datetime | None) -> str:
+    if value is None:
+        return "Нет данных"
+    # SQLite fixtures may return a naive timestamp; persisted subscription times are UTC.
+    aware = value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+    return aware.astimezone(timezone.utc).strftime("%d.%m.%Y %H:%M UTC")
 
 
 @dataclass(frozen=True)
@@ -33,10 +41,9 @@ def account(snapshot: AccountSnapshot, *, trial_available: bool = False,
             premium_account: bool = False) -> Screen:
     labels = {"inactive": "Не активна", "active": "Активна", "expired": "Истекла",
               "pending": "Ожидает активации", "blocked": "Заблокирована"}
-    end = snapshot.expires_at.astimezone(timezone.utc).strftime("%d.%m.%Y %H:%M UTC") if snapshot.expires_at else "Нет данных"
-    devices = ("Управляются в Happ" if premium_account else
+    end = expiry_label(snapshot.expires_at)
+    devices = ("Подключаются через Happ" if premium_account else
                str(snapshot.device_count) if snapshot.device_count is not None else "Нет данных")
-    # WireGuard metrics are not connected. Future traffic comes from the read model.
     traffic = f"{snapshot.traffic_bytes / (1024 ** 3):.2f} ГБ" if snapshot.traffic_bytes is not None else "Нет данных"
     body = (f"◆ Статус: <b>{labels.get(snapshot.status, 'Нет данных')}</b>\n"
             f"├ Тариф: {escape(snapshot.tariff_label or 'Нет данных')}\n"
@@ -47,21 +54,39 @@ def account(snapshot: AccountSnapshot, *, trial_available: bool = False,
     if trial_available:
         buttons.append(("🎁 Бесплатный тест — 24 часа", "pilot:grant"))
     if premium_account:
-        buttons.extend((("🚀 Подключить VPN", "nav:connect"),
-                        ("↻ Продлить подписку" if snapshot.status == "active" else "💎 Выбрать тариф",
-                         "nav:renew"),
-                        ("📱 Устройства", "nav:devices"), ("❔ Помощь", "nav:help")))
+        buttons.extend((("◈ Моя подписка", "nav:subscription"),
+                        ("📱 Мои устройства", "nav:devices"),
+                        ("📊 Трафик", "nav:traffic"),
+                        ("💳 Оплата и автопродление", "nav:billing"),
+                        ("🎁 Подарить подписку", "nav:gift"),
+                        ("◈ Пригласить друга", "nav:invite")))
     else:
         buttons.extend((("💎 Тарифы", "nav:tariffs"), ("📱 Устройства", "nav:devices")))
     return panel("👤 Личный кабинет", body, back_keyboard(*buttons))
+
+
+def subscription_details(snapshot: AccountSnapshot) -> Screen:
+    labels = {"inactive": "Не активна", "active": "Активна", "expired": "Истекла",
+              "pending": "Ожидает активации", "blocked": "Заблокирована"}
+    end = expiry_label(snapshot.expires_at)
+    body = (f"◆ Статус: <b>{labels.get(snapshot.status, 'Нет данных')}</b>\n"
+            f"├ Тариф: {escape(snapshot.tariff_label or 'Не выбран')}\n"
+            f"└ Действует до: {end}")
+    if snapshot.status == "active":
+        body += "\n\n◈ При продлении оставшееся время сохраняется, а личная ссылка Happ не меняется."
+        actions = (("🚀 Подключить VPN", "nav:connect"), ("↻ Продлить подписку", "nav:renew"))
+    else:
+        body += "\n\n◈ Для подключения нужен активный доступ."
+        actions = (("💎 Выбрать тариф", "nav:tariffs"),)
+    return panel("◈ Моя подписка", body, back_keyboard(*actions, back="nav:account"))
 
 
 def premium_devices(status: str) -> Screen:
     if status == "active":
         body = ("◆ Android · iPhone · Windows · macOS\n"
                 "├ Добавьте личную HTTPS-подписку в Happ. После продления ссылка остаётся прежней.\n"
-                "╰ Отдельный список подключённых устройств и отключение одного устройства пока недоступны: "
-                "доступ управляется подпиской целиком. Не передавайте личную ссылку другим.")
+                "└ Список отдельных устройств и их отключение пока недоступны: "
+                "сейчас доступ управляется подпиской целиком. Не передавайте личную ссылку другим.")
         buttons = (("🚀 Открыть подключение", "nav:connect"), ("📖 Инструкция Happ", "nav:happ"))
     else:
         body = "Для подключения устройства сначала активируйте подписку."
@@ -75,7 +100,8 @@ def help_center(username: str) -> Screen:
             "Оставшееся оплаченное время сохранится.\n\n"
             "◆ <b>Если сайты не открываются</b>\n╰ Проверьте срок подписки и выбранный профиль в Happ. "
             "Если проблема остаётся, обратитесь в поддержку.")
-    keyboard = back_keyboard(("📖 Настройка Happ", "nav:happ"),
+    keyboard = back_keyboard(("🚀 Открыть подключение", "nav:connect"),
+                            ("📖 Настройка Happ", "nav:happ"),
                             ("👤 Личный кабинет", "nav:account"))
     if username:
         keyboard.inline_keyboard.insert(0, [InlineKeyboardButton(
@@ -137,8 +163,36 @@ def happ() -> Screen:
                  back_keyboard(back="nav:connect"))
 
 
-def traffic() -> Screen:
-    return panel("📊 Мой трафик", "◆ Использовано: <b>Нет данных</b>\n╰ Учёт трафика ещё не подключён.")
+def traffic(snapshot: AccountSnapshot | None = None) -> Screen:
+    if snapshot and snapshot.traffic_bytes is not None:
+        body = f"◆ Использовано: <b>{snapshot.traffic_bytes / (1024 ** 3):.2f} ГБ</b>\n└ Данные относятся к вашей подписке."
+    else:
+        body = "◆ Использовано: <b>Нет данных</b>\n└ Узел пока не передаёт персональную статистику. Мы не показываем условный ноль."
+    return panel("📊 Мой трафик", body, back_keyboard(back="nav:account"))
+
+
+def billing(*, test_payment: bool = False) -> Screen:
+    body = ("◆ Автопродление: <b>выключено</b>\n"
+            "├ Повторных списаний нет. Продление запускается вручную после выбора тарифа.\n"
+            "└ Оплата доступна только в изолированном тестовом магазине."
+            if test_payment else
+            "◆ Автопродление: <b>выключено</b>\n└ Оплата для этого аккаунта пока недоступна.")
+    return panel("💳 Оплата и автопродление", body,
+                 back_keyboard(("💎 Тарифы и продление", "nav:tariffs"), back="nav:account"))
+
+
+def gift() -> Screen:
+    return panel("🎁 Подарить подписку",
+                 "◆ Подарочные подписки пока не выдаются.\n"
+                 "└ Мы добавим эту возможность после отдельного учёта получателя и безопасной передачи доступа.",
+                 back_keyboard(back="nav:account"))
+
+
+def invite() -> Screen:
+    return panel("◈ Пригласить друга",
+                 "◆ Приглашения и бонусы пока не запущены.\n"
+                 "└ Бонус за приглашение не начисляется; персональную ссылку VPN передавать нельзя.",
+                 back_keyboard(back="nav:account"))
 
 
 def bonuses() -> Screen:
