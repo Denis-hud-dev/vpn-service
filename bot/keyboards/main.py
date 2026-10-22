@@ -20,8 +20,8 @@ def main_menu(*, premium_account: bool = False) -> InlineKeyboardMarkup:
     if premium_account:
         return InlineKeyboardMarkup(inline_keyboard=[
             [button(CONNECT, "nav:connect")],
-            [button(SUBSCRIPTION, "nav:account"), button(BUY, "nav:tariffs")],
-            [button("📱 Мои устройства", "nav:devices"), button("❔ Помощь", "nav:help")],
+            [button(SUBSCRIPTION, "nav:account"), button("💎 Тарифы и продление", "nav:tariffs")],
+            [button("❔ Инструкции и поддержка", "nav:help")],
         ])
     return InlineKeyboardMarkup(inline_keyboard=[
         [button(CONNECT, "nav:connect")],
