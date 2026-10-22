@@ -59,7 +59,7 @@ class ControlService:
             if (sub is None or sub.status != 'active' or sub.expires_at is None
                     or as_utc(sub.expires_at) <= utcnow()):
                 raise ControlDenied('Active subscription required')
-            node = await session.get(VPNNode, node_id)
+            node = await session.get(VPNNode, node_id, with_for_update=True)
             if node is None or not node.enabled:
                 raise ControlDenied('Node unavailable')
             legacy = await session.scalar(select(func.count()).select_from(NodeAccess).where(
@@ -68,10 +68,18 @@ class ControlService:
                 # A shared UUID already represents an unknown number of clients.
                 # Do not silently mix it with counted per-profile credentials.
                 raise ControlDenied('Legacy shared access requires a separate migration')
+            node_legacy = await session.scalar(select(func.count()).select_from(NodeAccess).where(
+                NodeAccess.node_id == node.id))
+            if node_legacy:
+                raise ControlDenied('Dedicated node must not contain shared access')
             used = await session.scalar(select(func.count()).select_from(DeviceProfile).where(
                 DeviceProfile.subscription_id == sub.id, DeviceProfile.state != 'revoked'))
             if used >= sub.device_limit:
                 raise ControlDenied('Profile limit reached')
+            occupied = await session.scalar(select(func.count()).select_from(DeviceProfile).where(
+                DeviceProfile.node_id == node.id))
+            if occupied:
+                raise ControlDenied('Dedicated node already assigned')
             profile = DeviceProfile(subscription_id=sub.id, node_id=node.id,
                                     name=name, platform=platform, state='pending',
                                     lease_revision=0)

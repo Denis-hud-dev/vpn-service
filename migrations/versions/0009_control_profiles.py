@@ -21,6 +21,7 @@ def upgrade():
         sa.Column('applied_expires_at', sa.DateTime(timezone=True)),
         sa.Column('lease_revision', sa.Integer(), nullable=False),
         sa.Column('last_seen_at', sa.DateTime(timezone=True)),
+        sa.UniqueConstraint('node_id', name='device_profile_dedicated_node'),
         sa.CheckConstraint("platform IN ('ios','android','windows','macos')", name='device_profile_platform'),
         sa.CheckConstraint("state IN ('pending','active','revoking','revoked')", name='device_profile_state'),
         sa.CheckConstraint('length(name) > 0', name='device_profile_name'))

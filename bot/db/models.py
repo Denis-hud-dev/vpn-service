@@ -206,6 +206,9 @@ class DeviceProfile(Record, Base):
     lease_revision: Mapped[int] = mapped_column(Integer, default=0)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     __table_args__ = (
+        # The current agent must restart its entire owned process to close a
+        # session. One profile per dedicated process/node is therefore required.
+        UniqueConstraint("node_id", name="device_profile_dedicated_node"),
         CheckConstraint("platform IN ('ios','android','windows','macos')", name="device_profile_platform"),
         CheckConstraint("state IN ('pending','active','revoking','revoked')", name="device_profile_state"),
         CheckConstraint("length(name) > 0", name="device_profile_name"),

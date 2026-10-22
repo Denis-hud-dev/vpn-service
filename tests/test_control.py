@@ -1,5 +1,6 @@
 """KudaVPN Control foundation; no real node or payment access."""
 import asyncio
+import json
 from datetime import timedelta
 from uuid import uuid4
 
@@ -10,6 +11,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from bot.db.models import Base, DeviceProfile, NodeAccess, ProfileTraffic, Subscription, User, VPNNode
 from bot.services.control import ControlDenied, ControlService, account_sample
 from bot.services.subscriptions import utcnow
+from bot.node_agent.xray_cli import XrayCLI, XrayCommandError
 
 
 def test_traffic_counter_repeated_reset_and_missing_source():
@@ -29,6 +31,34 @@ def test_traffic_counter_repeated_reset_and_missing_source():
     assert (row.total_up, row.total_down, row.complete) == (20, 80, False)
     with pytest.raises(ValueError):
         account_sample(row, up=-1, down=12, generation='process-b', sampled_at=now + timedelta(seconds=4))
+
+
+def test_xray_stats_parser_rejects_malformed_or_duplicated_counters():
+    async def run():
+        cli = XrayCLI('/unused/local/xray', '127.0.0.1:10085', 'test', 10443)
+        credential = uuid4()
+        name = f'user>>>{cli.email(credential)}>>>traffic>>>uplink'
+        calls = []
+
+        async def response(*args):
+            calls.append(args)
+            return json.dumps({'stat': [{'name': name, 'value': 17}]})
+
+        cli._command = response
+        assert await cli.user_stats() == {credential: (17, None)}
+        assert str(credential) not in str(calls)
+        async def duplicate(*args):
+            return json.dumps({'stat': [{'name': name, 'value': 17},
+                                        {'name': name, 'value': 17}]})
+        cli._command = duplicate
+        with pytest.raises(XrayCommandError):
+            await cli.user_stats()
+        async def invalid(*args):
+            return json.dumps({'stat': [{'name': name, 'value': -1}]})
+        cli._command = invalid
+        with pytest.raises(XrayCommandError):
+            await cli.user_stats()
+    asyncio.run(run())
 
 
 def test_profile_registry_owns_rows_enforces_limit_and_never_grants_access():
@@ -60,6 +90,8 @@ def test_profile_registry_owns_rows_enforces_limit_and_never_grants_access():
                 await control.reserve_profile(101, node_id, 'Second', 'macos')
             with pytest.raises(ControlDenied):
                 await control.reserve_profile(202, node_id, '\nunsafe', 'android')
+            with pytest.raises(ControlDenied, match='Dedicated node already assigned'):
+                await control.reserve_profile(202, node_id, 'Bob phone', 'android')
             async with sessions() as session:
                 profile = await session.scalar(select(DeviceProfile).where(DeviceProfile.id == profile_id))
                 assert profile.applied_expires_at is None and profile.lease_revision == 0
