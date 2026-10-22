@@ -12,6 +12,7 @@ import socket
 import ssl
 import struct
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from uuid import uuid4
@@ -105,6 +106,41 @@ async def server(root, label, credential):
     return proc, inbound, api, public
 
 
+async def shared_server(root, credentials):
+    """One disposable inbound with two users; no production listener involved."""
+    api, inbound = port(), port()
+    keys = dict(line.split(':', 1) for line in command(XRAY, 'x25519').splitlines()
+                if ':' in line)
+    public = keys.get('Password (PublicKey)', keys.get('PublicKey', '')).strip()
+    if len(public) != 43:
+        raise RuntimeError('unexpected local Xray key format')
+    payload = {
+        'log': {'loglevel': 'warning', 'access': 'none'},
+        'api': {'tag': 'api', 'listen': f'127.0.0.1:{api}',
+                'services': ['HandlerService', 'StatsService']},
+        'stats': {},
+        'policy': {'levels': {'0': {'statsUserUplink': True,
+                                    'statsUserDownlink': True}}},
+        'inbounds': [{
+            'tag': 'probe-shared', 'listen': '127.0.0.1', 'port': inbound,
+            'protocol': 'vless', 'settings': {'decryption': 'none',
+                'clients': [{'id': str(credential), 'email': email,
+                             'flow': 'xtls-rprx-vision'}
+                            for email, credential in credentials.items()]},
+            'streamSettings': {'network': 'tcp', 'security': 'reality',
+                'realitySettings': {'dest': 'www.cloudflare.com:443',
+                    'serverNames': ['www.cloudflare.com'],
+                    'privateKey': keys['PrivateKey'].strip(),
+                    'shortIds': ['abcd']}}}],
+        'outbounds': [{'tag': 'direct', 'protocol': 'freedom'}]}
+    path = root / 'shared-server.json'
+    config(path, payload)
+    proc = await asyncio.create_subprocess_exec(XRAY, 'run', '-c', str(path),
+        stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
+    await ready(api)
+    return proc, inbound, api, public
+
+
 async def client(root, label, credential, inbound, public):
     socks = port()
     payload = {
@@ -155,6 +191,17 @@ def counters(api, credential):
     result = {}
     prefix = f'user>>>kuda-{credential}>>>traffic>>>'
     for item in payload.get('stat', []):
+        if item['name'].startswith(prefix):
+            result[item['name'].removeprefix(prefix)] = int(item['value'])
+    return result
+
+
+def named_counters(api, email):
+    raw = command(XRAY, 'api', 'statsquery', '--server='+f'127.0.0.1:{api}',
+                  '-pattern', 'user>>>probe-')
+    result = {}
+    prefix = f'user>>>{email}>>>traffic>>>'
+    for item in json.loads(raw).get('stat', []):
         if item['name'].startswith(prefix):
             result[item['name'].removeprefix(prefix)] = int(item['value'])
     return result
@@ -287,5 +334,97 @@ async def main():
             await origin.wait_closed()
 
 
+async def shared_main():
+    """Reproduce whether RemoveUser closes A while preserving B."""
+    os.umask(0o077)
+    if not Path(XRAY).is_file():
+        raise RuntimeError('trusted installed Xray binary missing')
+    processes, links = [], []
+    with tempfile.TemporaryDirectory(prefix='kudavpn-control-shared-') as temporary:
+        root = Path(temporary)
+        command('openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+                '-days', '1', '-keyout', str(root/'origin.key'),
+                '-out', str(root/'origin.crt'), '-subj', '/CN=localhost',
+                '-addext', 'subjectAltName=DNS:localhost')
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(str(root/'origin.crt'), str(root/'origin.key'))
+        origin = await asyncio.start_server(echo, '127.0.0.1', 0, ssl=context)
+        try:
+            a_id, b_id = uuid4(), uuid4()
+            common, inbound, api, public = await shared_server(root,
+                {'probe-a': a_id, 'probe-b': b_id})
+            processes.append(common)
+            ca, socks_a = await client(root, 'shared-a', a_id, inbound, public)
+            cb, socks_b = await client(root, 'shared-b', b_id, inbound, public)
+            processes.extend((ca, cb))
+            target = origin.sockets[0].getsockname()[1]
+            if {inbound, api, socks_a, socks_b, target} & {443, 8443, 9443, 10443}:
+                raise RuntimeError('reserved port collision')
+            link_a = await session(socks_a, target, root/'origin.crt')
+            link_b = await session(socks_b, target, root/'origin.crt')
+            links.extend((link_a, link_b))
+            await transfer(link_a, 8192)
+            await transfer(link_b, 4096)
+            first_a, first_b = named_counters(api, 'probe-a'), named_counters(api, 'probe-b')
+            if first_a.get('uplink', 0) < 8192 or first_b.get('uplink', 0) < 4096:
+                raise RuntimeError('per-user uplink counters unavailable')
+            pid = common.pid
+            command(XRAY, 'api', 'rmu', '--server='+f'127.0.0.1:{api}',
+                    '-tag=probe-shared', 'probe-a')
+            users = json.loads(command(XRAY, 'api', 'inbounduser',
+                '--server='+f'127.0.0.1:{api}', '-tag=probe-shared')).get('users', [])
+            emails = {item['email'] for item in users}
+            if emails != {'probe-b'}:
+                raise RuntimeError('unexpected admission registry after removal')
+            try:
+                new_a = await asyncio.wait_for(session(socks_a, target,
+                    root/'origin.crt'), 4)
+            except (AssertionError, OSError, TimeoutError, ssl.SSLError,
+                    asyncio.IncompleteReadError):
+                new_a_denied = True
+            else:
+                new_a[1].close()
+                await new_a[1].wait_closed()
+                raise RuntimeError('new A connection was accepted after removal')
+            # Existing sessions remain independent of the authentication list.
+            # This negative proof is essential: a successful API call is not a
+            # successful active-session revocation.
+            await transfer(link_b, 2048)
+            await transfer(link_a, 2048)
+            if common.returncode is not None or common.pid != pid:
+                raise RuntimeError('shared process unexpectedly restarted')
+            after_a, after_b = named_counters(api, 'probe-a'), named_counters(api, 'probe-b')
+            if after_a.get('uplink', 0) <= first_a.get('uplink', 0):
+                raise RuntimeError('A counter did not advance after removal')
+            if after_b.get('uplink', 0) <= first_b.get('uplink', 0):
+                raise RuntimeError('B counter did not advance after removal')
+            print(json.dumps({
+                'result': 'unsafe_for_per_device_revocation',
+                'remove_user_call_succeeded': True,
+                'new_a_connection_denied': new_a_denied,
+                'a_active_tunnel_still_transferred': True,
+                'b_active_tunnel_survived': True,
+                'shared_pid_unchanged': True,
+                'separate_counters_advanced': True,
+                'shared_pss_kib': pss_kib(pid),
+            }, sort_keys=True))
+        finally:
+            for reader, writer in links:
+                writer.close()
+                try:
+                    await asyncio.wait_for(writer.wait_closed(), 2)
+                except (OSError, TimeoutError):
+                    pass
+            for process in reversed(processes):
+                await stop(process)
+            origin.close()
+            await origin.wait_closed()
+
+
 if __name__ == '__main__':
-    asyncio.run(main())
+    if len(sys.argv) == 1:
+        asyncio.run(main())
+    elif sys.argv == ['-', 'shared'] or sys.argv[1:] == ['shared']:
+        asyncio.run(shared_main())
+    else:
+        raise SystemExit('usage: python3 - [shared]')

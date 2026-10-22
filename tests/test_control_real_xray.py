@@ -195,7 +195,9 @@ def test_two_profiles_shared_xray_and_independent_xray(tmp_path):
                 pass
             else:
                 raise AssertionError('Stopped profile A still transferred data')
-            # Return evidence to pytest without exposing UUIDs or paths.
+            # A successful RemoveUser call must not be mistaken for a closed
+            # established tunnel. Pin the observed unsafe behavior as a
+            # regression guard before any per-device UI can be enabled.
             return a_still_open
         finally:
             for reader, writer in sessions:
@@ -209,6 +211,4 @@ def test_two_profiles_shared_xray_and_independent_xray(tmp_path):
             origin.close()
             await origin.wait_closed()
     a_open = asyncio.run(scenario())
-    # The observed semantics decide whether a shared process is safe.
-    assert isinstance(a_open, bool)
-    print('shared_remove_kept_A_stream_open=' + str(a_open))
+    assert a_open, 'Xray behavior changed: re-evaluate per-UUID active-session termination'
