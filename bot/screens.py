@@ -6,7 +6,8 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from bot.keyboards.main import back_keyboard, main_menu
 from bot.keyboards.tariffs import tariffs_keyboard
 from bot.services import TARIFFS
-from bot.services.account import AccountSnapshot
+from bot.services.account import AccountSnapshot, SubscriptionEvent
+from bot.startup_pricing import MONTHLY_RUB, QUARTERLY_RUB, ANNUAL_RUB, saving_against_monthly
 
 BRAND = "<b>KudaVPN Premium</b>"
 
@@ -79,6 +80,7 @@ def account(snapshot: AccountSnapshot, *, trial_available: bool = False,
     if premium_account:
         buttons.extend((("🚀 Подключить VPN", "nav:connect"),
                         ("◈ Моя подписка", "nav:subscription"),
+                        ("◷ История подписки", "nav:history"),
                         ("📱 Мои устройства", "nav:devices"),
                         ("📊 Трафик", "nav:traffic"),
                         ("💳 Оплата и автопродление", "nav:billing"),
@@ -91,7 +93,7 @@ def account(snapshot: AccountSnapshot, *, trial_available: bool = False,
                                "nav:connect" if premium_account else None))
 
 
-def subscription_details(snapshot: AccountSnapshot) -> Screen:
+def subscription_details(snapshot: AccountSnapshot, *, premium_account: bool = False) -> Screen:
     labels = {"inactive": "Не активна", "active": "Активна", "expired": "Истекла",
               "pending": "Ожидает активации", "blocked": "Заблокирована"}
     end = expiry_label(snapshot.expires_at)
@@ -104,9 +106,41 @@ def subscription_details(snapshot: AccountSnapshot) -> Screen:
     else:
         body += "\n\n◈ Для подключения нужен активный доступ."
         actions = (("💎 Выбрать тариф", "nav:tariffs"),)
+    if premium_account:
+        actions += (("◷ История подписки", "nav:history"),)
     return panel("◈ Моя подписка", body,
                  back_keyboard(*actions, back="nav:account",
                                primary="nav:connect" if snapshot.status == "active" else "nav:tariffs"))
+
+
+def subscription_history(events: list[SubscriptionEvent] | None) -> Screen:
+    if events is None:
+        body = "◆ История временно недоступна. Попробуйте позже."
+    elif not events:
+        body = "◆ Пока нет записанных изменений подписки."
+    else:
+        labels = {
+            "created": "Подписка создана", "pilot_trial_grant": "Пробный доступ активирован",
+            "pilot_trial_extend": "Пробный срок продлён", "expired": "Срок истёк",
+        }
+        status_labels = {"blocked": "Доступ заблокирован", "active": "Доступ активен",
+                         "expired": "Срок истёк", "pending": "Ожидает активации"}
+        lines = []
+        for event in events:
+            if event.reason == "payment":
+                renewed = bool(event.old_expires_at and event.new_starts_at
+                               and event.old_expires_at > event.new_starts_at)
+                label = "Подписка продлена" if renewed else "Оплата подтверждена · доступ активирован"
+            elif event.reason == "status":
+                label = status_labels.get(event.new_status, "Статус изменён")
+            else:
+                label = labels.get(event.reason, "Срок или статус изменён")
+            date = expiry_label(event.occurred_at)
+            end = f" · до {expiry_label(event.new_expires_at)}" if event.new_expires_at else ""
+            lines.append(f"◆ {date}\n└ {label}{end}")
+        body = "\n\n".join(lines)
+    body += "\n\n◈ Показаны только изменения подписки из базы. История платежей и чеки пока недоступны."
+    return panel("◷ История подписки", body, back_keyboard(back="nav:account"))
 
 
 def premium_devices(status: str) -> Screen:
@@ -139,7 +173,7 @@ def help_center(username: str) -> Screen:
     return panel("❔ Помощь", body, keyboard)
 
 
-def tariffs(*, test_payment: bool = False) -> Screen:
+def tariffs(*, test_payment: bool = False, premium_account: bool = False) -> Screen:
     note = ("Доступна только тестовая оплата без списания денег."
             if test_payment else "Оплата пока не подключена.")
     plans = list(TARIFFS.values())
@@ -147,7 +181,24 @@ def tariffs(*, test_payment: bool = False) -> Screen:
             + "\n".join(("├ " if idx < len(plans) - 1 else "╰ ") + escape(t.label)
                         for idx, t in enumerate(plans))
             + "\n\n" + note)
-    return panel("💎 Тарифы", body, tariffs_keyboard())
+    keyboard = tariffs_keyboard()
+    if premium_account:
+        body = "◆ Ниже — действующие тарифы тестовой оплаты.\n\n" + body
+        keyboard.inline_keyboard.insert(0, [InlineKeyboardButton(
+            text="✦ Стартовые тарифы · скоро", callback_data="nav:launch_tariffs")])
+    return panel("💎 Тарифы", body, keyboard)
+
+
+def launch_tariffs() -> Screen:
+    """Display-only proposal. Checkout continues to use the existing prices."""
+    body = ("◆ <b>Стартовые тарифы — в подготовке</b>\n"
+            f"├ 🟢 1 месяц — <b>{MONTHLY_RUB} ₽</b>\n"
+            f"├ ⭐ Популярный · 3 месяца — <b>{QUARTERLY_RUB} ₽</b>\n"
+            f"│  Экономия {saving_against_monthly(3, QUARTERLY_RUB)} ₽ против трёх помесячных оплат.\n"
+            f"╰ 🔵 Максимальная выгода · 12 месяцев — <b>{ANNUAL_RUB} ₽</b>\n"
+            f"   Экономия {saving_against_monthly(12, ANNUAL_RUB)} ₽ против двенадцати помесячных оплат.\n\n"
+            "◈ Эти цены пока нельзя оплатить. Действующие тестовые тарифы и суммы платежей не изменены.")
+    return panel("✦ Стартовые тарифы", body, back_keyboard(back="nav:tariffs"))
 
 
 def tariff_details(tariff_id: str, *, test_payment: bool = False) -> Screen:

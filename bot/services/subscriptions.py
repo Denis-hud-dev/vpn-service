@@ -3,7 +3,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from bot.db.models import Device, Subscription, SubscriptionStatus, User, Payment, SubscriptionHistory
 from bot.services import TARIFFS
-from bot.services.account import AccountSnapshot
+from bot.services.account import AccountSnapshot, SubscriptionEvent
 
 
 def utcnow() -> datetime:
@@ -25,6 +25,25 @@ class SubscriptionService:
         session.add(SubscriptionHistory(subscription_id=sub.id, payment_id=payment_id,
             reason=reason, old_status=old[0], old_starts_at=old[1], old_expires_at=old[2],
             new_status=sub.status, new_starts_at=sub.starts_at, new_expires_at=sub.expires_at))
+
+    async def recent_history(self, telegram_id: int, *, limit: int = 6) -> list[SubscriptionEvent]:
+        """Read only the caller's real subscription transitions, never payment IDs."""
+        async with self.sessions() as session:
+            rows = (await session.scalars(
+                select(SubscriptionHistory)
+                .join(Subscription, SubscriptionHistory.subscription_id == Subscription.id)
+                .join(User, Subscription.user_id == User.id)
+                .where(User.telegram_id == telegram_id)
+                .order_by(SubscriptionHistory.created_at.desc(), SubscriptionHistory.id.desc())
+                .limit(max(1, min(limit, 20)))
+            )).all()
+            return [SubscriptionEvent(
+                occurred_at=as_utc(row.created_at), reason=row.reason,
+                old_status=row.old_status, new_status=row.new_status,
+                old_expires_at=as_utc(row.old_expires_at) if row.old_expires_at else None,
+                new_expires_at=as_utc(row.new_expires_at) if row.new_expires_at else None,
+                new_starts_at=as_utc(row.new_starts_at) if row.new_starts_at else None,
+            ) for row in rows]
 
     async def apply_confirmed_payment(self, event):
         """Internal boundary: caller must verify the event with the payment provider.

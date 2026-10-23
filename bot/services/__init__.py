@@ -32,6 +32,9 @@ class DemoSubscriptionService:
     async def snapshot(self, user_id: int) -> AccountSnapshot:
         return AccountSnapshot()
 
+    async def recent_history(self, user_id: int, *, limit: int = 6):
+        return []
+
     async def describe(self, user_id: int) -> str:
         return "👤 Ваша подписка\n\nСтатус: не активна\nТариф: —\nДействует до: —\nУстройства: 0"
 
@@ -62,6 +65,7 @@ def parse_referrer(payload: str | None) -> int | None:
 
 class SubscriptionReader(Protocol):
     async def snapshot(self, user_id: int) -> AccountSnapshot: ...
+    async def recent_history(self, user_id: int, *, limit: int = 6): ...
     async def describe(self, user_id: int) -> str: ...
 
 

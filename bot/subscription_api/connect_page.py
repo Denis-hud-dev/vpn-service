@@ -19,11 +19,11 @@ def render_connection_page(feed_url: str, expires: int) -> str:
 <meta name="color-scheme" content="dark"><title>KudaVPN Premium — подключение</title>
 <link rel="stylesheet" href="/assets/connect.css"><script src="/assets/connect.js" defer></script></head>
 <body><div class="ambient" aria-hidden="true"></div><main class="shell">
-  <header class="brand"><img class="brand-mark" src="/assets/kudavpn-original-logo.jpeg" alt="Оригинальный логотип KudaVPN"><span>KudaVPN <em>Premium</em></span><span class="brand-dot" aria-hidden="true"></span></header>
+  <header class="brand"><span class="brand-mark"><img src="/assets/kudavpn-original-logo.jpeg" alt="Оригинальный знак KudaVPN"></span><span class="brand-title">KudaVPN <em>Premium</em></span><span class="brand-dot" aria-hidden="true"></span></header>
   <section class="hero"><div class="hero-copy"><div class="eyebrow"><span class="spark"></span> ЛИЧНОЕ ПРОСТРАНСТВО ПОДКЛЮЧЕНИЯ</div>
   <h1>Свобода быть<br><span>на связи.</span></h1>
   <p class="lead">Ваш личный доступ к KudaVPN. Выберите устройство, добавьте подписку в Happ и включите защищённое подключение.</p>
-  <span class="hero-line" aria-hidden="true">◆ ━━━━━━━━━━━━━━━━ ◇</span></div><img class="hero-logo" src="/assets/kudavpn-original-logo.jpeg" alt="KudaVPN: геометрическая K, цифровой глобус и орбита"></section>
+  <span class="hero-line" aria-hidden="true">◆ ━━━━━━━━━━━━━━━━ ◇</span></div><div class="orbit-stage"><span class="orbit-ring orbit-ring-one" aria-hidden="true"></span><span class="orbit-ring orbit-ring-two" aria-hidden="true"></span><img class="orbit-emblem" src="/assets/kudavpn-original-logo.jpeg" alt="Оригинальный знак KudaVPN: геометрическая K, цифровой глобус и орбита" loading="eager" decoding="async"></div></section>
   <section class="status" aria-label="Состояние подписки"><div><span class="status-label">ПОДПИСКА</span><strong><i class="live-dot"></i> Активна</strong></div><div><span class="status-label">ДЕЙСТВУЕТ ДО</span><strong>{escape(expiry)}</strong></div><div><span class="status-label">ПРОФИЛЬ</span><strong>Личный доступ</strong></div></section>
   <section class="connect-card"><div class="card-top"><span class="step-index">01 / 02</span><span class="card-caption">ВЫБЕРИТЕ ПЛАТФОРМУ</span></div>
    <div class="platforms" role="tablist" aria-label="Устройство">
