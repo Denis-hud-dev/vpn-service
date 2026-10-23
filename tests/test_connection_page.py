@@ -46,7 +46,8 @@ def test_page_reuses_feed_entitlement_and_keeps_private_headers():
             assert 'официального сайта Happ' in body
             assert 'rel="noreferrer noopener"' in body
             assert 'happ://' not in body  # No unverified subscription deep link.
-            assert body.count('/assets/kudavpn-original-logo.jpeg') == 2
+            assert body.count('/assets/kudavpn-orbit-emblem.png') == 2
+            assert 'orbit-ring' not in body
             for name in ('connect.css', 'connect.js'):
                 asset = await client.get('/assets/' + name)
                 assert asset.status == 200 and (await asset.read())
@@ -57,6 +58,10 @@ def test_page_reuses_feed_entitlement_and_keeps_private_headers():
             assert logo.headers['Content-Type'].startswith('image/jpeg')
             assert (await logo.read()).startswith(b'\xff\xd8\xff')
             assert logo.headers['Cache-Control'] == 'no-store, private'
+            emblem = await client.get('/assets/kudavpn-orbit-emblem.png')
+            assert emblem.status == 200
+            assert emblem.headers['Content-Type'].startswith('image/png')
+            assert (await emblem.read()).startswith(b'\x89PNG\r\n\x1a\n')
             assert (await client.get('/assets/unknown.js')).status == 404
             response = await client.get('/s/' + TOKEN)
             assert response.status == 200 and 'vless://' in await response.text()
