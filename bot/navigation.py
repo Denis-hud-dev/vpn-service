@@ -139,7 +139,8 @@ class Navigation:
             except TelegramAPIError:
                 logger.info("Previous navigation screen could not be removed")
 
-    async def show(self, bot, chat_id: int, screen: Screen, *, verify: bool = False) -> None:
+    async def show(self, bot, chat_id: int, screen: Screen, *, verify: bool = False,
+                   bring_forward: bool = False) -> None:
         plain = screen
         if self.custom_emoji:
             screen = decorate_emoji(screen)
@@ -147,7 +148,7 @@ class Navigation:
             screen = self._without_button_styles(screen)
             plain = self._without_button_styles(plain)
         previous = await self.load(chat_id)
-        if previous:
+        if previous and not bring_forward:
             result = await self.edit(bot, chat_id, previous.message_id, screen, verify=verify,
                                      plain=plain if screen != plain else None)
             if result != EditResult.REPLACE:
@@ -159,8 +160,14 @@ class Navigation:
         if isinstance(query.message, Message):
             await self.show(query.bot, query.message.chat.id, screen)
 
-    async def message(self, message: Message, screen: Screen, *, verify: bool = False) -> None:
-        await self.show(message.bot, message.chat.id, screen, verify=verify)
+    async def message(self, message: Message, screen: Screen, *, verify: bool = False,
+                      bring_forward: bool = False) -> None:
+        previous = await self.load(message.chat.id) if bring_forward else None
+        # An old editable menu can be several screens above a new /start command.
+        # Replace that navigation screen only when newer chat activity hides it.
+        stale_position = bool(previous and message.message_id > previous.message_id + 1)
+        await self.show(message.bot, message.chat.id, screen, verify=verify,
+                        bring_forward=stale_position)
 
     @staticmethod
     def is_navigation(message: Message) -> bool:

@@ -32,7 +32,8 @@ async def start(message: Message, command: CommandObject, services: Services, na
             await services.referrals.register(message.from_user.id, parse_referrer(command.args))
     # Always ask Telegram: a cached home screen may have been manually deleted.
     await navigation.message(message, await home_for_user(
-        services, message.from_user.id if message.from_user else message.chat.id), verify=True)
+        services, message.from_user.id if message.from_user else message.chat.id), verify=True,
+        bring_forward=services.premium_account_enabled)
     if not services.premium_account_enabled:
         try:
             await message.delete()

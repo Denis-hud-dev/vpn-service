@@ -84,6 +84,26 @@ def test_premium_navigation_keeps_one_screen_and_does_not_delete_start():
     asyncio.run(run())
 
 
+def test_start_brings_hidden_premium_menu_to_recent_chat_position():
+    async def run():
+        services = Services.demo()
+        services.premium_account_enabled = True
+        services.subscriptions.snapshot = AsyncMock(return_value=AccountSnapshot(status='active'))
+        app = TelegramHarness(services=services)
+        try:
+            await app.text('/start')
+            original = app.navigation.views[123].message_id
+            app.update_id = original + 10  # intervening chat activity after the old menu
+            await app.text('/start')
+            assert app.navigation.views[123].message_id != original
+            assert sum(isinstance(call, SendMessage) for call in app.calls) == 2
+            assert (123, original) not in app.messages
+            assert 'Свобода подключения.' in app.navigation.views[123].screen.text
+        finally:
+            await app.close()
+    asyncio.run(run())
+
+
 def test_home_degrades_without_database_and_production_stays_plain():
     async def run():
         services = Services.demo()
