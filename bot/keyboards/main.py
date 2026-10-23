@@ -12,17 +12,18 @@ DEVICES = "📱 Мои устройства"
 INSTRUCTIONS = "📖 Инструкция"
 
 
-def button(text: str, destination: str) -> InlineKeyboardButton:
-    return InlineKeyboardButton(text=text, callback_data=destination)
+def button(text: str, destination: str, *, primary: bool = False) -> InlineKeyboardButton:
+    return InlineKeyboardButton(text=text, callback_data=destination,
+                                style="primary" if primary else None)
 
 
 def main_menu(*, premium_account: bool = False) -> InlineKeyboardMarkup:
     if premium_account:
         return InlineKeyboardMarkup(inline_keyboard=[
-            [button(CONNECT, "nav:connect")],
-            [button(SUBSCRIPTION, "nav:account"), button("💎 Тарифы и продление", "nav:tariffs")],
-            [button("◈ Kuda Smart · скоро", "nav:smart")],
-            [button("❔ Инструкции и поддержка", "nav:help")],
+            [button(CONNECT, "nav:connect", primary=True)],
+            [button(SUBSCRIPTION, "nav:account"), button(BUY, "nav:tariffs")],
+            [button("◈ Smart · скоро", "nav:smart"), button("📱 Устройства", "nav:devices")],
+            [button("🎁 Пригласить", "nav:invite"), button("🎧 Поддержка", "nav:help")],
         ])
     return InlineKeyboardMarkup(inline_keyboard=[
         [button(CONNECT, "nav:connect")],
@@ -32,8 +33,9 @@ def main_menu(*, premium_account: bool = False) -> InlineKeyboardMarkup:
     ])
 
 
-def back_keyboard(*buttons: tuple[str, str], back: str = "nav:home") -> InlineKeyboardMarkup:
-    rows = [[button(text, data)] for text, data in buttons]
+def back_keyboard(*buttons: tuple[str, str], back: str = "nav:home",
+                  primary: str | None = None) -> InlineKeyboardMarkup:
+    rows = [[button(text, data, primary=data == primary)] for text, data in buttons]
     rows.append([button("⬅️ Назад", back)])
     if back != "nav:home":
         rows.append([button("⌂ Главное меню", "nav:home")])

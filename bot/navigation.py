@@ -6,7 +6,7 @@ from enum import Enum, auto
 from typing import Any, Awaitable, Callable
 from aiogram import BaseMiddleware
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
-from aiogram.types import CallbackQuery, Message, LinkPreviewOptions
+from aiogram.types import CallbackQuery, Message, LinkPreviewOptions, InlineKeyboardMarkup
 from sqlalchemy.exc import SQLAlchemyError
 from bot.screens import Screen, database_error
 from bot.premium_emoji import decorate as decorate_emoji
@@ -31,6 +31,7 @@ class Navigation:
     def __init__(self, store: ScreenStore | None = None, *, custom_emoji: bool = False):
         self.store = store or MemoryScreenStore()
         self.custom_emoji = custom_emoji
+        self.button_styles = True
         self.views: dict[int, View] = {}
         self.locks: dict[int, asyncio.Lock] = {}
 
@@ -68,6 +69,11 @@ class Navigation:
                 if plain is not None and self._emoji_rejection(reason):
                     self.custom_emoji = False
                     return await self.edit(bot, chat_id, message_id, plain, verify=True)
+                if self._style_rejection(reason) and self._has_button_style(screen):
+                    self.button_styles = False
+                    return await self.edit(bot, chat_id, message_id, self._without_button_styles(screen),
+                                           verify=True,
+                                           plain=self._without_button_styles(plain) if plain else None)
                 return EditResult.RETRY
         except TelegramAPIError as exc:
             # Network/rate-limit errors do not prove the old message is unusable.
@@ -81,6 +87,20 @@ class Navigation:
         return any(term in reason for term in ("custom emoji", "custom_emoji", "premium",
             "unsupported start tag", "can't parse entities"))
 
+    @staticmethod
+    def _style_rejection(reason: str) -> bool:
+        return any(term in reason for term in ("button style", "unsupported style", "invalid style"))
+
+    @staticmethod
+    def _has_button_style(screen: Screen) -> bool:
+        return any(button.style for row in screen.keyboard.inline_keyboard for button in row)
+
+    @staticmethod
+    def _without_button_styles(screen: Screen) -> Screen:
+        rows = [[button.model_copy(update={"style": None}) for button in row]
+                for row in screen.keyboard.inline_keyboard]
+        return Screen(screen.text, InlineKeyboardMarkup(inline_keyboard=rows))
+
     async def replace(self, bot, chat_id: int, screen: Screen, previous: View | None,
                       *, plain: Screen | None = None) -> None:
         try:
@@ -88,6 +108,11 @@ class Navigation:
                                           reply_markup=screen.keyboard,
                                           link_preview_options=LinkPreviewOptions(is_disabled=True))
         except TelegramBadRequest as exc:
+            if self._style_rejection(exc.message.lower()) and self._has_button_style(screen):
+                self.button_styles = False
+                logger.warning("Styled buttons unavailable; using plain pilot navigation")
+                return await self.replace(bot, chat_id, self._without_button_styles(screen), previous,
+                                          plain=self._without_button_styles(plain) if plain else None)
             if plain is None or not self._emoji_rejection(exc.message.lower()):
                 logger.warning("Navigation screen send unavailable: %s", type(exc).__name__)
                 return
@@ -118,6 +143,9 @@ class Navigation:
         plain = screen
         if self.custom_emoji:
             screen = decorate_emoji(screen)
+        if not self.button_styles:
+            screen = self._without_button_styles(screen)
+            plain = self._without_button_styles(plain)
         previous = await self.load(chat_id)
         if previous:
             result = await self.edit(bot, chat_id, previous.message_id, screen, verify=verify,
@@ -140,7 +168,8 @@ class Navigation:
         # release. Payment receipts, notifications and support conversations stay.
         text = (message.text or "").replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", "")
         lines = [line.strip() for line in text.splitlines() if line.strip()]
-        titles = {"Ваше пространство подключения.", "👤 Личный кабинет", "📱 Устройства", "💎 Тарифы",
+        titles = {"Ваше пространство подключения.", "Свобода подключения. Простота управления.",
+                  "👤 Личный кабинет", "📱 Устройства", "💎 Тарифы",
                   "💎 Ваш выбор", "🚀 Подключить VPN", "📖 Настройка Happ", "📊 Мой трафик",
                   "🎁 Бонусы", "💬 Поддержка", "❔ Помощь", "📱 Мои устройства",
                   "◈ Навигация", "◈ Сервис временно недоступен"}

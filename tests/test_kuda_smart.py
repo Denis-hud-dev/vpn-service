@@ -85,12 +85,12 @@ def test_smart_navigation_back_connect_and_home_keep_one_message():
             original_message = app.navigation.views[123].message_id
             for route, expected in (
                 ('nav:smart', 'режимы не включаются'),
-                ('nav:home', 'Ваше пространство подключения.'),
+                ('nav:home', 'Свобода подключения. Простота управления.'),
                 ('nav:smart', 'режимы не включаются'),
                 ('nav:connect', 'Подключение через'),
                 ('nav:happ', 'Android и iPhone'),
                 ('nav:connect', 'Подключение через'),
-                ('nav:home', 'Ваше пространство подключения.'),
+                ('nav:home', 'Свобода подключения. Простота управления.'),
             ):
                 acknowledged = sum(isinstance(call, AnswerCallbackQuery) for call in app.calls)
                 await app.callback(route)

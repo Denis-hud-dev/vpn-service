@@ -29,7 +29,15 @@ def panel(title: str, body: str, keyboard: InlineKeyboardMarkup | None = None) -
     return Screen(f"{BRAND}\n<b>{title}</b>\n\n┃ {body}\n\n◆ KudaVPN · личное пространство", keyboard or back_keyboard())
 
 
-def home(*, premium_account: bool = False) -> Screen:
+def home(*, premium_account: bool = False, snapshot: AccountSnapshot | None = None) -> Screen:
+    if premium_account:
+        statuses = {"inactive": "Не активна", "active": "Активна", "expired": "Истекла",
+                    "pending": "Ожидает активации", "blocked": "Заблокирована"}
+        state = (f"◆ Подписка: <b>{statuses.get(snapshot.status, 'Нет данных')}</b>"
+                 if snapshot else "◆ Статус подписки — в личном кабинете")
+        return Screen(f"{BRAND}\n<i>Свобода подключения. Простота управления.</i>\n\n"
+                      f"{state}\n┃ Личный доступ и управление — здесь.",
+                      main_menu(premium_account=True))
     intro = ("Ваш VPN и подписка всегда под рукой."
              if premium_account else "VPN, подписка и устройства — в одном месте.")
     return Screen(f"{BRAND}\n<i>Ваше пространство подключения.</i>\n\n"
@@ -49,7 +57,7 @@ def kuda_smart() -> Screen:
             "╰ Выбрать страну · когда появятся проверенные узлы в других странах\n\n"
             "Сейчас эти режимы не включаются. Ваша действующая подписка работает как прежде.")
     return panel("◈ Kuda Smart", body,
-                 back_keyboard(("🚀 Подключить VPN", "nav:connect")))
+                 back_keyboard(("🚀 Подключить VPN", "nav:connect"), primary="nav:connect"))
 
 
 def account(snapshot: AccountSnapshot, *, trial_available: bool = False,
@@ -69,7 +77,8 @@ def account(snapshot: AccountSnapshot, *, trial_available: bool = False,
     if trial_available:
         buttons.append(("🎁 Бесплатный тест — 24 часа", "pilot:grant"))
     if premium_account:
-        buttons.extend((("◈ Моя подписка", "nav:subscription"),
+        buttons.extend((("🚀 Подключить VPN", "nav:connect"),
+                        ("◈ Моя подписка", "nav:subscription"),
                         ("📱 Мои устройства", "nav:devices"),
                         ("📊 Трафик", "nav:traffic"),
                         ("💳 Оплата и автопродление", "nav:billing"),
@@ -77,7 +86,9 @@ def account(snapshot: AccountSnapshot, *, trial_available: bool = False,
                         ("◈ Пригласить друга", "nav:invite")))
     else:
         buttons.extend((("💎 Тарифы", "nav:tariffs"), ("📱 Устройства", "nav:devices")))
-    return panel("👤 Личный кабинет", body, back_keyboard(*buttons))
+    return panel("👤 Личный кабинет", body,
+                 back_keyboard(*buttons, primary="pilot:grant" if trial_available else
+                               "nav:connect" if premium_account else None))
 
 
 def subscription_details(snapshot: AccountSnapshot) -> Screen:
@@ -93,7 +104,9 @@ def subscription_details(snapshot: AccountSnapshot) -> Screen:
     else:
         body += "\n\n◈ Для подключения нужен активный доступ."
         actions = (("💎 Выбрать тариф", "nav:tariffs"),)
-    return panel("◈ Моя подписка", body, back_keyboard(*actions, back="nav:account"))
+    return panel("◈ Моя подписка", body,
+                 back_keyboard(*actions, back="nav:account",
+                               primary="nav:connect" if snapshot.status == "active" else "nav:tariffs"))
 
 
 def premium_devices(status: str) -> Screen:
@@ -106,7 +119,9 @@ def premium_devices(status: str) -> Screen:
     else:
         body = "Для подключения устройства сначала активируйте подписку."
         buttons = (("💎 Выбрать тариф", "nav:tariffs"),)
-    return panel("📱 Мои устройства", body, back_keyboard(*buttons, back="nav:account"))
+    return panel("📱 Мои устройства", body,
+                 back_keyboard(*buttons, back="nav:account",
+                               primary="nav:connect" if status == "active" else "nav:tariffs"))
 
 
 def help_center(username: str) -> Screen:
@@ -117,7 +132,7 @@ def help_center(username: str) -> Screen:
             "Если проблема остаётся, обратитесь в поддержку.")
     keyboard = back_keyboard(("🚀 Открыть подключение", "nav:connect"),
                             ("📖 Настройка Happ", "nav:happ"),
-                            ("👤 Личный кабинет", "nav:account"))
+                            ("👤 Личный кабинет", "nav:account"), primary="nav:connect")
     if username:
         keyboard.inline_keyboard.insert(0, [InlineKeyboardButton(
             text="💬 Написать в поддержку", url=f"https://t.me/{username}")])
@@ -141,23 +156,30 @@ def tariff_details(tariff_id: str, *, test_payment: bool = False) -> Screen:
         return panel("💎 Тарифы", "Тариф не найден. Выберите один из доступных вариантов.", back_keyboard(back="nav:tariffs"))
     if test_payment:
         return panel("💎 Ваш выбор", f"◆ <b>{escape(tariff.label)}</b>\n├ Тестовый магазин YooKassa. Настоящие деньги не списываются.\n╰ Создайте тестовый заказ кнопкой ниже.",
-                     back_keyboard(("🧪 Создать тестовый заказ", f"paytest:{tariff.id}"), back="nav:tariffs"))
+                     back_keyboard(("🧪 Создать тестовый заказ", f"paytest:{tariff.id}"),
+                                   back="nav:tariffs", primary=f"paytest:{tariff.id}"))
     return panel("💎 Ваш выбор", f"◆ <b>{escape(tariff.label)}</b>\n╰ Оплата ещё не подключена. Платёж не создан.", back_keyboard(back="nav:tariffs"))
 
 
 def test_checkout(tariff_id: str, confirmation_url: str) -> Screen:
     tariff = TARIFFS[tariff_id]
     keyboard = back_keyboard(("👤 Проверить подписку", "nav:account"), back="nav:tariffs")
-    keyboard.inline_keyboard.insert(0, [InlineKeyboardButton(text="🧪 Открыть тестовую оплату", url=confirmation_url)])
+    keyboard.inline_keyboard.insert(0, [InlineKeyboardButton(
+        text="🧪 Открыть тестовую оплату", url=confirmation_url, style="primary")])
     return panel("🧪 Тестовый заказ", f"◆ <b>{escape(tariff.label)}</b>\n├ Откройте тестовую страницу YooKassa.\n├ После подтверждения бот проверит платёж и обновит подписку. Обычно это занимает до минуты.\n╰ Настоящие деньги не списываются.", keyboard)
 
 
-def connect(link: str | None = None, *, page_url: str | None = None) -> Screen:
+def connect(link: str | None = None, *, page_url: str | None = None,
+            premium_account: bool = False) -> Screen:
     keyboard = back_keyboard(("📖 Настройка Happ", "nav:happ"), ("💎 Тарифы", "nav:tariffs"))
     if link:
-        keyboard.inline_keyboard.insert(0, [InlineKeyboardButton(text="🔗 Открыть подписку", url=link)])
+        keyboard.inline_keyboard.insert(0, [InlineKeyboardButton(
+            text="🔗 Открыть подписку", url=link,
+            style="primary" if premium_account and not page_url else None)])
         if page_url:
-            keyboard.inline_keyboard.insert(0, [InlineKeyboardButton(text="✦ KudaVPN Premium · Подключить", url=page_url)])
+            keyboard.inline_keyboard.insert(0, [InlineKeyboardButton(
+                text="✦ KudaVPN Premium · Подключить", url=page_url,
+                style="primary" if premium_account else None)])
         body = ("◆ Подключение через <b>Happ</b>\n"
                 "├ Откройте фирменную страницу или скопируйте личную HTTPS-ссылку:\n"
                 f"<code>{escape(link)}</code>\n"

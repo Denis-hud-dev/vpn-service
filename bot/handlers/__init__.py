@@ -2,7 +2,7 @@ from aiogram import Router
 from aiogram.types import CallbackQuery, Message
 from bot.handlers import start, subscription, devices, instructions, referral, support, traffic, smart
 from bot.navigation import Navigation, NavigationMiddleware
-from bot.screens import home, panel
+from bot.screens import panel
 from bot.observability import UpdateTimingMiddleware
 from bot.services import Services
 
@@ -20,7 +20,8 @@ def create_router() -> Router:
     @fallback.message()
     async def unknown(message: Message, navigation: Navigation, services: Services):
         # Old reply keyboard buttons and arbitrary text return to the inline menu.
-        await navigation.message(message, home(premium_account=services.premium_account_enabled))
+        await navigation.message(message, await start.home_for_user(
+            services, message.from_user.id if message.from_user else message.chat.id))
 
     @fallback.callback_query()
     async def unknown_callback(callback: CallbackQuery, navigation: Navigation):
