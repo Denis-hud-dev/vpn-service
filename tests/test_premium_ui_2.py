@@ -104,6 +104,27 @@ def test_start_brings_hidden_premium_menu_to_recent_chat_position():
     asyncio.run(run())
 
 
+def test_old_menu_loses_buttons_when_telegram_refuses_deletion():
+    async def run():
+        services = Services.demo()
+        services.premium_account_enabled = True
+        services.subscriptions.snapshot = AsyncMock(return_value=AccountSnapshot(status='active'))
+        app = TelegramHarness(services=services)
+        try:
+            await app.text('/start')
+            original = app.navigation.views[123].message_id
+            app.fail_delete = "Bad Request: message can't be deleted"
+            app.update_id = original + 10
+            await app.text('/start')
+            old_screen = app.messages[(123, original)]
+            assert old_screen.reply_markup is None
+            assert old_screen.text == 'Меню обновлено. Используйте последнее сообщение бота ниже.'
+            assert app.navigation.views[123].message_id != original
+        finally:
+            await app.close()
+    asyncio.run(run())
+
+
 def test_home_degrades_without_database_and_production_stays_plain():
     async def run():
         services = Services.demo()

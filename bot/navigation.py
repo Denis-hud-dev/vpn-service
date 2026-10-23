@@ -137,7 +137,17 @@ class Navigation:
                 # This exact ID was recorded as navigation, never arbitrary history.
                 await bot.delete_message(chat_id=chat_id, message_id=previous.message_id)
             except TelegramAPIError:
-                logger.info("Previous navigation screen could not be removed")
+                # Telegram may refuse to delete an old bot message. Retire only
+                # the known navigation screen so its stale buttons and any old
+                # personal connection link are no longer usable or visible.
+                try:
+                    await bot.edit_message_text(
+                        chat_id=chat_id, message_id=previous.message_id,
+                        text="Меню обновлено. Используйте последнее сообщение бота ниже.",
+                        link_preview_options=LinkPreviewOptions(is_disabled=True),
+                    )
+                except TelegramAPIError:
+                    logger.info("Previous navigation screen could not be retired")
 
     async def show(self, bot, chat_id: int, screen: Screen, *, verify: bool = False,
                    bring_forward: bool = False) -> None:
