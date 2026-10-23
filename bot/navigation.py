@@ -147,7 +147,8 @@ class Navigation:
         titles.update({"🛡️ Ваше пространство подключения.", "🎫 Личный кабинет",
                        "📊 Тарифы", "📊 Ваш выбор", "🔗 Подключить VPN",
                        "🔗 Настройка Happ", "🎧 Помощь", "📱 Мои устройства",
-                       "💳 Тестовый заказ", "⚡ Мой трафик", "🎧 Поддержка"})
+                       "💳 Тестовый заказ", "⚡ Мой трафик", "🎧 Поддержка",
+                       "◈ Kuda Smart"})
         return bool(message.from_user and message.from_user.id == message.bot.id and message.reply_markup
                     and len(lines) > 1 and lines[0] in {"KudaVPN Premium", "💎 KudaVPN Premium"}
                     and lines[1] in titles)

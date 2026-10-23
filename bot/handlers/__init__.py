@@ -1,6 +1,6 @@
 from aiogram import Router
 from aiogram.types import CallbackQuery, Message
-from bot.handlers import start, subscription, devices, instructions, referral, support, traffic
+from bot.handlers import start, subscription, devices, instructions, referral, support, traffic, smart
 from bot.navigation import Navigation, NavigationMiddleware
 from bot.screens import home, panel
 from bot.observability import UpdateTimingMiddleware
@@ -13,7 +13,7 @@ def create_router() -> Router:
     router.callback_query.outer_middleware(UpdateTimingMiddleware())
     router.message.outer_middleware(NavigationMiddleware())
     router.callback_query.outer_middleware(NavigationMiddleware())
-    for module in (start, subscription, devices, instructions, referral, support, traffic):
+    for module in (start, subscription, devices, instructions, referral, support, traffic, smart):
         router.include_router(module.create_router())
     fallback = Router(name="fallback")
 
