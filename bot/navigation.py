@@ -6,7 +6,7 @@ from enum import Enum, auto
 from typing import Any, Awaitable, Callable
 from aiogram import BaseMiddleware
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
-from aiogram.types import CallbackQuery, Message, LinkPreviewOptions
+from aiogram.types import CallbackQuery, Message, LinkPreviewOptions, InlineKeyboardMarkup
 from sqlalchemy.exc import SQLAlchemyError
 from bot.screens import Screen, database_error
 from bot.premium_emoji import decorate as decorate_emoji
@@ -31,6 +31,7 @@ class Navigation:
     def __init__(self, store: ScreenStore | None = None, *, custom_emoji: bool = False):
         self.store = store or MemoryScreenStore()
         self.custom_emoji = custom_emoji
+        self.button_styles = True
         self.views: dict[int, View] = {}
         self.locks: dict[int, asyncio.Lock] = {}
 
@@ -68,6 +69,11 @@ class Navigation:
                 if plain is not None and self._emoji_rejection(reason):
                     self.custom_emoji = False
                     return await self.edit(bot, chat_id, message_id, plain, verify=True)
+                if self._style_rejection(reason) and self._has_button_style(screen):
+                    self.button_styles = False
+                    return await self.edit(bot, chat_id, message_id, self._without_button_styles(screen),
+                                           verify=True,
+                                           plain=self._without_button_styles(plain) if plain else None)
                 return EditResult.RETRY
         except TelegramAPIError as exc:
             # Network/rate-limit errors do not prove the old message is unusable.
@@ -81,6 +87,20 @@ class Navigation:
         return any(term in reason for term in ("custom emoji", "custom_emoji", "premium",
             "unsupported start tag", "can't parse entities"))
 
+    @staticmethod
+    def _style_rejection(reason: str) -> bool:
+        return any(term in reason for term in ("button style", "unsupported style", "invalid style"))
+
+    @staticmethod
+    def _has_button_style(screen: Screen) -> bool:
+        return any(button.style for row in screen.keyboard.inline_keyboard for button in row)
+
+    @staticmethod
+    def _without_button_styles(screen: Screen) -> Screen:
+        rows = [[button.model_copy(update={"style": None}) for button in row]
+                for row in screen.keyboard.inline_keyboard]
+        return Screen(screen.text, InlineKeyboardMarkup(inline_keyboard=rows))
+
     async def replace(self, bot, chat_id: int, screen: Screen, previous: View | None,
                       *, plain: Screen | None = None) -> None:
         try:
@@ -88,6 +108,11 @@ class Navigation:
                                           reply_markup=screen.keyboard,
                                           link_preview_options=LinkPreviewOptions(is_disabled=True))
         except TelegramBadRequest as exc:
+            if self._style_rejection(exc.message.lower()) and self._has_button_style(screen):
+                self.button_styles = False
+                logger.warning("Styled buttons unavailable; using plain pilot navigation")
+                return await self.replace(bot, chat_id, self._without_button_styles(screen), previous,
+                                          plain=self._without_button_styles(plain) if plain else None)
             if plain is None or not self._emoji_rejection(exc.message.lower()):
                 logger.warning("Navigation screen send unavailable: %s", type(exc).__name__)
                 return
@@ -112,14 +137,28 @@ class Navigation:
                 # This exact ID was recorded as navigation, never arbitrary history.
                 await bot.delete_message(chat_id=chat_id, message_id=previous.message_id)
             except TelegramAPIError:
-                logger.info("Previous navigation screen could not be removed")
+                # Telegram may refuse to delete an old bot message. Retire only
+                # the known navigation screen so its stale buttons and any old
+                # personal connection link are no longer usable or visible.
+                try:
+                    await bot.edit_message_text(
+                        chat_id=chat_id, message_id=previous.message_id,
+                        text="Меню обновлено. Используйте последнее сообщение бота ниже.",
+                        link_preview_options=LinkPreviewOptions(is_disabled=True),
+                    )
+                except TelegramAPIError:
+                    logger.info("Previous navigation screen could not be retired")
 
-    async def show(self, bot, chat_id: int, screen: Screen, *, verify: bool = False) -> None:
+    async def show(self, bot, chat_id: int, screen: Screen, *, verify: bool = False,
+                   bring_forward: bool = False) -> None:
         plain = screen
         if self.custom_emoji:
             screen = decorate_emoji(screen)
+        if not self.button_styles:
+            screen = self._without_button_styles(screen)
+            plain = self._without_button_styles(plain)
         previous = await self.load(chat_id)
-        if previous:
+        if previous and not bring_forward:
             result = await self.edit(bot, chat_id, previous.message_id, screen, verify=verify,
                                      plain=plain if screen != plain else None)
             if result != EditResult.REPLACE:
@@ -131,8 +170,14 @@ class Navigation:
         if isinstance(query.message, Message):
             await self.show(query.bot, query.message.chat.id, screen)
 
-    async def message(self, message: Message, screen: Screen, *, verify: bool = False) -> None:
-        await self.show(message.bot, message.chat.id, screen, verify=verify)
+    async def message(self, message: Message, screen: Screen, *, verify: bool = False,
+                      bring_forward: bool = False) -> None:
+        previous = await self.load(message.chat.id) if bring_forward else None
+        # An old editable menu can be several screens above a new /start command.
+        # Replace that navigation screen only when newer chat activity hides it.
+        stale_position = bool(previous and message.message_id > previous.message_id + 1)
+        await self.show(message.bot, message.chat.id, screen, verify=verify,
+                        bring_forward=stale_position)
 
     @staticmethod
     def is_navigation(message: Message) -> bool:
@@ -140,7 +185,8 @@ class Navigation:
         # release. Payment receipts, notifications and support conversations stay.
         text = (message.text or "").replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", "")
         lines = [line.strip() for line in text.splitlines() if line.strip()]
-        titles = {"Ваше пространство подключения.", "👤 Личный кабинет", "📱 Устройства", "💎 Тарифы",
+        titles = {"Ваше пространство подключения.", "Свобода подключения. Простота управления.",
+                  "👤 Личный кабинет", "📱 Устройства", "💎 Тарифы",
                   "💎 Ваш выбор", "🚀 Подключить VPN", "📖 Настройка Happ", "📊 Мой трафик",
                   "🎁 Бонусы", "💬 Поддержка", "❔ Помощь", "📱 Мои устройства",
                   "◈ Навигация", "◈ Сервис временно недоступен"}

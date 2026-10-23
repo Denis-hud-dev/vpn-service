@@ -18,7 +18,8 @@ async def connect(callback: CallbackQuery, navigation: Navigation, services: Ser
                 page_url = services.happ.connection_page_url(link)
         except AccessDenied:
             pass
-    await navigation.callback(callback, screens.connect(link, page_url=page_url))
+    await navigation.callback(callback, screens.connect(
+        link, page_url=page_url, premium_account=services.premium_account_enabled))
 
 
 async def instructions(callback: CallbackQuery, navigation: Navigation):

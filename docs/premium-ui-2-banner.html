@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<title>KudaVPN Premium — макет приветственного баннера</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #071426; }
+  .banner {
+    width: 1200px; height: 420px; overflow: hidden; position: relative;
+    display: grid; grid-template-columns: 450px 1fr; align-items: center;
+    color: #FFFFFF; font: 400 28px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: radial-gradient(ellipse 560px 340px at 26% 46%, #102B4E 0, #071426 72%);
+  }
+  .banner::before { content: ""; position: absolute; inset: 24px; border: 1px solid #279BFF33; border-radius: 30px; }
+  .banner::after { content: ""; position: absolute; width: 760px; height: 260px; border: 1px solid #65C7FF55;
+    border-radius: 50%; transform: rotate(-17deg); left: -160px; top: 92px; box-shadow: 0 0 28px #279BFF33; }
+  img { width: 385px; height: 385px; object-fit: contain; margin-left: 43px; position: relative; z-index: 1; }
+  .copy { position: relative; z-index: 1; padding: 0 65px 0 0; }
+  .eyebrow { color: #65C7FF; font-size: 18px; font-weight: 700; letter-spacing: .25em; text-transform: uppercase; }
+  h1 { margin: 10px 0 18px; font-size: 62px; line-height: 1; letter-spacing: -.045em; }
+  h1 span { color: #279BFF; }
+  p { margin: 0; color: #A7BCD4; max-width: 500px; }
+  .rule { margin-top: 28px; width: 90px; height: 4px; background: linear-gradient(90deg, #279BFF, #65C7FF); border-radius: 3px; }
+</style>
+<main class="banner" aria-label="KudaVPN Premium: свобода подключения, простота управления">
+  <img src="../bot/subscription_api/static/kudavpn-original-logo.jpeg" alt="Оригинальный логотип KudaVPN">
+  <div class="copy"><div class="eyebrow">Защищённый доступ</div>
+    <h1>KudaVPN <span>Premium</span></h1>
+    <p>Свобода подключения.<br>Простота управления.</p><div class="rule" aria-hidden="true"></div>
+  </div>
+</main>
+</html>

@@ -23,6 +23,7 @@ class TelegramHarness:
         self.fail_delete = None
         self.fail_answer = None
         self.fail_custom_emoji = False
+        self.fail_button_style = False
         self.navigation = Navigation(store)
         self.services = services or Services.demo()
         self.config = config or Config('123456:offline_test_token')
@@ -36,6 +37,10 @@ class TelegramHarness:
             buttons = (method.reply_markup.inline_keyboard if isinstance(method.reply_markup, InlineKeyboardMarkup) else [])
             if '<tg-emoji ' in method.text or any(button.icon_custom_emoji_id for row in buttons for button in row):
                 raise TelegramBadRequest(method=method, message='Bad Request: custom emoji not allowed')
+        if self.fail_button_style and isinstance(method, (SendMessage, EditMessageText)):
+            buttons = (method.reply_markup.inline_keyboard if isinstance(method.reply_markup, InlineKeyboardMarkup) else [])
+            if any(button.style for row in buttons for button in row):
+                raise TelegramBadRequest(method=method, message='Bad Request: unsupported button style')
         if method.__api_method__ == 'answerCallbackQuery' and self.fail_answer:
             raise TelegramBadRequest(method=method, message=self.fail_answer)
         if method.__api_method__ == 'deleteMessage' and self.fail_delete:
