@@ -150,7 +150,7 @@ class Navigation:
                     logger.info("Previous navigation screen could not be retired")
 
     async def show(self, bot, chat_id: int, screen: Screen, *, verify: bool = False,
-                   bring_forward: bool = False) -> None:
+                   bring_forward: bool = False, new_message: bool = False) -> None:
         plain = screen
         if self.custom_emoji:
             screen = decorate_emoji(screen)
@@ -158,7 +158,7 @@ class Navigation:
             screen = self._without_button_styles(screen)
             plain = self._without_button_styles(plain)
         previous = await self.load(chat_id)
-        if previous and not bring_forward:
+        if previous and not (bring_forward or new_message):
             result = await self.edit(bot, chat_id, previous.message_id, screen, verify=verify,
                                      plain=plain if screen != plain else None)
             if result != EditResult.REPLACE:
