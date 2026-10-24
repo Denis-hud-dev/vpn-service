@@ -1,7 +1,9 @@
 """Pilot first-run greeting, persistent keyboard, and hybrid navigation."""
 import asyncio
+import errno
 import os
 import sqlite3
+from pathlib import Path
 from unittest.mock import AsyncMock
 from aiogram.methods import SendMessage, SendPhoto, DeleteMessage
 from aiogram.types import ReplyKeyboardMarkup
@@ -151,3 +153,38 @@ def test_existing_keyboard_ledger_accepts_new_hint_without_reusing_old_claim(tmp
             assert connection.execute('SELECT welcome_message_id, keyboard_installed '
                                       'FROM onboarding WHERE telegram_id=123').fetchone() == (501, 1)
     asyncio.run(run())
+
+
+def test_readonly_onboarding_state_does_not_break_start_or_keyboard():
+    class ReadOnlyOnboarding(MemoryPilotOnboarding):
+        async def first_start(self, telegram_id: int, *, new_user: bool) -> bool:
+            raise OSError(errno.EROFS, 'read-only pilot state')
+
+        async def record_keyboard_message(self, telegram_id: int, message_id: int) -> int | None:
+            raise OSError(errno.EROFS, 'read-only pilot state')
+
+    async def run():
+        services = Services.demo()
+        services.premium_account_enabled = services.pilot_welcome_enabled = True
+        services.onboarding = ReadOnlyOnboarding()
+        services.onboarding.known.add(123)
+        app = TelegramHarness(services=services)
+        try:
+            await app.text('/start')
+            keyboard = [call for call in app.calls if isinstance(call, SendMessage)
+                        and isinstance(call.reply_markup, ReplyKeyboardMarkup)]
+            assert len(keyboard) == 1
+            assert app.navigation.views[123].screen is not None
+            assert not any(isinstance(call, SendPhoto) for call in app.calls)
+        finally:
+            await app.close()
+    asyncio.run(run())
+
+
+def test_pilot_systemd_dropin_exposes_only_private_ledger():
+    unit = (Path(__file__).resolve().parents[1] /
+            'deploy/telegram-pilot/96-premium-welcome-state.conf').read_text()
+    assert unit.count('ReadWritePaths=') == 1
+    assert 'ReadWritePaths=/opt/kudavpn-telegram-pilot/private-welcome\n' in unit
+    assert 'ExecStartPre=/usr/bin/test -w /opt/kudavpn-telegram-pilot/private-welcome\n' in unit
+    assert not any(line.startswith('ProtectSystem=') for line in unit.splitlines())

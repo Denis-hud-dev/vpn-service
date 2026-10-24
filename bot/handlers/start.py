@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import sqlite3
 from pathlib import Path
 from aiogram import F, Router
 from aiogram.exceptions import TelegramAPIError
@@ -29,7 +30,12 @@ async def install_reply_keyboard(bot, user_id: int, services: Services) -> None:
     try:
         sent = await bot.send_message(user_id, "◆ Навигация KudaVPN доступна внизу чата.",
                                       reply_markup=premium_reply_keyboard())
-        previous = await services.onboarding.record_keyboard_message(user_id, sent.message_id)
+        try:
+            previous = await services.onboarding.record_keyboard_message(user_id, sent.message_id)
+        except (OSError, sqlite3.Error) as exc:
+            # A read-only pilot state directory must not hide the navigation.
+            logger.warning("Pilot keyboard state unavailable: %s", type(exc).__name__)
+            return
         if previous and previous != sent.message_id:
             try:
                 await bot.delete_message(user_id, previous)
@@ -62,7 +68,12 @@ async def start(message: Message, command: CommandObject, services: Services, na
         else:
             await services.referrals.register(message.from_user.id, parse_referrer(command.args))
     if pilot:
-        first = await services.onboarding.first_start(user_id, new_user=not existed)
+        try:
+            first = await services.onboarding.first_start(user_id, new_user=not existed)
+        except (OSError, sqlite3.Error) as exc:
+            # Preserve /start even if the isolated onboarding ledger is unavailable.
+            logger.warning("Pilot onboarding state unavailable: %s", type(exc).__name__)
+            first = False
         if first:
             try:
                 sent = await message.bot.send_photo(message.chat.id, FSInputFile(BANNER),
