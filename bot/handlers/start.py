@@ -109,7 +109,7 @@ async def begin(callback: CallbackQuery, navigation: Navigation, services: Servi
 async def reply_connect(message: Message, navigation: Navigation, services: Services):
     if services.pilot_welcome_enabled:
         await connect_for_user(message.bot, message.chat.id, message.from_user.id,
-                               navigation, services)
+                               navigation, services, new_message=True)
     else:
         await navigation.show(message.bot, message.chat.id,
                               await home_for_user(services, message.from_user.id))
@@ -121,7 +121,7 @@ async def reply_account(message: Message, navigation: Navigation, services: Serv
         trial_available = bool(services.trial and
             message.from_user.id == services.trial.owner_telegram_id and snapshot.status == 'inactive')
         await navigation.show(message.bot, message.chat.id, screens.account(snapshot,
-            trial_available=trial_available, premium_account=True))
+            trial_available=trial_available, premium_account=True), new_message=True)
     else:
         await navigation.show(message.bot, message.chat.id,
                               await home_for_user(services, message.from_user.id))
@@ -130,7 +130,7 @@ async def reply_account(message: Message, navigation: Navigation, services: Serv
 async def reply_info(message: Message, navigation: Navigation, services: Services, config: Config):
     if services.pilot_welcome_enabled:
         await navigation.show(message.bot, message.chat.id,
-                              screens.information(config.support_username))
+                              screens.information(config.support_username), new_message=True)
     else:
         await navigation.show(message.bot, message.chat.id,
                               await home_for_user(services, message.from_user.id))

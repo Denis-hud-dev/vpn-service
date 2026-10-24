@@ -20,6 +20,7 @@ class TelegramHarness:
         self.sequence = 100
         self.update_id = 0
         self.fail_edit = None
+        self.fail_send = None
         self.fail_delete = None
         self.fail_answer = None
         self.fail_custom_emoji = False
@@ -49,6 +50,8 @@ class TelegramHarness:
             self.messages.pop((method.chat_id, method.message_id), None)
             return True
         if isinstance(method, SendMessage):
+            if self.fail_send:
+                raise TelegramBadRequest(method=method, message=self.fail_send)
             self.sequence += 1
             message = self.bot_message(method.chat_id, self.sequence, method.text, method.reply_markup)
             self.messages[(method.chat_id, self.sequence)] = message

@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 from html import escape
 from datetime import datetime, timezone
+from math import ceil
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from bot.keyboards.main import back_keyboard, main_menu
 from bot.keyboards.tariffs import tariffs_keyboard
@@ -18,6 +19,23 @@ def expiry_label(value: datetime | None) -> str:
     # SQLite fixtures may return a naive timestamp; persisted subscription times are UTC.
     aware = value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
     return aware.astimezone(timezone.utc).strftime("%d.%m.%Y %H:%M UTC")
+
+
+def remaining_label(snapshot: AccountSnapshot) -> str:
+    if snapshot.status != "active":
+        return "Нет активной подписки"
+    if snapshot.expires_at is None:
+        return "Нет данных"
+    end = (snapshot.expires_at.replace(tzinfo=timezone.utc) if snapshot.expires_at.tzinfo is None
+           else snapshot.expires_at)
+    seconds = (end - datetime.now(timezone.utc)).total_seconds()
+    if seconds <= 0:
+        return "Срок истёк"
+    if seconds < 3600:
+        return f"{ceil(seconds / 60)} мин"
+    hours = ceil(seconds / 3600)
+    days, hours = divmod(hours, 24)
+    return f"{days} дн {hours} ч" if days and hours else f"{days} дн" if days else f"{hours} ч"
 
 
 @dataclass(frozen=True)
@@ -87,6 +105,7 @@ def account(snapshot: AccountSnapshot, *, trial_available: bool = False,
     body = (f"◆ Статус: <b>{labels.get(snapshot.status, 'Нет данных')}</b>\n"
             f"├ Тариф: {escape(snapshot.tariff_label or 'Нет данных')}\n"
             f"├ Действует до: {end}\n"
+            f"├ Осталось: {remaining_label(snapshot)}\n"
             f"├ Устройства: {devices}\n"
             f"╰ Трафик: {traffic}")
     buttons = []

@@ -11,7 +11,8 @@ async def connect(callback: CallbackQuery, navigation: Navigation, services: Ser
                            navigation, services)
 
 
-async def connect_for_user(bot, chat_id: int, user_id: int, navigation: Navigation, services: Services):
+async def connect_for_user(bot, chat_id: int, user_id: int, navigation: Navigation, services: Services,
+                           *, new_message: bool = False):
     link = None
     page_url = None
     if services.happ is not None:
@@ -23,7 +24,8 @@ async def connect_for_user(bot, chat_id: int, user_id: int, navigation: Navigati
         except AccessDenied:
             pass
     await navigation.show(bot, chat_id, screens.connect(
-        link, page_url=page_url, premium_account=services.premium_account_enabled))
+        link, page_url=page_url, premium_account=services.premium_account_enabled),
+        new_message=new_message)
 
 
 async def instructions(callback: CallbackQuery, navigation: Navigation):
