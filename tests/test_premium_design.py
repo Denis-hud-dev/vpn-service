@@ -22,7 +22,7 @@ def test_premium_screens_share_decorative_hierarchy_and_keep_actions():
     assert 'Действует до: 21.11.2026 00:00 UTC' in account_screen.text
     assert [button.callback_data for row in account_screen.keyboard.inline_keyboard
             for button in row if button.callback_data][:3] == [
-                'nav:connect', 'nav:subscription', 'nav:devices']
+                'nav:connect', 'nav:subscription', 'nav:history']
     assert '299 ₽' in screens[2].text
     assert 'Android и iPhone' in screens[4].text
 

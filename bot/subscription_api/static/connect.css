@@ -23,3 +23,24 @@ body{background:radial-gradient(ellipse 55% 35% at 77% 8%,#0a2751 0,transparent 
 .action-layout{grid-template-columns:minmax(0,1fr) minmax(230px,300px)}.security-note{position:relative;overflow:hidden;min-height:285px;padding:27px;border:1px solid #23517c;border-radius:18px;background:radial-gradient(circle at 95% 5%,#114474 0,transparent 45%),linear-gradient(145deg,#0c1a2b,#07101b);display:flex;flex-direction:column;justify-content:center;gap:11px}.note-symbol{font-size:31px;color:#55caff;text-shadow:0 0 25px #047dff}.note-label{font-size:10px;letter-spacing:.21em;color:#79c8ff;font-weight:750}.security-note strong{font-size:26px;letter-spacing:-.05em;line-height:1.1}.security-note p{font-size:12px;color:#adc4d8;line-height:1.6;margin:2px 0;max-width:210px}.note-orbit{width:220px;height:90px;border:1px solid #298bd466;border-radius:50%;position:absolute;right:-100px;bottom:-27px;transform:rotate(-25deg);box-shadow:0 0 35px #007dff36}
 .qr-panel{background:#081522;border-color:#24557d}.private-link{background:#060e18;border-color:#255070}footer span:first-child{color:#59c9ff}
 @media(max-width:700px){.shell{padding:18px 17px 25px}.brand-mark{width:45px;height:45px}.brand{font-size:17px}.hero{grid-template-columns:1fr;min-height:0;padding:35px 0 25px;gap:0}.hero-copy{order:2}.hero-logo{order:1;width:min(66vw,270px);margin:-15px auto -4px}.hero h1{font-size:clamp(41px,10vw,58px)}.hero-line{margin-top:24px}.connect-card{padding:22px 17px}.action-layout{grid-template-columns:1fr}.security-note{min-height:168px;padding:20px}.security-note strong{font-size:22px}.status strong{white-space:normal;line-height:1.3}.secondary-actions{flex-wrap:wrap}}
+
+/* Kuda Orbit: one transparent mark, including its original globe and orbit. */
+.brand-mark{display:grid;place-items:center;flex:none;width:42px;height:42px;overflow:visible;border:0;border-radius:0;background:transparent;box-shadow:none}
+.brand-mark img{display:block;width:100%;height:100%;object-fit:contain}
+.brand-title{position:relative;z-index:1}
+.hero{min-height:395px}
+.orbit-stage{position:relative;justify-self:center;width:min(100%,380px);aspect-ratio:1;display:grid;place-items:center;background:radial-gradient(circle,#0a4a9524 0,transparent 66%)}
+.orbit-emblem{display:block;width:100%;height:auto;object-fit:contain;filter:drop-shadow(0 0 15px #168aff2e)}
+@media(max-width:700px){.brand-mark{width:39px;height:39px}.hero{min-height:0;padding:22px 0 25px;gap:0}.orbit-stage{order:1;width:min(70vw,286px);margin:0 auto 4px}.hero-copy{order:2}}
+/* The mark stays still; only a tiny light travels over the existing orbit. */
+html{scroll-behavior:smooth}
+.hero-connect{display:inline-flex;align-items:center;justify-content:center;gap:14px;min-height:52px;margin-top:26px;padding:12px 23px;border:1px solid #73d4ff;border-radius:12px;background:linear-gradient(115deg,#0877ec,#20b5ff);color:#fff;text-decoration:none;font-size:15px;font-weight:750;box-shadow:0 8px 25px #0877ec38;transition:transform .2s ease,box-shadow .2s ease}
+.hero-connect:hover{transform:translateY(-2px);box-shadow:0 11px 30px #0877ec55}
+.hero-connect:focus-visible{outline:2px solid #e2f7ff;outline-offset:3px}
+.hero-connect span{font-size:18px;font-weight:500}
+.connect-card{scroll-margin-top:20px}
+.orbit-motion{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.orbit-beacon-halo{fill:#53c7ff;opacity:.14}
+.orbit-beacon-core{fill:#d9f7ff;filter:drop-shadow(0 0 4px #54caff)}
+@media(max-width:700px){.hero-connect{width:100%;margin-top:24px}}
+@media(prefers-reduced-motion:reduce){.orbit-motion{display:none}html{scroll-behavior:auto}}
