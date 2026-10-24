@@ -26,13 +26,17 @@ WELCOME = ("<b>Добро пожаловать в KudaVPN.</b>\n\n"
 async def install_reply_keyboard(bot, user_id: int, services: Services) -> None:
     if not services.pilot_welcome_enabled or services.onboarding is None:
         return
-    if await services.onboarding.claim_keyboard(user_id):
-        try:
-            await bot.send_message(user_id, "◆ Навигация KudaVPN всегда доступна внизу чата.",
-                                   reply_markup=premium_reply_keyboard())
-        except TelegramAPIError:
-            await services.onboarding.release_keyboard(user_id)
-            logger.warning("Pilot reply keyboard unavailable")
+    try:
+        sent = await bot.send_message(user_id, "◆ Навигация KudaVPN доступна внизу чата.",
+                                      reply_markup=premium_reply_keyboard())
+        previous = await services.onboarding.record_keyboard_message(user_id, sent.message_id)
+        if previous and previous != sent.message_id:
+            try:
+                await bot.delete_message(user_id, previous)
+            except TelegramAPIError:
+                logger.debug("Previous pilot keyboard hint could not be removed")
+    except TelegramAPIError:
+        logger.warning("Pilot reply keyboard unavailable")
 
 
 async def home_for_user(services: Services, user_id: int):
@@ -43,7 +47,8 @@ async def home_for_user(services: Services, user_id: int):
     except (SQLAlchemyError, TimeoutError):
         # Navigation stays available without presenting an unverified status.
         snapshot = None
-    return home(premium_account=True, snapshot=snapshot)
+    return home(premium_account=True, snapshot=snapshot,
+                reply_navigation=services.pilot_welcome_enabled)
 
 
 async def start(message: Message, command: CommandObject, services: Services, navigation: Navigation):

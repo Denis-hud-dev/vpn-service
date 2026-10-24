@@ -30,7 +30,8 @@ def panel(title: str, body: str, keyboard: InlineKeyboardMarkup | None = None) -
     return Screen(f"{BRAND}\n<b>{title}</b>\n\n┃ {body}\n\n◆ KudaVPN · личное пространство", keyboard or back_keyboard())
 
 
-def home(*, premium_account: bool = False, snapshot: AccountSnapshot | None = None) -> Screen:
+def home(*, premium_account: bool = False, snapshot: AccountSnapshot | None = None,
+         reply_navigation: bool = False) -> Screen:
     if premium_account:
         statuses = {"inactive": "Не активна", "active": "Активна", "expired": "Истекла",
                     "pending": "Ожидает активации", "blocked": "Заблокирована"}
@@ -38,7 +39,7 @@ def home(*, premium_account: bool = False, snapshot: AccountSnapshot | None = No
                  if snapshot else "◆ Статус подписки — в личном кабинете")
         return Screen(f"{BRAND}\n<i>Свобода подключения. Простота управления.</i>\n\n"
                       f"{state}\n┃ Личный доступ и управление — здесь.",
-                      main_menu(premium_account=True))
+                      main_menu(premium_account=True, reply_navigation=reply_navigation))
     intro = ("Ваш VPN и подписка всегда под рукой."
              if premium_account else "VPN, подписка и устройства — в одном месте.")
     return Screen(f"{BRAND}\n<i>Ваше пространство подключения.</i>\n\n"

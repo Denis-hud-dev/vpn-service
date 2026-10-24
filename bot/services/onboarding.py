@@ -24,6 +24,8 @@ class PilotOnboardingService:
         connection.execute("CREATE TABLE IF NOT EXISTS onboarding ("
             "telegram_id INTEGER PRIMARY KEY, welcome_claimed INTEGER NOT NULL, "
             "welcome_message_id INTEGER, keyboard_installed INTEGER NOT NULL)")
+        connection.execute("CREATE TABLE IF NOT EXISTS keyboard_hints ("
+            "telegram_id INTEGER PRIMARY KEY, message_id INTEGER NOT NULL)")
         return connection
 
     @contextmanager
@@ -59,20 +61,16 @@ class PilotOnboardingService:
                 return bool(row and row[0] and row[1] == message_id)
         return await asyncio.to_thread(check)
 
-    async def claim_keyboard(self, telegram_id: int) -> bool:
-        def claim():
+    async def record_keyboard_message(self, telegram_id: int, message_id: int) -> int | None:
+        def record():
             with self._transaction() as connection:
-                result = connection.execute("UPDATE onboarding SET keyboard_installed=1 "
-                    "WHERE telegram_id=? AND keyboard_installed=0", (telegram_id,))
-                return result.rowcount == 1
-        return await asyncio.to_thread(claim)
-
-    async def release_keyboard(self, telegram_id: int) -> None:
-        def release():
-            with self._transaction() as connection:
-                connection.execute("UPDATE onboarding SET keyboard_installed=0 WHERE telegram_id=?",
-                                   (telegram_id,))
-        await asyncio.to_thread(release)
+                previous = connection.execute("SELECT message_id FROM keyboard_hints "
+                    "WHERE telegram_id=?", (telegram_id,)).fetchone()
+                connection.execute("INSERT INTO keyboard_hints (telegram_id, message_id) "
+                    "VALUES (?, ?) ON CONFLICT(telegram_id) DO UPDATE SET message_id=excluded.message_id",
+                    (telegram_id, message_id))
+                return previous[0] if previous else None
+        return await asyncio.to_thread(record)
 
 
 class MemoryPilotOnboarding:
@@ -86,7 +84,7 @@ class MemoryPilotOnboarding:
     async def first_start(self, telegram_id: int, *, new_user: bool) -> bool:
         if telegram_id in self.rows:
             return False
-        self.rows[telegram_id] = {'welcome': new_user, 'message_id': None, 'keyboard': False}
+        self.rows[telegram_id] = {'welcome': new_user, 'message_id': None, 'keyboard_message_id': None}
         return new_user
 
     async def record_welcome(self, telegram_id: int, message_id: int) -> None:
@@ -96,12 +94,8 @@ class MemoryPilotOnboarding:
         row = self.rows.get(telegram_id)
         return bool(row and row['welcome'] and row['message_id'] == message_id)
 
-    async def claim_keyboard(self, telegram_id: int) -> bool:
+    async def record_keyboard_message(self, telegram_id: int, message_id: int) -> int | None:
         row = self.rows[telegram_id]
-        if row['keyboard']:
-            return False
-        row['keyboard'] = True
-        return True
-
-    async def release_keyboard(self, telegram_id: int) -> None:
-        self.rows[telegram_id]['keyboard'] = False
+        previous = row['keyboard_message_id']
+        row['keyboard_message_id'] = message_id
+        return previous

@@ -1,7 +1,7 @@
 from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 
-CONNECT = "🔐 Подключиться"
-ACCOUNT = "👤 Личный кабинет"
+CONNECT = "🔑 Подключиться"
+ACCOUNT = "🏠 Личный кабинет"
 INFO = "ℹ️ Информация"
 
 
