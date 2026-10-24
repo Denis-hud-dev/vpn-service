@@ -48,11 +48,19 @@ def test_page_reuses_feed_entitlement_and_keeps_private_headers():
             assert 'happ://' not in body  # No unverified subscription deep link.
             assert body.count('/assets/kudavpn-orbit-emblem.png') == 2
             assert 'orbit-ring' not in body
+            assert 'class="hero-connect" href="#choose-platform"' in body
+            assert 'id="choose-platform"' in body
+            assert 'class="orbit-motion"' in body
+            assert '<animateMotion dur="18s"' in body
             for name in ('connect.css', 'connect.js'):
                 asset = await client.get('/assets/' + name)
                 assert asset.status == 200 and (await asset.read())
                 assert asset.headers['Cache-Control'] == 'no-store, private'
                 assert TOKEN not in (await asset.text())
+                if name == 'connect.css':
+                    css = await asset.text()
+                    assert '.hero-connect:focus-visible' in css
+                    assert '@media(prefers-reduced-motion:reduce){.orbit-motion{display:none}' in css
             logo = await client.get('/assets/kudavpn-original-logo.jpeg')
             assert logo.status == 200
             assert logo.headers['Content-Type'].startswith('image/jpeg')

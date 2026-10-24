@@ -32,3 +32,15 @@ body{background:radial-gradient(ellipse 55% 35% at 77% 8%,#0a2751 0,transparent 
 .orbit-stage{position:relative;justify-self:center;width:min(100%,380px);aspect-ratio:1;display:grid;place-items:center;background:radial-gradient(circle,#0a4a9524 0,transparent 66%)}
 .orbit-emblem{display:block;width:100%;height:auto;object-fit:contain;filter:drop-shadow(0 0 15px #168aff2e)}
 @media(max-width:700px){.brand-mark{width:39px;height:39px}.hero{min-height:0;padding:22px 0 25px;gap:0}.orbit-stage{order:1;width:min(70vw,286px);margin:0 auto 4px}.hero-copy{order:2}}
+/* The mark stays still; only a tiny light travels over the existing orbit. */
+html{scroll-behavior:smooth}
+.hero-connect{display:inline-flex;align-items:center;justify-content:center;gap:14px;min-height:52px;margin-top:26px;padding:12px 23px;border:1px solid #73d4ff;border-radius:12px;background:linear-gradient(115deg,#0877ec,#20b5ff);color:#fff;text-decoration:none;font-size:15px;font-weight:750;box-shadow:0 8px 25px #0877ec38;transition:transform .2s ease,box-shadow .2s ease}
+.hero-connect:hover{transform:translateY(-2px);box-shadow:0 11px 30px #0877ec55}
+.hero-connect:focus-visible{outline:2px solid #e2f7ff;outline-offset:3px}
+.hero-connect span{font-size:18px;font-weight:500}
+.connect-card{scroll-margin-top:20px}
+.orbit-motion{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.orbit-beacon-halo{fill:#53c7ff;opacity:.14}
+.orbit-beacon-core{fill:#d9f7ff;filter:drop-shadow(0 0 4px #54caff)}
+@media(max-width:700px){.hero-connect{width:100%;margin-top:24px}}
+@media(prefers-reduced-motion:reduce){.orbit-motion{display:none}html{scroll-behavior:auto}}

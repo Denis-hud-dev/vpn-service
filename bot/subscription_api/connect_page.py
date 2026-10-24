@@ -23,9 +23,9 @@ def render_connection_page(feed_url: str, expires: int) -> str:
   <section class="hero"><div class="hero-copy"><div class="eyebrow"><span class="spark"></span> ЛИЧНОЕ ПРОСТРАНСТВО ПОДКЛЮЧЕНИЯ</div>
   <h1>Свобода быть<br><span>на связи.</span></h1>
   <p class="lead">Ваш личный доступ к KudaVPN. Выберите устройство, добавьте подписку в Happ и включите защищённое подключение.</p>
-  <span class="hero-line" aria-hidden="true">◆ ━━━━━━━━━━━━━━━━ ◇</span></div><div class="orbit-stage"><img class="orbit-emblem" src="/assets/kudavpn-orbit-emblem.png" alt="Знак KudaVPN в центре голубой орбиты" width="720" height="720" loading="eager" decoding="async"></div></section>
+  <a class="hero-connect" href="#choose-platform">Подключить VPN <span aria-hidden="true">↗</span></a></div><div class="orbit-stage"><img class="orbit-emblem" src="/assets/kudavpn-orbit-emblem.png" alt="Знак KudaVPN в центре голубой орбиты" width="720" height="720" loading="eager" decoding="async"><svg class="orbit-motion" viewBox="0 0 720 720" aria-hidden="true" focusable="false"><g class="orbit-beacon"><circle class="orbit-beacon-halo" r="9"/><circle class="orbit-beacon-core" r="2.5"/><animateMotion dur="18s" repeatCount="indefinite" calcMode="paced" path="M 693 267 A 350 100 -18 1 1 27 483 A 350 100 -18 1 1 693 267"/></g></svg></div></section>
   <section class="status" aria-label="Состояние подписки"><div><span class="status-label">ПОДПИСКА</span><strong><i class="live-dot"></i> Активна</strong></div><div><span class="status-label">ДЕЙСТВУЕТ ДО</span><strong>{escape(expiry)}</strong></div><div><span class="status-label">ПРОФИЛЬ</span><strong>Личный доступ</strong></div></section>
-  <section class="connect-card"><div class="card-top"><span class="step-index">01 / 02</span><span class="card-caption">ВЫБЕРИТЕ ПЛАТФОРМУ</span></div>
+  <section class="connect-card" id="choose-platform" tabindex="-1"><div class="card-top"><span class="step-index">01 / 02</span><span class="card-caption">ВЫБЕРИТЕ ПЛАТФОРМУ</span></div>
    <div class="platforms" role="tablist" aria-label="Устройство">
     <button type="button" role="tab" aria-selected="true" data-platform="android">Android</button>
     <button type="button" role="tab" aria-selected="false" data-platform="ios">iOS</button>
