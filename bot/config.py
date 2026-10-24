@@ -20,6 +20,8 @@ class Config:
     pilot_payment_return_url: str = ""
     pilot_premium_account_enabled: bool = False
     pilot_custom_emoji_enabled: bool = False
+    pilot_welcome_enabled: bool = False
+    pilot_welcome_state_file: str = ""
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -44,6 +46,10 @@ class Config:
         test_payments = os.getenv('PILOT_TEST_PAYMENTS_ENABLED') == '1'
         premium_account = bool(trial_owner and os.getenv('PILOT_PREMIUM_ACCOUNT_ENABLED') == '1')
         custom_emoji = bool(premium_account and os.getenv('PILOT_CUSTOM_EMOJI_ENABLED') == '1')
+        welcome = bool(premium_account and os.getenv('PILOT_WELCOME_ENABLED') == '1')
+        welcome_state = os.getenv('PILOT_WELCOME_STATE_FILE', '').strip()
+        if welcome and not welcome_state.startswith('/'):
+            raise ValueError('Для PILOT_WELCOME_ENABLED нужен абсолютный путь PILOT_WELCOME_STATE_FILE')
         database_url = os.getenv("DATABASE_URL", "").strip()
         shop_file = os.getenv('PILOT_YOOKASSA_TEST_SHOP_ID_FILE', '')
         secret_file = os.getenv('PILOT_YOOKASSA_TEST_SECRET_FILE', '')
@@ -57,4 +63,5 @@ class Config:
         return cls(token, support, port, database_url, public_url,
                    link_secret, trial_owner, connect_page, test_payments,
                    shop_file if test_payments else '', secret_file if test_payments else '',
-                   return_url if test_payments else '', premium_account, custom_emoji)
+                   return_url if test_payments else '', premium_account, custom_emoji,
+                   welcome, welcome_state if welcome else '')

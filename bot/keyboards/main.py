@@ -17,14 +17,20 @@ def button(text: str, destination: str, *, primary: bool = False) -> InlineKeybo
                                 style="primary" if primary else None)
 
 
-def main_menu(*, premium_account: bool = False) -> InlineKeyboardMarkup:
+def main_menu(*, premium_account: bool = False,
+              reply_navigation: bool = False) -> InlineKeyboardMarkup:
     if premium_account:
-        return InlineKeyboardMarkup(inline_keyboard=[
+        rows = ([
+            [button(BUY, "nav:tariffs")],
+        ] if reply_navigation else [
             [button(CONNECT, "nav:connect", primary=True)],
             [button(SUBSCRIPTION, "nav:account"), button(BUY, "nav:tariffs")],
+        ])
+        rows.extend([
             [button("◈ Smart · скоро", "nav:smart"), button("📱 Устройства", "nav:devices")],
             [button("🎁 Пригласить", "nav:invite"), button("🎧 Поддержка", "nav:help")],
         ])
+        return InlineKeyboardMarkup(inline_keyboard=rows)
     return InlineKeyboardMarkup(inline_keyboard=[
         [button(CONNECT, "nav:connect")],
         [button(SUBSCRIPTION, "nav:account"), button(BUY, "nav:tariffs")],

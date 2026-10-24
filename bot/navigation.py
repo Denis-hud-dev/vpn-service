@@ -215,6 +215,18 @@ class NavigationMiddleware(BaseMiddleware):
                 await event.answer("Откройте личный чат с KudaVPN для управления подпиской.")
             return
         if callback:
+            if event.data == "pilot:begin":
+                onboarding = getattr(data.get("services"), "onboarding", None)
+                valid = bool(onboarding and await onboarding.valid_welcome(
+                    event.from_user.id, message.message_id))
+                try:
+                    await event.answer(None if valid else "Это приветствие больше не активно. Отправьте /start.")
+                except TelegramAPIError:
+                    logger.info("Callback acknowledgement unavailable")
+                if not valid:
+                    return
+                async with navigation.lock(message.chat.id):
+                    return await handler(event, data)
             # Fast cached check; after restart one bounded DB read identifies stale
             # callbacks before their single acknowledgement.
             try:

@@ -23,7 +23,9 @@ async def run(config: Config) -> None:
         happ_link_secret=config.happ_link_secret,
         trial_owner_id=config.pilot_trial_owner_id,
         pilot_connect_page_enabled=config.pilot_connect_page_enabled,
-        premium_account_enabled=config.pilot_premium_account_enabled) if database else Services.demo())
+        premium_account_enabled=config.pilot_premium_account_enabled,
+        pilot_welcome_enabled=config.pilot_welcome_enabled,
+        onboarding_state_file=config.pilot_welcome_state_file) if database else Services.demo())
     payment_poller = None
     if config.pilot_test_payments_enabled:
         from bot.services.yookassa_api import YooKassaTestClient
@@ -66,6 +68,7 @@ async def run(config: Config) -> None:
             logger.warning("DATABASE_URL not set: demo mode, data is not persistent")
         me = await bot.get_me()
         if (config.pilot_test_payments_enabled or config.pilot_premium_account_enabled
+                or config.pilot_welcome_enabled
                 or config.pilot_custom_emoji_enabled) and (me.username or '').lower() != 'kudavpn_test_bot':
             raise RuntimeError('Пилотные функции разрешены только для отдельного бота')
         dispatcher["bot_username"] = me.username or "KudaVpnBot"
