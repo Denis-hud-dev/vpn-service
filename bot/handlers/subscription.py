@@ -26,6 +26,14 @@ async def launch_tariffs(callback: CallbackQuery, services: Services, navigation
     await navigation.callback(callback, screens.launch_tariffs())
 
 
+async def launch_tariff_preview(callback: CallbackQuery, services: Services, navigation: Navigation):
+    if not services.premium_account_enabled:
+        await buy(callback, services, navigation)
+        return
+    await navigation.callback(callback, screens.launch_tariff_preview(
+        (callback.data or "").partition(":")[2]))
+
+
 async def select_tariff(callback: CallbackQuery, services: Services, navigation: Navigation):
     # Selecting a tariff does not create an order; a second explicit tap does.
     await navigation.callback(callback, screens.tariff_details(
@@ -106,6 +114,7 @@ def create_router() -> Router:
     router = Router(name="subscription")
     router.callback_query.register(buy, F.data.in_({"nav:tariffs", "nav:renew", "buy"}))
     router.callback_query.register(launch_tariffs, F.data == "nav:launch_tariffs")
+    router.callback_query.register(launch_tariff_preview, F.data.startswith("launchplan:"))
     router.callback_query.register(select_tariff, F.data.startswith("tariff:"))
     router.callback_query.register(create_test_order, F.data.startswith("paytest:"))
     router.callback_query.register(subscription, F.data == "nav:account")

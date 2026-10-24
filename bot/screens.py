@@ -193,12 +193,40 @@ def launch_tariffs() -> Screen:
     """Display-only proposal. Checkout continues to use the existing prices."""
     body = ("◆ <b>Стартовые тарифы — в подготовке</b>\n"
             f"├ 🟢 1 месяц — <b>{MONTHLY_RUB} ₽</b>\n"
-            f"├ ⭐ Популярный · 3 месяца — <b>{QUARTERLY_RUB} ₽</b>\n"
+            f"├ 🔵 3 месяца — <b>{QUARTERLY_RUB} ₽</b>\n"
             f"│  Экономия {saving_against_monthly(3, QUARTERLY_RUB)} ₽ против трёх помесячных оплат.\n"
-            f"╰ 🔵 Максимальная выгода · 12 месяцев — <b>{ANNUAL_RUB} ₽</b>\n"
+            f"╰ ⭐ Максимальная выгода · 12 месяцев — <b>{ANNUAL_RUB} ₽</b>\n"
             f"   Экономия {saving_against_monthly(12, ANNUAL_RUB)} ₽ против двенадцати помесячных оплат.\n\n"
             "◈ Эти цены пока нельзя оплатить. Действующие тестовые тарифы и суммы платежей не изменены.")
-    return panel("✦ Стартовые тарифы", body, back_keyboard(back="nav:tariffs"))
+    keyboard = back_keyboard(back="nav:tariffs")
+    keyboard.inline_keyboard[:0] = [
+        [InlineKeyboardButton(text=f"1 месяц · {MONTHLY_RUB} ₽ · скоро",
+                              callback_data="launchplan:month", style="success")],
+        [InlineKeyboardButton(text=f"3 месяца · {QUARTERLY_RUB} ₽ · скоро",
+                              callback_data="launchplan:quarter", style="primary")],
+        [InlineKeyboardButton(text=f"⭐ 12 месяцев · {ANNUAL_RUB} ₽ · скоро",
+                              callback_data="launchplan:year", style="success")],
+    ]
+    return panel("✦ Стартовые тарифы", body, keyboard)
+
+
+def launch_tariff_preview(tariff_id: str) -> Screen:
+    """Informational preview only: no order, price lookup, or payment callback."""
+    proposals = {
+        "month": ("1 месяц", MONTHLY_RUB, None),
+        "quarter": ("3 месяца", QUARTERLY_RUB, saving_against_monthly(3, QUARTERLY_RUB)),
+        "year": ("12 месяцев · максимальная выгода", ANNUAL_RUB,
+                 saving_against_monthly(12, ANNUAL_RUB)),
+    }
+    proposal = proposals.get(tariff_id)
+    if proposal is None:
+        return launch_tariffs()
+    label, price, saving = proposal
+    saving_text = f"\n├ Экономия {saving} ₽ относительно помесячной оплаты." if saving else ""
+    return panel("✦ Предварительный тариф",
+                 f"◆ <b>{label} — {price} ₽</b>{saving_text}\n"
+                 "╰ Скоро. Этот тариф пока нельзя оплатить; заказ не создаётся.",
+                 back_keyboard(back="nav:launch_tariffs"))
 
 
 def tariff_details(tariff_id: str, *, test_payment: bool = False) -> Screen:

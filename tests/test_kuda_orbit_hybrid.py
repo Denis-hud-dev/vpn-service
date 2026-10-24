@@ -7,7 +7,7 @@ from aiogram.methods import SendMessage
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bot.db.models import Base, Subscription, SubscriptionHistory, User
-from bot.screens import launch_tariffs, subscription_history
+from bot.screens import launch_tariffs, launch_tariff_preview, subscription_history
 from bot.services import Services, TARIFFS
 from bot.services.account import AccountSnapshot
 from bot.services.subscriptions import SubscriptionService, utcnow
@@ -22,7 +22,16 @@ def test_starter_prices_are_preview_only_and_savings_are_correct():
     assert 'Экономия 80 ₽' in screen.text  # 190 × 3 − 490
     assert 'Экономия 590 ₽' in screen.text  # 190 × 12 − 1690
     assert 'пока нельзя оплатить' in screen.text
-    assert [button.callback_data for row in screen.keyboard.inline_keyboard for button in row] == ['nav:tariffs', 'nav:home']
+    buttons = [button for row in screen.keyboard.inline_keyboard for button in row]
+    assert [button.callback_data for button in buttons] == [
+        'launchplan:month', 'launchplan:quarter', 'launchplan:year', 'nav:tariffs', 'nav:home']
+    assert [button.style for button in buttons[:3]] == ['success', 'primary', 'success']
+    assert [button.model_dump(exclude_none=True)['style'] for button in buttons[:3]] == [
+        'success', 'primary', 'success']
+    assert all('скоро' in button.text for button in buttons[:3])
+    assert 'Максимальная выгода' in screen.text
+    assert 'заказ не создаётся' in launch_tariff_preview('year').text
+    assert not any(button.callback_data.startswith(('tariff:', 'paytest:')) for button in buttons[:3])
     assert [TARIFFS[key].price_rub for key in ('month', 'quarter', 'year')] == [299, 799, 2490]
 
 
@@ -89,6 +98,11 @@ def test_start_and_callbacks_keep_notice_separate_and_retire_old_personal_screen
             await app.callback('nav:tariffs')
             await app.callback('nav:launch_tariffs')
             assert '190 ₽' in app.navigation.views[123].screen.text
+            await app.callback('launchplan:year')
+            assert '1690 ₽' in app.navigation.views[123].screen.text
+            assert 'заказ не создаётся' in app.navigation.views[123].screen.text
+            await app.callback('nav:launch_tariffs')
+            assert '490 ₽' in app.navigation.views[123].screen.text
             await app.callback('nav:tariffs')
             assert '299 ₽' in app.navigation.views[123].screen.text
             assert sum(isinstance(call, SendMessage) for call in app.calls) == 2
@@ -110,6 +124,8 @@ def test_new_navigation_is_only_visible_in_premium_test_interface():
             await app.callback('nav:launch_tariffs')
             assert '190 ₽' not in app.navigation.views[123].screen.text
             assert '299 ₽' in app.navigation.views[123].screen.text
+            await app.callback('launchplan:year')
+            assert '1690 ₽' not in app.navigation.views[123].screen.text
         finally:
             await app.close()
     asyncio.run(run())
