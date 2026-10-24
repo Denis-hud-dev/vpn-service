@@ -72,6 +72,34 @@ def test_old_user_gets_keyboard_without_first_run_banner():
     asyncio.run(run())
 
 
+def test_active_owner_keeps_existing_happ_path_and_one_navigation_screen():
+    async def run():
+        services = Services.demo()
+        services.premium_account_enabled = services.pilot_welcome_enabled = True
+        services.onboarding = MemoryPilotOnboarding()
+        services.onboarding.known.add(123)
+        services.subscriptions.snapshot = AsyncMock(return_value=AccountSnapshot(status='active'))
+        services.happ = AsyncMock()
+        services.happ.issue_for_user.return_value = 'https://subscriptions.example.invalid/s/demo'
+        app = TelegramHarness(services=services)
+        try:
+            await app.text('/start')
+            menu_id = app.navigation.views[123].message_id
+            await app.text('👤 Личный кабинет')
+            assert 'Активна' in app.navigation.views[123].screen.text
+            assert app.navigation.views[123].message_id == menu_id
+            await app.text('🔐 Подключиться')
+            assert 'https://subscriptions.example.invalid/s/demo' in app.navigation.views[123].screen.text
+            assert app.navigation.views[123].message_id == menu_id
+            services.happ.issue_for_user.assert_awaited_once_with(123)
+            await app.text('ℹ️ Информация')
+            assert 'subscriptions.example.invalid' not in app.navigation.views[123].screen.text
+            assert not any(isinstance(call, SendPhoto) for call in app.calls)
+        finally:
+            await app.close()
+    asyncio.run(run())
+
+
 def test_pilot_ledger_survives_restart_without_shared_database_migration(tmp_path):
     async def run():
         engine = create_async_engine('sqlite+aiosqlite:///' + str(tmp_path / 'users.sqlite'))
