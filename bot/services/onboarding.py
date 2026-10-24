@@ -2,6 +2,7 @@
 import asyncio
 import os
 import sqlite3
+from contextlib import closing, contextmanager
 from pathlib import Path
 from sqlalchemy import select
 from bot.db.models import User
@@ -25,13 +26,19 @@ class PilotOnboardingService:
             "welcome_message_id INTEGER, keyboard_installed INTEGER NOT NULL)")
         return connection
 
+    @contextmanager
+    def _transaction(self):
+        with closing(self._connect()) as connection:
+            with connection:
+                yield connection
+
     async def user_exists(self, telegram_id: int) -> bool:
         async with self.sessions() as session:
             return await session.scalar(select(User.telegram_id).where(User.telegram_id == telegram_id)) is not None
 
     async def first_start(self, telegram_id: int, *, new_user: bool) -> bool:
         def claim():
-            with self._connect() as connection:
+            with self._transaction() as connection:
                 result = connection.execute("INSERT OR IGNORE INTO onboarding VALUES (?, ?, NULL, 0)",
                                             (telegram_id, int(new_user)))
                 return bool(new_user and result.rowcount == 1)
@@ -39,14 +46,14 @@ class PilotOnboardingService:
 
     async def record_welcome(self, telegram_id: int, message_id: int) -> None:
         def record():
-            with self._connect() as connection:
+            with self._transaction() as connection:
                 connection.execute("UPDATE onboarding SET welcome_message_id=? "
                     "WHERE telegram_id=? AND welcome_message_id IS NULL", (message_id, telegram_id))
         await asyncio.to_thread(record)
 
     async def valid_welcome(self, telegram_id: int, message_id: int) -> bool:
         def check():
-            with self._connect() as connection:
+            with self._transaction() as connection:
                 row = connection.execute("SELECT welcome_claimed, welcome_message_id FROM onboarding "
                     "WHERE telegram_id=?", (telegram_id,)).fetchone()
                 return bool(row and row[0] and row[1] == message_id)
@@ -54,7 +61,7 @@ class PilotOnboardingService:
 
     async def claim_keyboard(self, telegram_id: int) -> bool:
         def claim():
-            with self._connect() as connection:
+            with self._transaction() as connection:
                 result = connection.execute("UPDATE onboarding SET keyboard_installed=1 "
                     "WHERE telegram_id=? AND keyboard_installed=0", (telegram_id,))
                 return result.rowcount == 1
@@ -62,7 +69,7 @@ class PilotOnboardingService:
 
     async def release_keyboard(self, telegram_id: int) -> None:
         def release():
-            with self._connect() as connection:
+            with self._transaction() as connection:
                 connection.execute("UPDATE onboarding SET keyboard_installed=0 WHERE telegram_id=?",
                                    (telegram_id,))
         await asyncio.to_thread(release)
