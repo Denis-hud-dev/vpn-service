@@ -7,18 +7,22 @@ from bot.services.happ import AccessDenied
 
 
 async def connect(callback: CallbackQuery, navigation: Navigation, services: Services):
+    await connect_for_user(callback.bot, callback.message.chat.id, callback.from_user.id,
+                           navigation, services)
+
+
+async def connect_for_user(bot, chat_id: int, user_id: int, navigation: Navigation, services: Services):
     link = None
     page_url = None
-    private_chat = getattr(getattr(callback.message, 'chat', None), 'type', None) == 'private'
-    if private_chat and services.happ is not None:
+    if services.happ is not None:
         try:
-            link = await services.happ.issue_for_user(callback.from_user.id)
+            link = await services.happ.issue_for_user(user_id)
             if (services.pilot_connect_page_enabled and services.trial is not None
-                    and callback.from_user.id == services.trial.owner_telegram_id):
+                    and user_id == services.trial.owner_telegram_id):
                 page_url = services.happ.connection_page_url(link)
         except AccessDenied:
             pass
-    await navigation.callback(callback, screens.connect(
+    await navigation.show(bot, chat_id, screens.connect(
         link, page_url=page_url, premium_account=services.premium_account_enabled))
 
 

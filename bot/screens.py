@@ -61,6 +61,20 @@ def kuda_smart() -> Screen:
                  back_keyboard(("🚀 Подключить VPN", "nav:connect"), primary="nav:connect"))
 
 
+def information(support_username: str = "") -> Screen:
+    support_line = (f"@{escape(support_username)}" if support_username else
+                    "контакт пока не настроен")
+    body = ("◆ <b>KudaVPN Premium</b> — личный доступ и удобное управление подпиской.\n"
+            "├ Happ: Android и iPhone; инструкции для Windows и macOS — в разделе подключения.\n"
+            "├ Подключение: откройте личную страницу, выберите устройство и импортируйте подписку в Happ.\n"
+            f"├ Поддержка: {support_line}.\n"
+            "╰ Условия использования и политика конфиденциальности пока не опубликованы в боте.")
+    return panel("ℹ️ Информация", body,
+                 back_keyboard(("🚀 Подключить VPN", "nav:connect"),
+                               ("📖 Инструкция", "nav:happ"),
+                               ("💬 Поддержка", "nav:support")))
+
+
 def account(snapshot: AccountSnapshot, *, trial_available: bool = False,
             premium_account: bool = False) -> Screen:
     labels = {"inactive": "Не активна", "active": "Активна", "expired": "Истекла",
