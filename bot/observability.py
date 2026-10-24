@@ -3,7 +3,7 @@ import logging
 from time import perf_counter
 from aiogram import BaseMiddleware
 from aiogram.client.session.middlewares.base import BaseRequestMiddleware
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, ReplyKeyboardMarkup
 from sqlalchemy import event
 
 logger = logging.getLogger(__name__)
@@ -47,8 +47,20 @@ class TelegramTimingMiddleware(BaseRequestMiddleware):
                 raise
         started = perf_counter()
         outcome = 'ok'
+        keyboard = getattr(method, 'reply_markup', None)
+        pilot_keyboard = isinstance(keyboard, ReplyKeyboardMarkup)
+        if pilot_keyboard:
+            rows = [[button.text for button in row] for row in keyboard.keyboard]
+            logger.info('reply_keyboard_request layout_ok=%s persistent=%s',
+                        rows == [['🔑 Подключиться'], ['🏠 Личный кабинет', 'ℹ️ Информация']],
+                        keyboard.is_persistent is True)
         try:
-            return await make_request(bot, method)
+            result = await make_request(bot, method)
+            if pilot_keyboard:
+                # Telegram acknowledges the sent Message; reply keyboards are not
+                # echoed in Message.reply_markup (reserved for inline keyboards).
+                logger.info('reply_keyboard_ack message_received=%s', isinstance(result, Message))
+            return result
         except BaseException:
             outcome = 'interrupted'
             raise

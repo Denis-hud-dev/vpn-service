@@ -102,6 +102,8 @@ class Services:
     test_checkout: object | None = None
     test_payment_owner_id: int | None = None
     premium_account_enabled: bool = False
+    pilot_welcome_enabled: bool = False
+    onboarding: object | None = None
 
     @classmethod
     def demo(cls) -> "Services":
@@ -112,7 +114,9 @@ class Services:
     @classmethod
     def persistent(cls, sessions, *, subscription_public_url: str = "", happ_link_secret: str = "",
                    trial_owner_id: int | None = None, pilot_connect_page_enabled: bool = False,
-                   premium_account_enabled: bool = False) -> "Services":
+                   premium_account_enabled: bool = False,
+                   pilot_welcome_enabled: bool = False,
+                   onboarding_state_file: str = "") -> "Services":
         from bot.services.users import UserService
         from bot.services.subscriptions import SubscriptionService
         from bot.services.devices import DeviceService
@@ -120,6 +124,7 @@ class Services:
         # Payment selection remains a demo; no automatic charge or activation.
         from bot.services.happ import HappService
         from bot.services.pilot_trial import PilotTrialService
+        from bot.services.onboarding import PilotOnboardingService
         happ = (HappService(sessions, subscription_public_url, link_key=happ_link_secret,
                             trial_owner_id=trial_owner_id,
                             trial_node_port=10443 if trial_owner_id else None)
@@ -128,4 +133,7 @@ class Services:
         return cls(DemoPaymentService(), SubscriptionService(sessions), MemoryReferralService(),
                    UserService(sessions), DeviceService(sessions, VPNService(sessions)), happ, trial,
                    pilot_connect_page_enabled and bool(trial_owner_id),
-                   premium_account_enabled=premium_account_enabled and bool(trial_owner_id))
+                   premium_account_enabled=premium_account_enabled and bool(trial_owner_id),
+                   pilot_welcome_enabled=pilot_welcome_enabled and premium_account_enabled and bool(trial_owner_id),
+                   onboarding=PilotOnboardingService(sessions, onboarding_state_file)
+                   if pilot_welcome_enabled and trial_owner_id else None)

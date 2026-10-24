@@ -2,7 +2,7 @@
 from unittest.mock import AsyncMock
 from aiogram import Bot, Dispatcher
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.methods import SendMessage, EditMessageText, EditMessageReplyMarkup
+from aiogram.methods import SendMessage, SendPhoto, EditMessageText, EditMessageReplyMarkup
 from aiogram.types import Message, Update, InlineKeyboardMarkup
 from bot.config import Config
 from bot.handlers import create_router
@@ -54,6 +54,11 @@ class TelegramHarness:
             self.messages[(method.chat_id, self.sequence)] = message
             if method.reply_markup is not None and not isinstance(method.reply_markup, InlineKeyboardMarkup):
                 self.noneditable_messages.add((method.chat_id, self.sequence))
+            return message
+        if isinstance(method, SendPhoto):
+            self.sequence += 1
+            message = self.bot_message(method.chat_id, self.sequence, method.caption, method.reply_markup)
+            self.messages[(method.chat_id, self.sequence)] = message
             return message
         if isinstance(method, (EditMessageText, EditMessageReplyMarkup)):
             if (method.chat_id, method.message_id) in self.noneditable_messages:
