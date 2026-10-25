@@ -42,7 +42,7 @@ def test_old_tariff_buttons_cannot_create_old_price_order_in_premium():
         try:
             await app.text('/start')
             await app.callback('nav:tariffs')
-            for old in ('nav:launch_tariffs', 'launchplan:year', 'paytest:month'):
+            for old in ('nav:launch_tariffs', 'launchplan:year'):
                 await app.callback(old)
                 assert '199 ₽' in app.navigation.views[123].screen.text
             services.test_checkout.create_for_user.assert_not_awaited()
@@ -51,9 +51,9 @@ def test_old_tariff_buttons_cannot_create_old_price_order_in_premium():
             assert '199 ₽' in text and '299 ₽' not in text
             services.test_checkout.create_for_user.assert_not_awaited()
             await app.callback('paytest:pilot_month_199')
-            services.test_checkout.create_for_user.assert_awaited_once_with(123, 'pilot_month_199')
-            assert '199 ₽' in app.navigation.views[123].screen.text
-            assert '299 ₽' not in app.navigation.views[123].screen.text
+            services.test_checkout.create_for_user.assert_not_awaited()
+            assert 'Stars' in app.navigation.views[123].screen.text
+            assert not any(b.url for row in app.navigation.views[123].screen.keyboard.inline_keyboard for b in row)
             await app.callback('nav:tariffs')
             assert 'Тарифы' in app.navigation.views[123].screen.text
         finally:

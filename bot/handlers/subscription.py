@@ -4,13 +4,13 @@ from aiogram.types import CallbackQuery
 from sqlalchemy.exc import SQLAlchemyError
 from bot.navigation import Navigation
 from bot import screens
-from bot.services import Services, PILOT_TARIFFS
+from bot.services import Services
 
 
 def pilot_payment_allowed(callback: CallbackQuery, services: Services) -> bool:
-    return bool(services.test_checkout is not None and services.test_payment_owner_id
-                and callback.from_user.id == services.test_payment_owner_id
-                and getattr(getattr(callback.message, 'chat', None), 'type', None) == 'private')
+    # VPN is a digital service. No external-provider checkout steering from a
+    # Telegram bot, including owner-only menus. Standalone web checkout is separate.
+    return False
 
 
 async def buy(callback: CallbackQuery, services: Services, navigation: Navigation):
@@ -28,21 +28,11 @@ async def select_tariff(callback: CallbackQuery, services: Services, navigation:
 
 
 async def create_test_order(callback: CallbackQuery, services: Services, navigation: Navigation):
-    if not pilot_payment_allowed(callback, services):
-        await navigation.callback(callback, screens.panel('🧪 Тестовая оплата', '◆ Доступно только владельцу тестового аккаунта.'))
-        return
-    tariff_id = (callback.data or '').partition(':')[2]
-    if services.premium_account_enabled and tariff_id not in PILOT_TARIFFS:
-        await buy(callback, services, navigation)
-        return
-    try:
-        intent = await services.test_checkout.create_for_user(callback.from_user.id, tariff_id)
-    except (ValueError, RuntimeError, OSError, TimeoutError):
-        await navigation.callback(callback, screens.panel('🧪 Тестовая оплата',
-            '◆ Создать тестовый заказ пока не удалось.\n╰ Повторите попытку позже.'))
-        return
-    await navigation.callback(callback, screens.test_checkout(
-        tariff_id, intent.confirmation_url, pilot=services.premium_account_enabled))
+    # Retire old callback data without creating an external-provider order.
+    await navigation.callback(callback, screens.panel('💳 Оплата в Telegram',
+        '◆ Для цифровых подписок Telegram требует Stars.\n'
+        '╰ Покупка в боте пока не включена; внешний платёж здесь не создаётся.',
+        screens.back_keyboard(back='nav:tariffs')))
 
 
 async def account_for_user(services: Services, user_id: int):
