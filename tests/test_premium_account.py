@@ -30,7 +30,7 @@ def test_premium_menu_account_devices_help_and_renewal():
                 'nav:connect', 'nav:account', 'nav:tariffs', 'nav:smart',
                 'nav:devices', 'nav:invite', 'nav:help']
             assert 'Подписка: <b>Активна</b>' in menu.text
-            for route, title in [('nav:account', 'Личный кабинет'), ('nav:renew', 'Тарифы'),
+            for route, title in [('nav:account', 'Kuda Status'), ('nav:renew', 'Тарифы'),
                                  ('nav:subscription', 'Моя подписка'),
                                  ('nav:devices', 'Мои устройства'), ('nav:traffic', 'Мой трафик'),
                                  ('nav:billing', 'Оплата и автопродление'),

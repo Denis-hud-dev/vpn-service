@@ -38,6 +38,9 @@ def test_premium_sections_navigate_back_without_duplicate_messages_or_side_effec
                 ('nav:invite', 'Бонус за приглашение не начисляется'),
             ):
                 await app.callback('nav:account')
+                if destination not in ('nav:subscription', 'nav:devices'):
+                    assert 'nav:manage' in routes(app.navigation.views[123].screen)
+                    await app.callback('nav:manage')
                 assert destination in routes(app.navigation.views[123].screen)
                 before = len([call for call in app.calls if isinstance(call, AnswerCallbackQuery)])
                 await app.callback(destination)

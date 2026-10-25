@@ -75,6 +75,13 @@ async def subscription(callback: CallbackQuery, services: Services, navigation: 
     await navigation.callback(callback, await account_for_user(services, callback.from_user.id))
 
 
+async def management(callback: CallbackQuery, services: Services, navigation: Navigation):
+    if not services.premium_account_enabled:
+        await subscription(callback, services, navigation)
+        return
+    await navigation.callback(callback, screens.account_management())
+
+
 async def subscription_details(callback: CallbackQuery, services: Services, navigation: Navigation):
     snapshot = await services.subscriptions.snapshot(callback.from_user.id)
     await navigation.callback(callback, screens.subscription_details(
@@ -129,6 +136,7 @@ def create_router() -> Router:
     router.callback_query.register(select_tariff, F.data.startswith("tariff:"))
     router.callback_query.register(create_test_order, F.data.startswith("paytest:"))
     router.callback_query.register(subscription, F.data == "nav:account")
+    router.callback_query.register(management, F.data == "nav:manage")
     router.callback_query.register(subscription_details, F.data == "nav:subscription")
     router.callback_query.register(subscription_history, F.data == "nav:history")
     router.callback_query.register(billing, F.data == "nav:billing")

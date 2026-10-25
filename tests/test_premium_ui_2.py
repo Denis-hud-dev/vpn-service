@@ -69,7 +69,7 @@ def test_premium_navigation_keeps_one_screen_and_does_not_delete_start():
                 ('nav:smart', 'в разработке'), ('nav:home', 'Свобода подключения.'),
                 ('nav:devices', 'пока недоступны'), ('nav:home', 'Свобода подключения.'),
                 ('nav:invite', 'не запущены'), ('nav:home', 'Свобода подключения.'),
-                ('nav:help', 'Как подключиться?'), ('nav:account', 'Личный кабинет'),
+                ('nav:help', 'Как подключиться?'), ('nav:account', 'Kuda Status'),
                 ('nav:tariffs', 'Выберите срок доступа'), ('nav:home', 'Свобода подключения.'),
             ):
                 acknowledged = sum(isinstance(call, AnswerCallbackQuery) for call in app.calls)
