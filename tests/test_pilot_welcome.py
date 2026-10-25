@@ -132,7 +132,7 @@ def test_active_owner_keeps_existing_happ_path_and_opens_new_sections():
             await app.text('/start')
             menu_id = app.navigation.views[123].message_id
             await app.text('🏠 Личный кабинет')
-            assert 'Активна' in app.navigation.views[123].screen.text
+            assert 'Подписка активна' in app.navigation.views[123].screen.text
             assert 'Осталось:' in app.navigation.views[123].screen.text
             account_id = app.navigation.views[123].message_id
             assert account_id != menu_id
@@ -197,7 +197,7 @@ def test_old_screen_delete_and_edit_refusals_leave_new_navigation_usable():
             app.fail_edit = None
             app.fail_delete = None
             await app.text('🏠 Личный кабинет')
-            assert 'Личный кабинет' in app.navigation.views[123].screen.text
+            assert 'Kuda Status' in app.navigation.views[123].screen.text
         finally:
             await app.close()
     asyncio.run(run())

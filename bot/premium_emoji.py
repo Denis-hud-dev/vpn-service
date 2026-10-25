@@ -37,6 +37,7 @@ EMOJI = {
 
 # Only fixed copy is decorated. Never replace inside personal URLs or user data.
 HEADINGS = {
+    "✦ Kuda Status": ("status", "Kuda Status"),
     "◈ Kuda Status · Личный кабинет": ("status", "Kuda Status · Личный кабинет"),
     "🚀 Подключить VPN": ("connect", "Подключить VPN"),
     "👤 Личный кабинет": ("subscription", "Личный кабинет"),
@@ -59,6 +60,9 @@ HEADINGS = {
 }
 
 BUTTONS = {
+    "🔵 Подключиться": ("connect", "Подключиться"),
+    "💎 Продлить подписку": ("renew", "Продлить подписку"),
+    "📋 Моя подписка": ("subscription", "Моя подписка"),
     "🔑 Подключиться": ("connect", "Подключиться"),
     "↻ Продлить": ("renew", "Продлить"),
     "🚀 Подключить VPN": ("connect", "Подключить VPN"),

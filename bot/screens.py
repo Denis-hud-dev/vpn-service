@@ -96,63 +96,79 @@ def information(support_username: str = "") -> Screen:
 
 def account(snapshot: AccountSnapshot, *, trial_available: bool = False,
             premium_account: bool = False, node_names: tuple[str, ...] | None = None) -> Screen:
+    if premium_account:
+        return kuda_status(snapshot, trial_available=trial_available, node_names=node_names)
     labels = {"inactive": "Не активна", "active": "Активна", "expired": "Истекла",
               "pending": "Ожидает активации", "blocked": "Заблокирована"}
-    end = expiry_label(snapshot.expires_at)
-    devices = ("Подключаются через Happ" if premium_account else
-               str(snapshot.device_count) if snapshot.device_count is not None else "Нет данных")
+    devices = str(snapshot.device_count) if snapshot.device_count is not None else "Нет данных"
     traffic = f"{snapshot.traffic_bytes / (1024 ** 3):.2f} ГБ" if snapshot.traffic_bytes is not None else "Нет данных"
     body = (f"◆ Статус: <b>{labels.get(snapshot.status, 'Нет данных')}</b>\n"
             f"├ Тариф: {escape(snapshot.tariff_label or 'Нет данных')}\n"
-            f"├ Действует до: {end}\n"
+            f"├ Действует до: {expiry_label(snapshot.expires_at)}\n"
             f"├ Осталось: {remaining_label(snapshot)}\n"
             f"├ Устройства: {devices}\n"
             f"╰ Трафик: {traffic}")
-    if premium_account:
-        body = (f"◆ Статус: <b>{labels.get(snapshot.status, 'Нет данных')}</b>\n"
-                f"├ Тариф: {escape(snapshot.tariff_label or 'Не сохранён')}\n"
-                f"├ Действует до: {end}\n"
-                f"╰ Осталось: {remaining_label(snapshot)}")
-        if snapshot.status != "active":
-            nodes = "Узлы доступны после активации подписки."
-        elif node_names is None:
-            nodes = "Сведения временно недоступны. Попробуйте позже."
-        elif not node_names:
-            nodes = "Сейчас нет подтверждённых доступных узлов. Попробуйте позже."
-        else:
-            nodes = "\n".join(f"├ {escape(name[:100])}" for name in node_names[:6])
-            if len(node_names) > 6:
-                nodes += f"\n╰ Ещё {len(node_names) - 6} — в подписке Happ."
-            nodes += "\nЭто узлы вашей подписки по последней проверке сервера; связь с вашего устройства проверяет Happ."
-        body += f"\n\n◈ <b>VPN-узлы</b>\n{nodes}"
-        body += "\n\n<i>При продлении личная ссылка Happ остаётся прежней.</i>"
-    buttons = []
-    if trial_available:
-        buttons.append(("🎁 Бесплатный тест — 24 часа", "pilot:grant"))
-    if premium_account:
-        buttons.extend((("🔑 Подключиться", "nav:connect"),
-                        ("↻ Продлить", "nav:renew"),
-                        ("◈ Моя подписка", "nav:subscription"),
-                        ("◷ История подписки", "nav:history"),
-                        ("📱 Мои устройства", "nav:devices"),
-                        ("📊 Трафик", "nav:traffic"),
-                        ("💳 Оплата и автопродление", "nav:billing"),
-                        ("🎁 Подарить подписку", "nav:gift"),
-                        ("◈ Пригласить друга", "nav:invite")))
+    buttons = [("🎁 Бесплатный тест — 24 часа", "pilot:grant")] if trial_available else []
+    buttons.extend((("💎 Тарифы", "nav:tariffs"), ("📱 Устройства", "nav:devices")))
+    return panel("👤 Личный кабинет", body,
+                 back_keyboard(*buttons, primary="pilot:grant" if trial_available else None))
+
+
+def kuda_status(snapshot: AccountSnapshot, *, trial_available: bool = False,
+                node_names: tuple[str, ...] | None = None) -> Screen:
+    # Expiry remains authoritative even if a stale snapshot still says active.
+    status = snapshot.status
+    if status == "active" and snapshot.expires_at is not None:
+        end = snapshot.expires_at.replace(tzinfo=timezone.utc) if snapshot.expires_at.tzinfo is None else snapshot.expires_at
+        if end <= datetime.now(timezone.utc):
+            status = "expired"
+    states = {"active": "🟢 Подписка активна", "expired": "◈ Срок подписки истёк",
+              "inactive": "◈ Подписка не активна", "pending": "◈ Ожидает активации",
+              "blocked": "◈ Доступ заблокирован"}
+    expiry = expiry_label(snapshot.expires_at)
+    # The full timestamp remains in «Моя подписка»; the summary names UTC explicitly.
+    if snapshot.expires_at is not None:
+        expiry = expiry.split(" ")[0] + " · UTC"
+    remaining = remaining_label(snapshot) if status == snapshot.status else "Срок истёк"
+    if status != "active":
+        nodes = "Серверы доступны после активации подписки."
+    elif node_names is None:
+        nodes = "Сведения временно недоступны. Попробуйте позже."
+    elif not node_names:
+        nodes = "Сейчас нет подтверждённых доступных серверов. Попробуйте позже."
     else:
-        buttons.extend((("💎 Тарифы", "nav:tariffs"), ("📱 Устройства", "nav:devices")))
-    keyboard = back_keyboard(*buttons, primary="pilot:grant" if trial_available else
-                             "nav:connect" if premium_account else None)
-    if premium_account:
-        # Keep primary actions full-width; group existing secondary actions compactly.
-        fixed = 3 if trial_available else 2
-        rows = keyboard.inline_keyboard
-        secondary = rows[fixed:-1]
-        keyboard.inline_keyboard = rows[:fixed] + [
-            [button for row in secondary[i:i + 2] for button in row]
-            for i in range(0, len(secondary), 2)
-        ] + rows[-1:]
-    return panel("◈ Kuda Status · Личный кабинет" if premium_account else "👤 Личный кабинет", body, keyboard)
+        nodes = "\n".join(f"<b>{escape(name[:100])}</b>\n🟢 Доступен · проверен сервером"
+                          for name in node_names[:4])
+        if len(node_names) > 4:
+            nodes += f"\nЕщё {len(node_names) - 4} — в подписке Happ."
+    body = (f"<b>{states.get(status, '◈ Статус недоступен')}</b>\n\n"
+            f"◆ Тариф: <b>{escape(snapshot.tariff_label or 'Не сохранён')}</b>\n"
+            f"├ Осталось: {remaining}\n"
+            f"╰ Действует до: {expiry}\n\n"
+            f"🌐 <b>ВАШИ СЕРВЕРЫ</b>\n{nodes}\n\n"
+            "<i>Свобода подключения. Простота управления.</i>")
+    actions = [("🔵 Подключиться", "nav:connect"), ("💎 Продлить подписку", "nav:renew")]
+    if trial_available:
+        actions.insert(0, ("🎁 Бесплатный тест — 24 часа", "pilot:grant"))
+    keyboard = back_keyboard(*actions, primary="nav:connect")
+    keyboard.inline_keyboard[-1:-1] = [
+        [InlineKeyboardButton(text="📋 Моя подписка", callback_data="nav:subscription"),
+         InlineKeyboardButton(text="📱 Мои устройства", callback_data="nav:devices")],
+        [InlineKeyboardButton(text="⚙️ Управление", callback_data="nav:manage")],
+    ]
+    return Screen(f"{BRAND}\n<b>✦ Kuda Status</b>\n\n{body}", keyboard)
+
+
+def account_management() -> Screen:
+    return panel("⚙️ Управление",
+                 "◆ История и дополнительные возможности вашей подписки.\n"
+                 "╰ Доступность каждого действия указана внутри раздела.",
+                 back_keyboard(("◷ История подписки", "nav:history"),
+                               ("📊 Трафик", "nav:traffic"),
+                               ("💳 Оплата и автопродление", "nav:billing"),
+                               ("🎁 Подарить подписку", "nav:gift"),
+                               ("◈ Пригласить друга", "nav:invite"),
+                               back="nav:account"))
 
 
 def subscription_details(snapshot: AccountSnapshot, *, premium_account: bool = False) -> Screen:
