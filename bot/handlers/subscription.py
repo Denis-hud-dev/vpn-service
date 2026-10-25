@@ -55,13 +55,24 @@ async def create_test_order(callback: CallbackQuery, services: Services, navigat
     await navigation.callback(callback, screens.test_checkout(tariff_id, intent.confirmation_url))
 
 
-async def subscription(callback: CallbackQuery, services: Services, navigation: Navigation):
-    snapshot = await services.subscriptions.snapshot(callback.from_user.id)
+async def account_for_user(services: Services, user_id: int):
+    snapshot = await services.subscriptions.snapshot(user_id)
     trial_available = bool(services.trial and
-        callback.from_user.id == services.trial.owner_telegram_id and
+        user_id == services.trial.owner_telegram_id and
         snapshot.status == 'inactive')
-    await navigation.callback(callback, screens.account(snapshot, trial_available=trial_available,
-        premium_account=services.premium_account_enabled))
+    node_names = None
+    if services.premium_account_enabled and services.happ is not None and snapshot.status == 'active':
+        try:
+            node_names = await asyncio.wait_for(
+                services.happ.available_node_names_for_user(user_id), timeout=3)
+        except (SQLAlchemyError, TimeoutError, OSError):
+            pass
+    return screens.account(snapshot, trial_available=trial_available,
+        premium_account=services.premium_account_enabled, node_names=node_names)
+
+
+async def subscription(callback: CallbackQuery, services: Services, navigation: Navigation):
+    await navigation.callback(callback, await account_for_user(services, callback.from_user.id))
 
 
 async def subscription_details(callback: CallbackQuery, services: Services, navigation: Navigation):

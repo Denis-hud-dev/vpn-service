@@ -131,6 +131,23 @@ class HappService:
             subscription_id = sub.id
         return await self.issue(subscription_id)
 
+    async def available_node_names_for_user(self, telegram_id: int) -> tuple[str, ...]:
+        """Read-only Status view using the feed's entitlement and health checks.
+
+        Return public labels only; never issue a token or expose credentials.
+        This confirms eligibility for the feed, not reachability from a phone.
+        """
+        async with self.sessions() as session:
+            sub = await session.scalar(select(Subscription).join(User, User.id == Subscription.user_id)
+                .where(User.telegram_id == telegram_id))
+            if sub is None or not await entitled(session, sub, trial_owner_id=self.trial_owner_id):
+                return ()
+            token = await session.scalar(select(SubscriptionToken).where(
+                SubscriptionToken.subscription_id == sub.id))
+            if token is None or token.revoked:
+                return ()
+            return tuple(node.name for node, _ in await self._live_nodes(session, sub.id))
+
     async def issue(self, subscription_id):
         async with self.sessions.begin() as session:
             sub = await session.scalar(select(Subscription).where(Subscription.id == subscription_id).with_for_update())

@@ -50,7 +50,7 @@ def test_supported_html_and_button_icons_preserve_callbacks_and_private_link():
 def test_account_tariffs_and_menu_receive_relevant_icons_without_duplicate_text():
     for screen, expected in (
         (home(premium_account=True), 'premium'),
-        (account(AccountSnapshot(status='active'), premium_account=True), 'subscription'),
+        (account(AccountSnapshot(status='active'), premium_account=True), 'status'),
         (tariffs(test_payment=True), 'plans'),
     ):
         branded = decorate(screen)

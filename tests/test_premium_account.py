@@ -55,6 +55,7 @@ def test_premium_client_navigation_and_unrecognised_text_keep_one_screen():
             status='active', tariff_label='1 месяц — 299 ₽',
             expires_at=utcnow() + timedelta(days=10)))
         services.happ = AsyncMock()
+        services.happ.available_node_names_for_user.return_value = ("Test node",)
         services.happ.issue_for_user.return_value = 'https://subscriptions.example/s/' + 'a' * 43
         app = TelegramHarness(services=services)
         try:
