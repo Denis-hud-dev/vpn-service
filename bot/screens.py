@@ -95,7 +95,7 @@ def information(support_username: str = "") -> Screen:
 
 
 def account(snapshot: AccountSnapshot, *, trial_available: bool = False,
-            premium_account: bool = False) -> Screen:
+            premium_account: bool = False, node_names: tuple[str, ...] | None = None) -> Screen:
     labels = {"inactive": "Не активна", "active": "Активна", "expired": "Истекла",
               "pending": "Ожидает активации", "blocked": "Заблокирована"}
     end = expiry_label(snapshot.expires_at)
@@ -108,11 +108,30 @@ def account(snapshot: AccountSnapshot, *, trial_available: bool = False,
             f"├ Осталось: {remaining_label(snapshot)}\n"
             f"├ Устройства: {devices}\n"
             f"╰ Трафик: {traffic}")
+    if premium_account:
+        body = (f"◆ Статус: <b>{labels.get(snapshot.status, 'Нет данных')}</b>\n"
+                f"├ Тариф: {escape(snapshot.tariff_label or 'Не сохранён')}\n"
+                f"├ Действует до: {end}\n"
+                f"╰ Осталось: {remaining_label(snapshot)}")
+        if snapshot.status != "active":
+            nodes = "Узлы доступны после активации подписки."
+        elif node_names is None:
+            nodes = "Сведения временно недоступны. Попробуйте позже."
+        elif not node_names:
+            nodes = "Сейчас нет подтверждённых доступных узлов. Попробуйте позже."
+        else:
+            nodes = "\n".join(f"├ {escape(name[:100])}" for name in node_names[:6])
+            if len(node_names) > 6:
+                nodes += f"\n╰ Ещё {len(node_names) - 6} — в подписке Happ."
+            nodes += "\nЭто узлы вашей подписки по последней проверке сервера; связь с вашего устройства проверяет Happ."
+        body += f"\n\n◈ <b>VPN-узлы</b>\n{nodes}"
+        body += "\n\n<i>При продлении личная ссылка Happ остаётся прежней.</i>"
     buttons = []
     if trial_available:
         buttons.append(("🎁 Бесплатный тест — 24 часа", "pilot:grant"))
     if premium_account:
-        buttons.extend((("🚀 Подключить VPN", "nav:connect"),
+        buttons.extend((("🔑 Подключиться", "nav:connect"),
+                        ("↻ Продлить", "nav:renew"),
                         ("◈ Моя подписка", "nav:subscription"),
                         ("◷ История подписки", "nav:history"),
                         ("📱 Мои устройства", "nav:devices"),
@@ -122,9 +141,18 @@ def account(snapshot: AccountSnapshot, *, trial_available: bool = False,
                         ("◈ Пригласить друга", "nav:invite")))
     else:
         buttons.extend((("💎 Тарифы", "nav:tariffs"), ("📱 Устройства", "nav:devices")))
-    return panel("👤 Личный кабинет", body,
-                 back_keyboard(*buttons, primary="pilot:grant" if trial_available else
-                               "nav:connect" if premium_account else None))
+    keyboard = back_keyboard(*buttons, primary="pilot:grant" if trial_available else
+                             "nav:connect" if premium_account else None)
+    if premium_account:
+        # Keep primary actions full-width; group existing secondary actions compactly.
+        fixed = 3 if trial_available else 2
+        rows = keyboard.inline_keyboard
+        secondary = rows[fixed:-1]
+        keyboard.inline_keyboard = rows[:fixed] + [
+            [button for row in secondary[i:i + 2] for button in row]
+            for i in range(0, len(secondary), 2)
+        ] + rows[-1:]
+    return panel("◈ Kuda Status · Личный кабинет" if premium_account else "👤 Личный кабинет", body, keyboard)
 
 
 def subscription_details(snapshot: AccountSnapshot, *, premium_account: bool = False) -> Screen:

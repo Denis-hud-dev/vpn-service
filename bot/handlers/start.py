@@ -12,6 +12,7 @@ from bot.screens import home
 from bot import screens
 from bot.keyboards.reply import CONNECT, ACCOUNT, INFO, premium_reply_keyboard
 from bot.handlers.instructions import connect_for_user
+from bot.handlers.subscription import account_for_user
 from bot.config import Config
 from bot.services import Services, parse_referrer
 
@@ -117,11 +118,8 @@ async def reply_connect(message: Message, navigation: Navigation, services: Serv
 
 async def reply_account(message: Message, navigation: Navigation, services: Services):
     if services.pilot_welcome_enabled:
-        snapshot = await services.subscriptions.snapshot(message.from_user.id)
-        trial_available = bool(services.trial and
-            message.from_user.id == services.trial.owner_telegram_id and snapshot.status == 'inactive')
-        await navigation.show(message.bot, message.chat.id, screens.account(snapshot,
-            trial_available=trial_available, premium_account=True), new_message=True)
+        await navigation.show(message.bot, message.chat.id,
+            await account_for_user(services, message.from_user.id), new_message=True)
     else:
         await navigation.show(message.bot, message.chat.id,
                               await home_for_user(services, message.from_user.id))

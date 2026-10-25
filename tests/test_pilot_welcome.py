@@ -125,6 +125,7 @@ def test_active_owner_keeps_existing_happ_path_and_opens_new_sections():
         services.onboarding.known.add(123)
         services.subscriptions.snapshot = AsyncMock(return_value=AccountSnapshot(status='active'))
         services.happ = AsyncMock()
+        services.happ.available_node_names_for_user.return_value = ("Test node",)
         services.happ.issue_for_user.return_value = 'https://subscriptions.example.invalid/s/demo'
         app = TelegramHarness(services=services)
         try:

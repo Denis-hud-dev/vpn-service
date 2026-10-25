@@ -81,6 +81,7 @@ class DeviceReader(Protocol):
 
 class HappLinkIssuer(Protocol):
     async def issue_for_user(self, telegram_id: int) -> str: ...
+    async def available_node_names_for_user(self, telegram_id: int) -> tuple[str, ...]: ...
 
 
 class TrialActivator(Protocol):
