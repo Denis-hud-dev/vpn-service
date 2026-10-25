@@ -4,7 +4,7 @@ from aiogram.types import CallbackQuery
 from sqlalchemy.exc import SQLAlchemyError
 from bot.navigation import Navigation
 from bot import screens
-from bot.services import Services
+from bot.services import Services, PILOT_TARIFFS
 
 
 def pilot_payment_allowed(callback: CallbackQuery, services: Services) -> bool:
@@ -19,26 +19,12 @@ async def buy(callback: CallbackQuery, services: Services, navigation: Navigatio
         premium_account=services.premium_account_enabled))
 
 
-async def launch_tariffs(callback: CallbackQuery, services: Services, navigation: Navigation):
-    if not services.premium_account_enabled:
-        await buy(callback, services, navigation)
-        return
-    await navigation.callback(callback, screens.launch_tariffs())
-
-
-async def launch_tariff_preview(callback: CallbackQuery, services: Services, navigation: Navigation):
-    if not services.premium_account_enabled:
-        await buy(callback, services, navigation)
-        return
-    await navigation.callback(callback, screens.launch_tariff_preview(
-        (callback.data or "").partition(":")[2]))
-
-
 async def select_tariff(callback: CallbackQuery, services: Services, navigation: Navigation):
     # Selecting a tariff does not create an order; a second explicit tap does.
     await navigation.callback(callback, screens.tariff_details(
         (callback.data or "").partition(":")[2],
-        test_payment=pilot_payment_allowed(callback, services)))
+        test_payment=pilot_payment_allowed(callback, services),
+        pilot=services.premium_account_enabled))
 
 
 async def create_test_order(callback: CallbackQuery, services: Services, navigation: Navigation):
@@ -46,13 +32,17 @@ async def create_test_order(callback: CallbackQuery, services: Services, navigat
         await navigation.callback(callback, screens.panel('🧪 Тестовая оплата', '◆ Доступно только владельцу тестового аккаунта.'))
         return
     tariff_id = (callback.data or '').partition(':')[2]
+    if services.premium_account_enabled and tariff_id not in PILOT_TARIFFS:
+        await buy(callback, services, navigation)
+        return
     try:
         intent = await services.test_checkout.create_for_user(callback.from_user.id, tariff_id)
     except (ValueError, RuntimeError, OSError, TimeoutError):
         await navigation.callback(callback, screens.panel('🧪 Тестовая оплата',
             '◆ Создать тестовый заказ пока не удалось.\n╰ Повторите попытку позже.'))
         return
-    await navigation.callback(callback, screens.test_checkout(tariff_id, intent.confirmation_url))
+    await navigation.callback(callback, screens.test_checkout(
+        tariff_id, intent.confirmation_url, pilot=services.premium_account_enabled))
 
 
 async def account_for_user(services: Services, user_id: int):
@@ -131,8 +121,8 @@ async def grant_trial(callback: CallbackQuery, services: Services, navigation: N
 def create_router() -> Router:
     router = Router(name="subscription")
     router.callback_query.register(buy, F.data.in_({"nav:tariffs", "nav:renew", "buy"}))
-    router.callback_query.register(launch_tariffs, F.data == "nav:launch_tariffs")
-    router.callback_query.register(launch_tariff_preview, F.data.startswith("launchplan:"))
+    # Retired preview callbacks can only return to the current tariff list.
+    router.callback_query.register(buy, (F.data == "nav:launch_tariffs") | F.data.startswith("launchplan:"))
     router.callback_query.register(select_tariff, F.data.startswith("tariff:"))
     router.callback_query.register(create_test_order, F.data.startswith("paytest:"))
     router.callback_query.register(subscription, F.data == "nav:account")

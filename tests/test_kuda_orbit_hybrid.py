@@ -7,31 +7,20 @@ from aiogram.methods import SendMessage
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bot.db.models import Base, Subscription, SubscriptionHistory, User
-from bot.screens import launch_tariffs, launch_tariff_preview, subscription_history
+from bot.screens import tariffs, subscription_history
 from bot.services import Services, TARIFFS
 from bot.services.account import AccountSnapshot
 from bot.services.subscriptions import SubscriptionService, utcnow
 from tests.fake_telegram import TelegramHarness
 
 
-def test_starter_prices_are_preview_only_and_savings_are_correct():
-    screen = launch_tariffs()
-    assert '1 месяц — <b>190 ₽</b>' in screen.text
-    assert '3 месяца — <b>490 ₽</b>' in screen.text
-    assert '12 месяцев — <b>1690 ₽</b>' in screen.text
-    assert 'Экономия 80 ₽' in screen.text  # 190 × 3 − 490
-    assert 'Экономия 590 ₽' in screen.text  # 190 × 12 − 1690
-    assert 'пока нельзя оплатить' in screen.text
+def test_retired_starter_section_is_absent_and_legacy_prices_are_preserved():
+    screen = tariffs(premium_account=True, test_payment=True)
+    assert '199 ₽' in screen.text and '299 ₽' not in screen.text
+    assert 'Стартовые' not in screen.text and 'скоро' not in screen.text.lower()
     buttons = [button for row in screen.keyboard.inline_keyboard for button in row]
-    assert [button.callback_data for button in buttons] == [
-        'launchplan:month', 'launchplan:quarter', 'launchplan:year', 'nav:tariffs', 'nav:home']
-    assert [button.style for button in buttons[:3]] == ['success', 'primary', 'success']
-    assert [button.model_dump(exclude_none=True)['style'] for button in buttons[:3]] == [
-        'success', 'primary', 'success']
-    assert all('скоро' in button.text for button in buttons[:3])
-    assert 'Максимальная выгода' in screen.text
-    assert 'заказ не создаётся' in launch_tariff_preview('year').text
-    assert not any(button.callback_data.startswith(('tariff:', 'paytest:')) for button in buttons[:3])
+    assert [button.style for button in buttons[:3]] == ['success', 'primary', 'primary']
+    assert all(not (button.callback_data or '').startswith(('launchplan:', 'nav:launch')) for button in buttons)
     assert [TARIFFS[key].price_rub for key in ('month', 'quarter', 'year')] == [299, 799, 2490]
 
 
@@ -96,15 +85,11 @@ def test_start_and_callbacks_keep_notice_separate_and_retire_old_personal_screen
             assert 'Пока нет записанных изменений' in app.navigation.views[123].screen.text
             await app.callback('nav:account')
             await app.callback('nav:tariffs')
-            await app.callback('nav:launch_tariffs')
-            assert '190 ₽' in app.navigation.views[123].screen.text
-            await app.callback('launchplan:year')
-            assert '1690 ₽' in app.navigation.views[123].screen.text
-            assert 'заказ не создаётся' in app.navigation.views[123].screen.text
-            await app.callback('nav:launch_tariffs')
-            assert '490 ₽' in app.navigation.views[123].screen.text
-            await app.callback('nav:tariffs')
-            assert '299 ₽' in app.navigation.views[123].screen.text
+            for retired in ('nav:launch_tariffs', 'launchplan:year'):
+                await app.callback(retired)
+                assert '199 ₽' in app.navigation.views[123].screen.text
+                assert '1690 ₽' not in app.navigation.views[123].screen.text
+                assert 'Стартовые' not in app.navigation.views[123].screen.text
             assert sum(isinstance(call, SendMessage) for call in app.calls) == 2
         finally:
             await app.close()

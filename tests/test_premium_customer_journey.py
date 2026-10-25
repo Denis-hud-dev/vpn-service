@@ -9,7 +9,7 @@ from aiogram.methods import DeleteMessage, SendPhoto
 from aiogram.types import ReplyKeyboardMarkup, ReplyKeyboardRemove
 
 from bot.keyboards.reply import ACCOUNT, CONNECT, INFO
-from bot.services import Services, TARIFFS
+from bot.services import Services, TARIFFS, PILOT_TARIFFS
 from bot.services.account import AccountSnapshot
 from bot.services.happ import AccessDenied
 from bot.services.onboarding import MemoryPilotOnboarding
@@ -57,16 +57,11 @@ def test_pilot_customer_can_traverse_sections_without_order_or_lost_receipt(stat
                 await tap(route)
                 await tap('nav:account')
             await tap('nav:renew')
-            for tariff in TARIFFS:
+            for tariff in PILOT_TARIFFS:
                 await tap('tariff:' + tariff)
                 assert 'paytest:' + tariff in [
                     b.callback_data for row in screen().keyboard.inline_keyboard for b in row]
                 await tap('nav:tariffs')
-            await tap('nav:launch_tariffs')
-            for proposal in ('month', 'quarter', 'year'):
-                await tap('launchplan:' + proposal)
-                assert 'заказ не создаётся' in screen().text
-                await tap('nav:launch_tariffs')
             await tap('nav:home')
             await tap('nav:smart')
             await tap('nav:home')

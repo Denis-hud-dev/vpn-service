@@ -18,6 +18,15 @@ TARIFFS = {
     "year": Tariff("year", 12, 2490, "12 месяцев — 2490 ₽"),
 }
 
+# A new price is a new tariff version: never reinterpret old 299 RUB orders.
+# Only the isolated Premium checkout opts into this catalog.
+PILOT_TARIFFS = {
+    "pilot_month_199": Tariff("pilot_month_199", 1, 199, "1 месяц — 199 ₽"),
+    "quarter": TARIFFS["quarter"],
+    "year": TARIFFS["year"],
+}
+BILLABLE_TARIFFS = {**TARIFFS, **PILOT_TARIFFS}
+
 
 class PaymentService(Protocol):
     async def create_payment(self, user_id: int, tariff: Tariff) -> str: ...

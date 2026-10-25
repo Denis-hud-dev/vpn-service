@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 from sqlalchemy import func, select
 from bot.db.models import Device, Subscription, SubscriptionStatus, User, Payment, SubscriptionHistory
-from bot.services import TARIFFS
+from bot.services import TARIFFS, BILLABLE_TARIFFS
 from bot.services.account import AccountSnapshot, SubscriptionEvent
 
 
@@ -74,7 +74,7 @@ class SubscriptionService:
                 return await session.get(Subscription, applied.subscription_id)
             if payment.status != "pending":
                 raise ValueError("Платёж не может активировать подписку")
-            tariff = TARIFFS.get(payment.tariff_id)
+            tariff = BILLABLE_TARIFFS.get(payment.tariff_id)
             if tariff is None or payment.amount_kopecks != tariff.price_rub * 100:
                 raise ValueError("Некорректный тариф или сумма")
             sub = await session.scalar(select(Subscription).where(Subscription.user_id == owner).with_for_update())
@@ -160,7 +160,7 @@ class SubscriptionService:
                 before = (sub.status, sub.starts_at, sub.expires_at)
                 sub.status = "expired"
                 self.history(session, sub, "expired", before=before)
-            tariff = TARIFFS.get(sub.tariff_id)
+            tariff = BILLABLE_TARIFFS.get(sub.tariff_id)
             label = ('Пробный доступ — 24 часа' if sub.tariff_id == 'pilot_trial_24h'
                      else tariff.label if tariff else sub.tariff_id)
             return AccountSnapshot(status=sub.status, tariff_label=label,
