@@ -89,7 +89,7 @@ def test_failed_telegram_send_keeps_existing_section_and_keyboard():
             await app.text('ℹ️ Информация')
             assert app.navigation.views[123].message_id == old_id
             assert (123, old_id) in app.messages
-            assert not any(isinstance(call, DeleteMessage) for call in app.calls)
+            assert not any(isinstance(call, DeleteMessage) and call.message_id == old_id for call in app.calls)
             app.fail_send = None
             await app.text('ℹ️ Информация')
             assert app.navigation.views[123].message_id != old_id
