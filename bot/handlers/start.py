@@ -107,8 +107,30 @@ async def begin(callback: CallbackQuery, navigation: Navigation, services: Servi
                           await home_for_user(services, callback.from_user.id))
 
 
+async def remove_reply_command(message: Message, services: Services) -> None:
+    """Delete only this incoming pilot navigation command, never chat history.
+
+    Telegram sends reply-button taps as ordinary text: exact labels are commands.
+    Do not delete forwarded messages, bot messages, group messages or other chats.
+    No persisted ID is needed; only the validated incoming message is targeted.
+    """
+    sender = message.from_user
+    if (not services.pilot_welcome_enabled or message.chat.type != "private"
+            or sender is None or sender.is_bot or message.chat.id != sender.id
+            or message.text not in (CONNECT, ACCOUNT, INFO)
+            or message.forward_origin is not None or message.sender_chat is not None
+            or message.via_bot is not None):
+        return
+    try:
+        await asyncio.wait_for(message.delete(), timeout=3)
+    except (TelegramAPIError, TimeoutError) as exc:
+        # Deletion is cosmetic; keep navigating even when Telegram refuses it.
+        logger.debug("Pilot reply command retained: %s", type(exc).__name__)
+
+
 async def reply_connect(message: Message, navigation: Navigation, services: Services):
     if services.pilot_welcome_enabled:
+        await remove_reply_command(message, services)
         await connect_for_user(message.bot, message.chat.id, message.from_user.id,
                                navigation, services, new_message=True)
     else:
@@ -118,6 +140,7 @@ async def reply_connect(message: Message, navigation: Navigation, services: Serv
 
 async def reply_account(message: Message, navigation: Navigation, services: Services):
     if services.pilot_welcome_enabled:
+        await remove_reply_command(message, services)
         await navigation.show(message.bot, message.chat.id,
             await account_for_user(services, message.from_user.id), new_message=True)
     else:
@@ -127,6 +150,7 @@ async def reply_account(message: Message, navigation: Navigation, services: Serv
 
 async def reply_info(message: Message, navigation: Navigation, services: Services, config: Config):
     if services.pilot_welcome_enabled:
+        await remove_reply_command(message, services)
         await navigation.show(message.bot, message.chat.id,
                               screens.information(config.support_username), new_message=True)
     else:
