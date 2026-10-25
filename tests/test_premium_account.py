@@ -65,7 +65,7 @@ def test_premium_client_navigation_and_unrecognised_text_keep_one_screen():
                 ('nav:account', 'Действует до:'),
                 ('nav:subscription', 'Действует до:'),
                 ('nav:renew', 'Тарифы'),
-                ('tariff:month', '1 месяц — 299 ₽'),
+                ('tariff:pilot_month_199', '1 месяц — 199 ₽'),
                 ('nav:home', 'Свобода подключения. Простота управления.'),
                 ('nav:devices', 'отключение пока недоступны'),
                 ('nav:traffic', 'Нет данных'),

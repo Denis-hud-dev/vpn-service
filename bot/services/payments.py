@@ -115,7 +115,9 @@ class PaymentCheckoutService:
     """
 
     def __init__(self, sessions, gateway: PaymentGateway, return_url: str,
-                 allowed_hosts: frozenset[str] = frozenset({"yoomoney.ru", "yookassa.ru"})):
+                 allowed_hosts: frozenset[str] = frozenset({"yoomoney.ru", "yookassa.ru"}),
+                 *, tariffs=None):
+        from bot.services import TARIFFS
         parsed_return = urlsplit(return_url)
         if (parsed_return.scheme != "https" or not parsed_return.hostname
                 or parsed_return.username or parsed_return.password):
@@ -124,11 +126,11 @@ class PaymentCheckoutService:
         self.gateway = gateway
         self.return_url = return_url
         self.allowed_hosts = allowed_hosts
+        self.tariffs = dict(TARIFFS if tariffs is None else tariffs)
 
     async def create(self, telegram_id: int, tariff_id: str,
                      idempotency_key: UUID) -> PaymentIntent:
-        from bot.services import TARIFFS
-        tariff = TARIFFS.get(tariff_id)
+        tariff = self.tariffs.get(tariff_id)
         if tariff is None:
             raise ValueError("Неизвестный тариф")
         payment = await self.repository.create_pending(telegram_id, tariff, idempotency_key)
@@ -136,8 +138,7 @@ class PaymentCheckoutService:
 
     async def create_for_user(self, telegram_id: int, tariff_id: str) -> PaymentIntent:
         """Owner-only bot entry point; callback retries keep the same order/key."""
-        from bot.services import TARIFFS
-        tariff = TARIFFS.get(tariff_id)
+        tariff = self.tariffs.get(tariff_id)
         if tariff is None:
             raise ValueError('Неизвестный тариф')
         payment = await self.repository.create_or_reuse_pending(telegram_id, tariff)

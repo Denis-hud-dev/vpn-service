@@ -30,11 +30,13 @@ async def run(config: Config) -> None:
     if config.pilot_test_payments_enabled:
         from bot.services.yookassa_api import YooKassaTestClient
         from bot.services.payments import PaymentCheckoutService
+        from bot.services import PILOT_TARIFFS
         from bot.services.payment_polling import TestPaymentPoller
         client = YooKassaTestClient.from_private_files(
             config.pilot_yookassa_shop_id_file, config.pilot_yookassa_secret_file)
         services.test_checkout = PaymentCheckoutService(
-            database.sessions, client, config.pilot_payment_return_url)
+            database.sessions, client, config.pilot_payment_return_url,
+            tariffs=PILOT_TARIFFS if config.pilot_premium_account_enabled else None)
         services.test_payment_owner_id = config.pilot_trial_owner_id
         payment_poller = TestPaymentPoller(database.sessions, client)
     dispatcher = Dispatcher(config=config, services=services,
