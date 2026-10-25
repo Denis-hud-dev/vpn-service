@@ -1,6 +1,6 @@
 # Самостоятельный тестовый checkout KudaVPN Premium
 
-Ветка `codex/standalone-test-checkout-20261025` поверх Draft PR №26. Это новый изолированный веб-путь, использующий существующие PaymentCheckoutService, PaymentNotificationProcessor, SubscriptionService, HappService и уведомления. Production-адаптер, реальные платежи и публичные продажи не включены.
+Ветка `codex/standalone-test-checkout-20261025`, [Draft PR №27](https://github.com/Denis-hud-dev/vpn-service/pull/27) поверх №26. Код `9dbd008`, [CI 40230857131](https://github.com/Denis-hud-dev/vpn-service/actions/runs/40230857131) успешен. Это новый изолированный веб-путь, использующий существующие PaymentCheckoutService, PaymentNotificationProcessor, SubscriptionService, HappService и уведомления. Production-адаптер, реальные платежи и публичные продажи не включены.
 
 ## Граница Telegram / самостоятельного сайта
 
@@ -70,6 +70,6 @@ python -m scripts.preview_test_checkout --port 18105
 
 В браузере пройден локальный путь выбора 199 ₽ → явно подписанный эмулятор провайдера → успех и кнопка подключения; отдельно 799 ₽ → отмена. При первой проверке устаревшая демонстрационная сессия дала безопасный отказ CSRF; после нового локального входа путь работает, защиту не отключали. Эмулятор использует same-origin fetch для подтверждения, чтобы сочетаться с no-referrer и строгой Origin-проверкой. На ширинах **390 и 375 px** scrollWidth равен ширине окна, горизонтальной прокрутки нет; desktop-предпросмотр 1280 px проверен. Физические Android/iOS и платёжный сайт ЮKassa этим не проверены.
 
-Снимки: [desktop](screenshots/checkout-desktop.jpg), [mobile success](screenshots/checkout-mobile-success.jpg). Полный набор/CI и ссылка на Draft PR фиксируются в handoff после публикации.
+Снимки: [desktop](screenshots/checkout-desktop.jpg), [mobile success](screenshots/checkout-mobile-success.jpg). Полный локальный набор: **242 passed, 9 skipped**. Последняя профильная проверка 17 новых сценариев после усиления прав session ledger прошла. Пропуски не считать успешными; CI дополнительно использует одноразовую PostgreSQL.
 
 Для тестирования реальной страницы ЮKassa на Android/iOS нужен отдельно разрешённый HTTPS-стенд и действие владельца; локальная имитация и responsive viewport не доказывают физический платёж/импорт на устройстве. В этой сессии новые тестовые или настоящие платежи у ЮKassa не создавались, реальные ключи не использовались. Первый следующий технический шаг — согласовать изолированный HTTPS test checkout и новый безопасный вход владельца, затем провести только одну тестовую оплату через обычный браузер. Реальные продажи остаются запрещены.
