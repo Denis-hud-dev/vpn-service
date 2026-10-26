@@ -65,3 +65,31 @@ def test_public_checkout_has_no_webhook_by_default(tmp_path):
             assert response.status == 404
             assert response.headers['Cache-Control'] == 'no-store, private'
     asyncio.run(run())
+
+
+def test_systemd_0440_credentials_are_staged_privately_without_weakening_guard(tmp_path):
+    """Ubuntu systemd Credentials are0440; the API client intentionally refuses that."""
+    import shlex
+    import subprocess
+    from pathlib import Path
+    from bot.services.yookassa_api import YooKassaTestClient
+
+    credentials, state = tmp_path / 'credentials', tmp_path / 'state'
+    credentials.mkdir(mode=0o700)
+    state.mkdir(mode=0o700)
+    (credentials / 'shop').write_text('1503208')
+    (credentials / 'secret').write_text('test_offline_fixture_not_an_api_key')
+    for item in credentials.iterdir(): item.chmod(0o440)
+    with pytest.raises(ValueError, match='0600'):
+        YooKassaTestClient.from_private_files(str(credentials / 'shop'), str(credentials / 'secret'))
+    unit = Path('deploy/test-checkout/kudavpn-test-checkout.service.template').read_text()
+    commands = [line.partition('=')[2] for line in unit.splitlines() if line.startswith('ExecStartPre=')]
+    assert len(commands) == 2
+    for command in commands:
+        args = shlex.split(command.replace('/run/credentials/kudavpn-test-checkout.service', str(credentials))
+                           .replace('/var/lib/kudavpn-test-checkout', str(state)))
+        subprocess.run(args, check=True, capture_output=True)
+    for item in state.iterdir(): assert item.stat().st_mode & 0o777 == 0o600
+    client = YooKassaTestClient.from_private_files(str(state / 'shop'), str(state / 'secret'))
+    assert client.shop_id == '1503208'
+    assert state.stat().st_mode & 0o777 == 0o700

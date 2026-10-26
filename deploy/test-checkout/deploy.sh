@@ -6,7 +6,7 @@ revision=${1:?commit required}
 checksum=${2:?archive SHA256 required}
 [[ "$revision" =~ ^[a-f0-9]{40}$ && "$checksum" =~ ^[a-f0-9]{64}$ ]]
 base=/opt/kudavpn-telegram-pilot
-old=$base/app-tariff-199-3a74b6f-bot
+old=$(systemctl show -P WorkingDirectory kudavpn-telegram-pilot-bot.service)
 release=$base/app-checkout-${revision:0:7}
 compat=$base/app-checkout-${revision:0:7}-rollback
 backup=$base/backups/checkout-${revision:0:7}
@@ -27,15 +27,18 @@ failed() {
 }
 trap failed ERR
 [[ $EUID = 0 ]]
-[[ "$(systemctl show -P WorkingDirectory "$bot")" = "$old" ]]
+[[ "$old" = "$base/app-tariff-199-3a74b6f-bot" || "$old" = "$base/app-checkout-b93b3f5-rollback" ]]
 systemctl is-active --quiet "$bot"
 systemctl is-active --quiet kudavpn-telegram-pilot-feed.service
 [[ -z "$(ss -ltnH 'sport = :18543')" ]]
-[[ ! -e /etc/systemd/system/$checkout && ! -e "$release" && ! -e "$backup" ]]
+! systemctl is-active --quiet "$checkout"
+[[ ! -e "$release" && ! -e "$backup" ]]
 printf '%s  %s\n' "$checksum" "$archive" | sha256sum -c - >/dev/null
 install -d -m 0700 "$backup"
 cp -a /etc/systemd/system/$bot "$backup/bot.unit"
 cp -a "$dropins" "$backup/dropins"
+if [[ -e /etc/systemd/system/$checkout ]]; then cp -a /etc/systemd/system/$checkout "$backup/previous-checkout.unit"; fi
+if [[ -e /etc/kudavpn-telegram-pilot/checkout/checkout.env ]]; then cp -a /etc/kudavpn-telegram-pilot/checkout/checkout.env "$backup/previous-checkout.env"; fi
 python3 - "$bot" "$backup" <<'PY'
 import pathlib,re,subprocess,sys,shutil
 files=subprocess.check_output(['systemctl','show','-P','EnvironmentFiles',sys.argv[1]],text=True)
@@ -89,7 +92,8 @@ values={key:e[key] for key in ['DATABASE_URL','HAPP_LINK_SECRET','PILOT_TRIAL_OW
 values.update(KUDAVPN_CHECKOUT_MODE='test-owner-only',CHECKOUT_BIND_HOST='0.0.0.0',CHECKOUT_PORT='18543',
  CHECKOUT_PUBLIC_ORIGIN='https://r1276248.s2578.vm.mydomain.zone:18543',
  CHECKOUT_SESSION_FILE='/var/lib/kudavpn-test-checkout/sessions.sqlite',
- PILOT_YOOKASSA_TEST_SHOP_ID_FILE=credentials+'shop',PILOT_YOOKASSA_TEST_SECRET_FILE=credentials+'secret',
+ PILOT_YOOKASSA_TEST_SHOP_ID_FILE='/var/lib/kudavpn-test-checkout/shop',
+ PILOT_YOOKASSA_TEST_SECRET_FILE='/var/lib/kudavpn-test-checkout/secret',
  CHECKOUT_TLS_CERT=credentials+'tls.crt',CHECKOUT_TLS_KEY=credentials+'tls.key',PYTHONDONTWRITEBYTECODE='1')
 p=pathlib.Path('/etc/kudavpn-telegram-pilot/checkout/checkout.env')
 p.write_text(''.join(key+'='+json.dumps(value)+'\n' for key,value in values.items())); p.chmod(0o600)
@@ -131,6 +135,10 @@ for attempt in $(seq 1 40); do
  sleep 1
 done
 [[ "$ready" = 1 ]]
+if [[ -f "$dropins/98-checkout-rollback.conf" ]]; then
+ grep -Fxq "WorkingDirectory=$old" "$dropins/98-checkout-rollback.conf"
+ rm "$dropins/98-checkout-rollback.conf"
+fi
 printf '[Service]\nWorkingDirectory=%s\n' "$release" > "$dropins/97-test-checkout.conf"
 systemctl daemon-reload
 systemctl restart "$bot"
