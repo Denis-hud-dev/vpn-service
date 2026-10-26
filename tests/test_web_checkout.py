@@ -39,7 +39,7 @@ async def portal(tmp_path):
                            connection_page_url=lambda link: 'https://vpn.example/connect/offline')
     service = WebCheckout(db, checkout, processor, happ, 501, reviews=reviews)
     app = create_checkout_app(service, sessions, ORIGIN, local_demo=True,
-                             refund_processor=RefundProcessor(db, client, reviews))
+                             refund_processor=RefundProcessor(db, client, reviews), enable_webhook=True)
     try:
         async with TestClient(TestServer(app), cookie_jar=CookieJar(unsafe=True)) as http:
             invite = sessions.invite()

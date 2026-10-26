@@ -1,0 +1,31 @@
+[Unit]
+Description=KudaVPN isolated owner-only YooKassa TEST checkout
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kudavpn_trial_checkout
+Group=kudavpn_trial_checkout
+WorkingDirectory=@RELEASE@
+EnvironmentFile=/etc/kudavpn-telegram-pilot/checkout/checkout.env
+LoadCredential=shop:/etc/kudavpn-telegram-pilot/bot/yookassa-test-shop-id
+LoadCredential=secret:/etc/kudavpn-telegram-pilot/bot/yookassa-test-secret
+LoadCredential=tls.crt:/etc/kudavpn-telegram-pilot/feed/tls.crt
+LoadCredential=tls.key:/etc/kudavpn-telegram-pilot/feed/tls.key
+ExecStart=/opt/kudavpn-telegram-pilot/venv/bin/python -m bot.subscription_api.checkout_main
+StateDirectory=kudavpn-test-checkout
+StateDirectoryMode=0700
+ReadWritePaths=/var/lib/kudavpn-test-checkout
+UMask=0077
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target
