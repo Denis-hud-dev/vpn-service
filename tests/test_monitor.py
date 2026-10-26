@@ -247,3 +247,19 @@ def test_postgres_probe_uses_private_env_and_read_only_without_uid_change(monkey
     assert kwargs['env']['PGOPTIONS']=='-c default_transaction_read_only=on'
     password.chmod(0o644)
     assert collector.postgres_query('SELECT 1')==(None,'')
+
+
+@pytest.mark.parametrize('code,output,expected',[(0,'ok\n','ok'),(0,'unknown\n','unknown'),(1,'','unknown'),(0,'unexpected-output','unknown')])
+def test_main_bot_api_probe_keeps_token_inside_existing_container(monkeypatch,code,output,expected):
+    calls=[]
+    def run(args,**kwargs):
+        calls.append(args)
+        return code,output
+    monkeypatch.setattr(collector,'command',run)
+    row=collector.production_bot_api()
+    assert row['status']==expected
+    assert calls[0][:4]==['docker','exec','kudavpn-premium-bot-1','python']
+    source=calls[0][-1]
+    assert "os.environ.get('BOT_TOKEN'" in source and '/getMe' in source
+    assert 'sendMessage' not in source and 'print(token)' not in source
+    compile(source,'container-read-only-probe','exec')

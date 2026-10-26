@@ -154,6 +154,31 @@ def postgres_query(sql):
                     '-d', 'kudavpn_telegram_pilot', '-c', 'BEGIN READ ONLY; '+sql+'; COMMIT;'], env=env)
 
 
+def production_bot_api():
+    # getMe is read-only. The existing token stays inside its own container:
+    # no docker inspect Config.Env, copy, argv expansion or credential output.
+    probe = """import json,os,urllib.request
+try:
+ token=os.environ.get('BOT_TOKEN','')
+ if not token:
+  print('unknown')
+ else:
+  class NoRedirect(urllib.request.HTTPRedirectHandler):
+   def redirect_request(self,*a,**kw): return None
+  opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
+  with opener.open('https://api.telegram.org/bot'+token+'/getMe',timeout=5) as response:
+   data=json.load(response)
+  result=data.get('result',{})
+  valid=data.get('ok') is True and result.get('is_bot') is True and result.get('username','').lower()=='kudavpnbot'
+  print('ok' if valid else 'error')
+except Exception:
+ print('unknown')
+"""
+    code, output = command(['docker', 'exec', 'kudavpn-premium-bot-1', 'python', '-c', probe])
+    status = output.strip() if code == 0 and output.strip() in ('ok', 'error') else 'unknown'
+    return check('bot_api', status, 'reachable' if status == 'ok' else 'not_available', critical=True)
+
+
 def collect(host, probe_file=None):
     if host not in ('justhost', 'digitalocean'):
         raise ValueError('Unknown monitor host')
@@ -200,8 +225,7 @@ def collect(host, probe_file=None):
         count = len(re.findall(r'(?im)\bERROR\b|Traceback|TelegramConflictError', output))
         rows.append(check('bot_errors', 'unknown' if code != 0 else 'error' if count else 'ok',
                           'not_available' if code != 0 else 'journal_markers', count if code == 0 else None))
-        # No production bot token is copied to Monitor; readiness covers its DB.
-        rows.append(check('bot_api', 'unknown', 'not_probed'))
+        rows.append(production_bot_api())
     status, _ = http(f'https://{DOMAIN}:18443/assets/connect.js')
     rows.append(check('https_feed', 'ok' if status == 200 else 'error',
                       'http_status' if status is not None else 'unreachable', status, critical=True))
