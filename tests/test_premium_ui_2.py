@@ -8,7 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from bot.screens import (account, connect, happ, help_center, home, kuda_smart,
                          premium_devices, subscription_details, tariff_details,
-                         tariffs, test_checkout as checkout_screen)
+                         tariffs)
 from bot.services import Services
 from bot.services.account import AccountSnapshot
 from bot.services.subscriptions import utcnow
@@ -40,7 +40,6 @@ def test_secondary_screens_keep_one_highlight_and_no_fake_mode_controls():
     screens = (account(active, premium_account=True), subscription_details(active),
                premium_devices('active'), help_center(''), tariffs(test_payment=True),
                tariff_details('month', test_payment=True),
-               checkout_screen('month', 'https://checkout.example.invalid'),
                connect('https://subscriptions.example.invalid/s/' + 'a' * 43,
                        page_url='https://subscriptions.example.invalid/connect/test',
                        premium_account=True), kuda_smart(), happ())

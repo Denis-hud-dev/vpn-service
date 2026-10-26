@@ -199,6 +199,7 @@ def subscription_history(events: list[SubscriptionEvent] | None) -> Screen:
         labels = {
             "created": "Подписка создана", "pilot_trial_grant": "Пробный доступ активирован",
             "pilot_trial_extend": "Пробный срок продлён", "expired": "Срок истёк",
+            "payment_refund": "Срок скорректирован после возврата",
         }
         status_labels = {"blocked": "Доступ заблокирован", "active": "Доступ активен",
                          "expired": "Срок истёк", "pending": "Ожидает активации"}
@@ -251,8 +252,7 @@ def help_center(username: str) -> Screen:
 
 
 def tariffs(*, test_payment: bool = False, premium_account: bool = False) -> Screen:
-    note = ("Доступна только тестовая оплата без списания денег."
-            if test_payment else "Оплата пока не подключена.")
+    note = "Оплата в боте пока не подключена."
     plans = list((PILOT_TARIFFS if premium_account else TARIFFS).values())
     body = ("◆ Выберите срок доступа\n"
             + "\n".join(("├ " if idx < len(plans) - 1 else "╰ ") + escape(t.label)
@@ -260,7 +260,8 @@ def tariffs(*, test_payment: bool = False, premium_account: bool = False) -> Scr
             + "\n\n" + note)
     keyboard = tariffs_keyboard(pilot=premium_account)
     if premium_account:
-        body = "◆ Ниже — действующие тарифы тестовой оплаты.\n\n" + body
+        body = ("◆ Тарифы KudaVPN Premium.\n"
+                "╰ Покупка в Telegram пока не включена: цифровые услуги оплачиваются Stars.\n\n" + body)
     return panel("💎 Тарифы", body, keyboard)
 
 
@@ -268,19 +269,11 @@ def tariff_details(tariff_id: str, *, test_payment: bool = False, pilot: bool = 
     tariff = (PILOT_TARIFFS if pilot else TARIFFS).get(tariff_id)
     if tariff is None:
         return panel("💎 Тарифы", "Тариф не найден. Выберите один из доступных вариантов.", back_keyboard(back="nav:tariffs"))
-    if test_payment:
-        return panel("💎 Ваш выбор", f"◆ <b>{escape(tariff.label)}</b>\n├ Тестовый магазин YooKassa. Настоящие деньги не списываются.\n╰ Создайте тестовый заказ кнопкой ниже.",
-                     back_keyboard(("🧪 Создать тестовый заказ", f"paytest:{tariff.id}"),
-                                   back="nav:tariffs", primary=f"paytest:{tariff.id}"))
+    if pilot:
+        return panel("💎 Ваш выбор", f"◆ <b>{escape(tariff.label)}</b>\n"
+                     "╰ Покупка в Telegram пока не включена: цифровые услуги оплачиваются Stars.",
+                     back_keyboard(back="nav:tariffs"))
     return panel("💎 Ваш выбор", f"◆ <b>{escape(tariff.label)}</b>\n╰ Оплата ещё не подключена. Платёж не создан.", back_keyboard(back="nav:tariffs"))
-
-
-def test_checkout(tariff_id: str, confirmation_url: str, *, pilot: bool = False) -> Screen:
-    tariff = (PILOT_TARIFFS if pilot else TARIFFS)[tariff_id]
-    keyboard = back_keyboard(("👤 Проверить подписку", "nav:account"), back="nav:tariffs")
-    keyboard.inline_keyboard.insert(0, [InlineKeyboardButton(
-        text="🧪 Открыть тестовую оплату", url=confirmation_url, style="primary")])
-    return panel("🧪 Тестовый заказ", f"◆ <b>{escape(tariff.label)}</b>\n├ Откройте тестовую страницу YooKassa.\n├ После подтверждения бот проверит платёж и обновит подписку. Обычно это занимает до минуты.\n╰ Настоящие деньги не списываются.", keyboard)
 
 
 def connect(link: str | None = None, *, page_url: str | None = None,

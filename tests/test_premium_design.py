@@ -1,7 +1,7 @@
 """Presentation checks that keep navigation and private access semantics intact."""
 from datetime import datetime, timezone
 
-from bot.screens import account, connect, happ, help_center, home, tariffs, test_checkout as checkout_screen
+from bot.screens import account, connect, happ, help_center, home, tariffs, tariff_details
 from bot.services.account import AccountSnapshot
 
 
@@ -11,7 +11,7 @@ def test_premium_screens_share_decorative_hierarchy_and_keep_actions():
     screens = (
         home(premium_account=True), account(snapshot, premium_account=True),
         tariffs(test_payment=True), help_center(''), happ(),
-        checkout_screen('month', 'https://example.invalid/checkout'),
+        tariff_details('pilot_month_199', pilot=True),
     )
     for screen in screens:
         assert 'KudaVPN Premium' in screen.text

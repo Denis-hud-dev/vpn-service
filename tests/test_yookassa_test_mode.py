@@ -219,12 +219,14 @@ def test_test_marker_mismatch_never_activates_and_bot_is_owner_only(tmp_path):
                 assert not fake.calls
                 await app.text('/start', user_id=501)
                 await app.callback('tariff:month', user_id=501)
-                assert 'Создать тестовый заказ' in str(app.navigation.views[501].screen.keyboard)
+                assert 'Создать тестовый заказ' not in str(app.navigation.views[501].screen.keyboard)
                 await app.callback('paytest:month', user_id=501)
-                assert 'Открыть тестовую оплату' in str(app.navigation.views[501].screen.keyboard)
+                assert 'Stars' in app.navigation.views[501].screen.text
+                assert not fake.calls
             finally:
                 await app.close()
-            provider_id = next(iter(fake.rows))
+            intent = await checkout.create_for_user(501, 'month')
+            provider_id = intent.provider_id
             fake.rows[provider_id].update(
                 test=False, status='succeeded', paid=True,
                 captured_at=datetime.now(timezone.utc).isoformat())

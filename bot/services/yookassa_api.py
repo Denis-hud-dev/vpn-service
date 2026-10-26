@@ -37,7 +37,8 @@ class YooKassaTestClient:
             raise ValueError('Файлы тестового магазина должны иметь права 0600')
         return cls(*(path.read_text().strip() for path in paths), payment_method=payment_method)
 
-    async def _request(self, method: str, path: str, *, payload=None, key=None) -> dict[str, Any]:
+    async def _request(self, method: str, path: str, *, payload=None, key=None,
+                       payment_object=True) -> dict[str, Any]:
         if self._transport is not None:
             data = await self._transport(method, path, payload, key)
         else:
@@ -54,8 +55,19 @@ class YooKassaTestClient:
                         data = await response.json(content_type='application/json')
             except (aiohttp.ClientError, TimeoutError, ValueError) as exc:
                 raise PaymentProviderUnavailable('Тестовый провайдер временно недоступен') from None
-        if not isinstance(data, dict) or data.get('test') is not True:
+        if not isinstance(data, dict) or (payment_object and data.get('test') is not True):
             raise PaymentProviderUnavailable('Ответ не относится к тестовому магазину')
+        return data
+
+    async def fetch_refund(self, refund_id: str) -> dict[str, Any]:
+        if not isinstance(refund_id, str) or not PROVIDER_ID.fullmatch(refund_id):
+            raise ValueError('Некорректный идентификатор возврата')
+        # Refund objects do not carry the payment's test flag. Independently
+        # fetch their parent through this authenticated test-only client.
+        data = await self._request('GET', '/v3/refunds/' + refund_id, payment_object=False)
+        if data.get('id') != refund_id:
+            raise PaymentProviderUnavailable('Провайдер вернул другой возврат')
+        await self.fetch(data.get('payment_id'))
         return data
 
     async def create(self, *, amount_kopecks: int, currency: str,
