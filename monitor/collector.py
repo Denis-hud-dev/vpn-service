@@ -24,13 +24,14 @@ UNITS = ('xray.service', 'kudavpn-xray-alt8443.service', 'kudavpn-pilot-node.ser
          'kudavpn-telegram-pilot-bot.service', 'kudavpn-test-checkout.service',
          'postgresql@16-main.service', 'kudavpn-pilot-control.service')
 CONTAINERS = ('kudavpn-premium-bot-1', 'kudavpn-premium-postgres-1', 'kudavpn-xray-xray-1')
+PG_PASSWORD_PATH = Path('/etc/kudavpn-monitor/db-probe-password')
 
 
-def command(args, timeout=10, *, merge_error=False):
+def command(args, timeout=10, *, merge_error=False, env=None):
     try:
         result = subprocess.run(args, stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT if merge_error else subprocess.DEVNULL,
-                                timeout=timeout, text=True, check=False)
+                                timeout=timeout, text=True, check=False, env=env)
         return result.returncode, result.stdout[:1048576]
     except (OSError, subprocess.TimeoutExpired):
         return None, ''
@@ -105,6 +106,18 @@ def ready(key, url):
     return check(key, 'ok' if valid else 'error', 'reachable' if valid else 'invalid_response', critical=True)
 
 
+def feed_entries(body):
+    if len(body) > 262144:
+        raise ValueError('Oversized feed')
+    text = body.decode().strip()
+    if not text.startswith('vless://'):
+        text = base64.b64decode(body.strip(), validate=True).decode().strip()
+    lines = text.splitlines()
+    if not lines or not all(urlsplit(line).scheme == 'vless' and urlsplit(line).port == 10443 for line in lines):
+        raise ValueError('Unexpected test feed')
+    return len(lines)
+
+
 def tcp(port, host='127.0.0.1'):
     try:
         with socket.create_connection((host, port), timeout=3):
@@ -124,6 +137,23 @@ def journal_errors(units):
     return check('service_errors', 'error' if count else 'ok', 'journal_markers', count)
 
 
+def postgres_query(sql):
+    # Do not change Linux identity or weaken the sandbox. Use the existing
+    # isolated DB credential only in the child environment, never argv/logs.
+    try:
+        if PG_PASSWORD_PATH.is_symlink() or PG_PASSWORD_PATH.stat().st_mode & 0o077:
+            return None, ''
+        password = PG_PASSWORD_PATH.read_text().strip()
+        if not password:
+            return None, ''
+    except OSError:
+        return None, ''
+    env = {'PATH': '/usr/bin:/bin', 'LANG': 'C.UTF-8', 'PGPASSWORD': password,
+           'PGOPTIONS': '-c default_transaction_read_only=on'}
+    return command(['psql', '-h127.0.0.1', '-p5432', '-Ukudavpn_pilot', '-XAtq',
+                    '-d', 'kudavpn_telegram_pilot', '-c', 'BEGIN READ ONLY; '+sql+'; COMMIT;'], env=env)
+
+
 def collect(host, probe_file=None):
     if host not in ('justhost', 'digitalocean'):
         raise ValueError('Unknown monitor host')
@@ -139,16 +169,13 @@ def collect(host, probe_file=None):
         rows.extend(tcp(port) for port in (443, 8443, 9443, 10443, 18443, 18543))
         rows.append(ready('test_bot_ready', 'http://127.0.0.1:18081/ready'))
         rows.append(ready('checkout_ready', f'https://{DOMAIN}:18543/ready'))
-        code, output = command(['runuser', '-u', 'postgres', '--', 'psql', '-XAtq',
-                               '-d', 'kudavpn_telegram_pilot', '-c', 'BEGIN READ ONLY; SELECT 1; COMMIT;'])
+        code, output = postgres_query('SELECT 1')
         rows.append(check('postgres', 'ok' if code == 0 and output.strip() == '1' else 'unknown' if code is None else 'error',
                           'reachable' if code == 0 and output.strip() == '1' else 'not_available', critical=True))
-        code, output = command(['runuser', '-u', 'postgres', '--', 'psql', '-XAtq',
-            '-d', 'kudavpn_telegram_pilot', '-c',
-            "BEGIN READ ONLY; SELECT CASE WHEN COUNT(*)=0 THEN 'unknown' "
+        code, output = postgres_query("SELECT CASE WHEN COUNT(*)=0 THEN 'unknown' "
             "WHEN bool_and(coalesce(h.available,false) AND h.checked_at>now()-interval '90 seconds') "
             "THEN 'ok' ELSE 'error' END FROM vpn_nodes v LEFT JOIN node_health h ON h.node_id=v.id "
-            "WHERE v.enabled AND v.port=10443; COMMIT;"])
+            "WHERE v.enabled AND v.port=10443")
         status = output.strip() if code == 0 and output.strip() in ('ok', 'error') else 'unknown'
         rows.append(check('node_health', status, 'healthy' if status == 'ok' else 'not_available', critical=True))
     else:
@@ -194,10 +221,15 @@ def collect(host, probe_file=None):
                     or not re.fullmatch(r'/s/[A-Za-z0-9_-]{43}', parsed.path)):
                 raise ValueError()
             status, body = http(url)
-            entries = base64.b64decode(body.strip(), validate=True).decode().splitlines() if status == 200 else []
-            valid = bool(entries) and all(urlsplit(line).scheme == 'vless' and urlsplit(line).port == 10443 for line in entries)
-            rows.append(check('feed_content', 'ok' if valid else 'error',
-                              'measured' if valid else 'http_status', len(entries) if valid else status))
+            if status == 200:
+                try:
+                    count = feed_entries(body)
+                    rows.append(check('feed_content', 'ok', 'measured', count))
+                except (ValueError, UnicodeError):
+                    rows.append(check('feed_content', 'error', 'invalid_response'))
+            else:
+                rows.append(check('feed_content', 'error' if status is not None else 'unknown',
+                                  'http_status' if status is not None else 'unreachable', status))
         except Exception:
             rows.append(check('feed_content', 'unknown', 'not_available'))
     elif host == 'justhost':

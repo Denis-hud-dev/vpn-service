@@ -213,3 +213,37 @@ def test_telegram_wrong_recipient_is_not_delivery_and_never_exposes_token(monkey
 def test_split_messages_obey_telegram_size_limit():
     chunks = split_text(('one line\n'*1000))
     assert all(len(part) <= 3501 for part in chunks) and len(chunks) > 1
+
+
+@pytest.mark.parametrize('encoded', [False, True])
+def test_plain_and_base64_happ_feed_are_both_real_formats(encoded):
+    import base64
+    from uuid import UUID
+    body=('vless://'+str(UUID(int=1))+'@203.0.113.1:10443?security=reality\n').encode()
+    if encoded: body=base64.b64encode(body)
+    assert collector.feed_entries(body)==1
+
+
+@pytest.mark.parametrize('body',[b'not a subscription',b'',b'<html>failure</html>',b'vless://offline@203.0.113.1:8443'])
+def test_invalid_feed_or_working_port_is_not_a_success(body):
+    with pytest.raises(ValueError): collector.feed_entries(body)
+
+
+def test_postgres_probe_uses_private_env_and_read_only_without_uid_change(monkeypatch, tmp_path):
+    calls=[]
+    password = tmp_path/'db-probe-password'
+    password.write_text('offline-db-fixture')
+    password.chmod(0o600)
+    monkeypatch.setattr(collector, 'PG_PASSWORD_PATH', password)
+    def runner(args,**kwargs):
+        calls.append((args,kwargs))
+        return 0,'1\n'
+    monkeypatch.setattr(collector,'command',runner)
+    assert collector.postgres_query('SELECT 1')==(0,'1\n')
+    args,kwargs=calls[0]
+    assert args[0]=='psql' and args[-1]=='BEGIN READ ONLY; SELECT 1; COMMIT;'
+    assert 'offline-db-fixture' not in ' '.join(args)
+    assert kwargs['env']['PGPASSWORD']=='offline-db-fixture'
+    assert kwargs['env']['PGOPTIONS']=='-c default_transaction_read_only=on'
+    password.chmod(0o644)
+    assert collector.postgres_query('SELECT 1')==(None,'')

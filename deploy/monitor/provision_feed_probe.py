@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 
 from sqlalchemy import select, text
+from sqlalchemy.engine import make_url
 from bot.db import Database
 from bot.db.models import Subscription, SubscriptionToken, User
 
@@ -16,6 +17,16 @@ async def main():
     pid = subprocess.check_output(['systemctl', 'show', '-P', 'MainPID',
                                   'kudavpn-telegram-pilot-bot.service'], text=True).strip()
     values = dict(x.split('=', 1) for x in Path('/proc/'+pid+'/environ').read_bytes().decode().split('\0') if '=' in x)
+    # Reuse the existing isolated DB credential locally. No new role/password,
+    # no Unix setuid, and no production credential copied to Monitor.
+    password = make_url(values['DATABASE_URL']).password
+    if not password:
+        raise ValueError('Missing isolated DB credential')
+    fd = os.open('/etc/kudavpn-monitor/db-probe-password',
+                 os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, 'w') as file:
+        os.fchmod(file.fileno(), 0o600)
+        file.write(password)
     db = Database(values['DATABASE_URL'])
     try:
         async with db.sessions.begin() as session:
