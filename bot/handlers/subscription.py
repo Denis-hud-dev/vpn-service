@@ -20,7 +20,7 @@ async def buy(callback: CallbackQuery, services: Services, navigation: Navigatio
 
 
 async def select_tariff(callback: CallbackQuery, services: Services, navigation: Navigation):
-    # Selecting a tariff does not create an order; a second explicit tap does.
+    # Tariff selection is informational; external checkout is disabled in Telegram.
     await navigation.callback(callback, screens.tariff_details(
         (callback.data or "").partition(":")[2],
         test_payment=pilot_payment_allowed(callback, services),

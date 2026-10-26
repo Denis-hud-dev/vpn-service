@@ -19,15 +19,16 @@ def test_pilot_catalog_and_native_styles_do_not_change_legacy_catalog():
     screen = screens.tariffs(premium_account=True, test_payment=True)
     buttons = [b for row in screen.keyboard.inline_keyboard for b in row]
     assert [b.text for b in buttons[:3]] == [
-        '1 месяц — 199 ₽', '3 месяца — 799 ₽', '12 месяцев — 2490 ₽']
+        '1 месяц — 199 ₽', '3 месяца — 499 ₽', '12 месяцев — 1790 ₽']
     assert [b.style for b in buttons[:3]] == ['success', 'primary', 'primary']
     assert '299 ₽' not in screen.text and 'Стартовые' not in screen.text
     assert not any((b.callback_data or '').startswith(('launchplan:', 'nav:launch')) for b in buttons)
     default = screens.tariffs()
     assert '299 ₽' in default.text and '199 ₽' not in default.text
     assert [p.price_rub for p in TARIFFS.values()] == [299, 799, 2490]
-    assert PILOT_TARIFFS['quarter'] == TARIFFS['quarter']
-    assert PILOT_TARIFFS['year'] == TARIFFS['year']
+    assert [p.price_rub for p in PILOT_TARIFFS.values()] == [199, 499, 1790]
+    assert not set(PILOT_TARIFFS).intersection(TARIFFS)
+    assert 'Скоро' not in screen.text and 'скоро' not in screen.text
 
 
 def test_old_tariff_buttons_cannot_create_old_price_order_in_premium():

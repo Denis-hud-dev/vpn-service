@@ -38,6 +38,8 @@
     if (data.state === 'pending' && !paymentUrl) el('order-description').textContent += ' Чтобы вернуться к оплате, снова выберите тот же тариф — сохранится текущий заказ.';
     const connect = el('connect-link'); connect.hidden = !data.connect_url;
     if (data.connect_url) connect.href = data.connect_url; else connect.removeAttribute('href');
+    const expiry = el('subscription-expiry'); expiry.hidden = !data.subscription_expires_at;
+    expiry.textContent = data.subscription_expires_at ? 'Подписка действует до: ' + new Intl.DateTimeFormat('ru-RU', {dateStyle: 'long', timeStyle: 'short', timeZone: 'UTC'}).format(new Date(data.subscription_expires_at)) + ' UTC' : '';
     if (data.access_pending) el('order-description').textContent += ' Доступ к узлу пока готовится. Обновите статус позже.';
     el('receipt-status').textContent = 'Тестовый платёж · не фискальный чек. Продавец — самозанятый (НПД), НДС не применяется.';
     if (timer) clearTimeout(timer);

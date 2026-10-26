@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy import select
 
 from bot.db.models import Payment, User
-from bot.services import PILOT_TARIFFS
+from bot.services import PILOT_TARIFFS, BILLABLE_TARIFFS
 from bot.services.happ import AccessDenied
 from bot.services.payments import _safe_confirmation_url
 from bot.services.subscriptions import SubscriptionService, as_utc, utcnow
@@ -39,9 +39,9 @@ class WebCheckout:
         async with self.sessions() as session:
             payment = await session.scalar(select(Payment).join(User).where(
                 Payment.id == key, User.telegram_id == user_id, Payment.provider == 'yookassa'))
-        if payment is None or payment.tariff_id not in PILOT_TARIFFS:
+        if payment is None or payment.tariff_id not in BILLABLE_TARIFFS:
             raise OrderUnavailable()
-        if payment.amount_kopecks != PILOT_TARIFFS[payment.tariff_id].price_rub * 100:
+        if payment.amount_kopecks != BILLABLE_TARIFFS[payment.tariff_id].price_rub * 100:
             raise OrderUnavailable()
         return payment
 
@@ -50,7 +50,7 @@ class WebCheckout:
         async with self.sessions() as session:
             key = await session.scalar(select(Payment.id).join(User).where(
                 User.telegram_id == user_id, Payment.provider == 'yookassa',
-                Payment.tariff_id.in_(PILOT_TARIFFS)).order_by(Payment.created_at.desc()).limit(1))
+                Payment.tariff_id.in_(BILLABLE_TARIFFS)).order_by(Payment.created_at.desc()).limit(1))
         return await self.state(user_id, str(key)) if key else None
 
     async def create(self, user_id, tariff_id):
@@ -83,7 +83,8 @@ class WebCheckout:
         deadline = as_utc(row.created_at) + timedelta(minutes=30)
         if state == 'pending' and deadline <= utcnow():
             state = 'expired'
-        result = {'id': str(row.id), 'state': state, 'label': PILOT_TARIFFS[row.tariff_id].label,
+        result = {'id': str(row.id), 'state': state, 'label': BILLABLE_TARIFFS[row.tariff_id].label,
+                  'months': BILLABLE_TARIFFS[row.tariff_id].months,
                   'amount_kopecks': row.amount_kopecks, 'currency': row.currency,
                   'expires_at': deadline.isoformat(), 'test': True,
                   'receipt': 'test_not_fiscal', 'seller_regime': 'npd', 'vat': 'not_applicable'}

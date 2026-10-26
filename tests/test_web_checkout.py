@@ -9,11 +9,13 @@ import pytest
 from aiohttp import CookieJar
 from aiohttp.test_utils import TestClient, TestServer
 from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from bot.db.models import Payment, Subscription, SubscriptionHistory, NodeAccess
-from bot.services import PILOT_TARIFFS
+from bot.services import PILOT_TARIFFS, TARIFFS
 from bot.services.checkout_sessions import CheckoutSessions
 from bot.services.payment_notifications import PaymentNotificationProcessor
+from bot.services.payment_events import add_months
 from bot.services.payment_polling import TestPaymentPoller as PaymentPoller
 from bot.services.payment_refunds import RefundReviews, TestRefundProcessor as RefundProcessor
 from bot.services.payments import PaymentCheckoutService
@@ -121,7 +123,7 @@ def test_browser_cookie_is_secure_and_http_only_outside_local_demo(tmp_path):
     asyncio.run(run())
 
 
-@pytest.mark.parametrize('plan,amount', [('pilot_month_199', 19900), ('quarter', 79900), ('year', 249000)])
+@pytest.mark.parametrize('plan,amount', [('pilot_month_199', 19900), ('pilot_quarter_499', 49900), ('pilot_year_1790', 179000)])
 def test_new_purchase_amounts_duplicates_and_connection(tmp_path, plan, amount):
     async def run():
         async with portal(tmp_path) as p:
@@ -142,6 +144,9 @@ def test_new_purchase_amounts_duplicates_and_connection(tmp_path, plan, amount):
             assert data['state'] == 'succeeded' and data['connect_url'].endswith('/connect/offline')
             async with p.db() as session:
                 assert await session.scalar(select(func.count()).select_from(Subscription)) == 1
+                sub = await session.scalar(select(Subscription))
+                assert as_utc(sub.expires_at) == add_months(as_utc(sub.starts_at), PILOT_TARIFFS[plan].months)
+                assert data['subscription_expires_at'] == as_utc(sub.expires_at).isoformat()
                 assert await session.scalar(select(func.count()).select_from(SubscriptionHistory).where(
                     SubscriptionHistory.reason == 'payment')) == 1
             p.service.happ.issue_for_user.side_effect = TimeoutError()
@@ -154,11 +159,11 @@ def test_auth_csrf_foreign_order_and_price_tampering(tmp_path):
     async def run():
         async with portal(tmp_path) as p:
             assert (await p.http.post('/checkout/api/session', json={'token': p.invite}, headers={'Origin': ORIGIN})).status == 401
-            assert (await p.http.post('/checkout/api/orders', json={'tariff_id': 'quarter'})).status == 403
-            assert (await p.http.post('/checkout/api/orders', json={'tariff_id': 'quarter'}, headers={**p.headers, 'Origin': 'https://evil.example'})).status == 403
+            assert (await p.http.post('/checkout/api/orders', json={'tariff_id': 'pilot_quarter_499'})).status == 403
+            assert (await p.http.post('/checkout/api/orders', json={'tariff_id': 'pilot_quarter_499'}, headers={**p.headers, 'Origin': 'https://evil.example'})).status == 403
             for body in ({'tariff_id': 'month'}, {'tariff_id': 'pilot_month_199', 'amount_kopecks': 1}):
                 assert (await p.http.post('/checkout/api/orders', json=body, headers=p.headers)).status == 400
-            foreign = await p.service.checkout.create_for_user(502, 'quarter')
+            foreign = await p.service.checkout.create_for_user(502, 'pilot_quarter_499')
             async with p.db() as session:
                 row = await session.scalar(select(Payment).where(Payment.provider_payment_id == foreign.provider_id))
             assert (await p.http.get('/checkout/api/orders/' + str(row.id))).status == 404
@@ -169,6 +174,84 @@ def test_auth_csrf_foreign_order_and_price_tampering(tmp_path):
             assert "script-src 'self'" in response.headers['Content-Security-Policy']
             assert (await p.http.post('/checkout/api/logout', headers=p.headers)).status == 200
             assert (await p.http.get('/checkout/api/session')).status == 401
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize('old_plan,new_plan,old_amount,new_amount', [
+    ('month', 'pilot_month_199', 29900, 19900),
+    ('quarter', 'pilot_quarter_499', 79900, 49900),
+    ('year', 'pilot_year_1790', 249000, 179000),
+])
+def test_repriced_offers_preserve_historical_order_amount_and_term(
+        tmp_path, old_plan, new_plan, old_amount, new_amount):
+    async def run():
+        async with portal(tmp_path) as p:
+            legacy = PaymentCheckoutService(p.db, p.client, ORIGIN + '/checkout')
+            intent = await legacy.create_for_user(501, old_plan)
+            async with p.db() as db:
+                old = await db.scalar(select(Payment).where(Payment.provider_payment_id == intent.provider_id))
+            new = await create(p, new_plan)
+            assert old.amount_kopecks == old_amount and new['amount_kopecks'] == new_amount
+            assert str(old.id) != new['id']
+            # Old buttons are readable as history, never accepted for a new sale.
+            assert (await p.http.post('/checkout/api/orders', json={'tariff_id': old_plan}, headers=p.headers)).status == 400
+            state = await p.service.state(501, str(old.id))
+            assert state['amount_kopecks'] == old_amount
+            assert state['months'] == TARIFFS[old_plan].months
+            assert state['label'] == TARIFFS[old_plan].label
+            p.fake.rows[intent.provider_id].update(status='succeeded', paid=True, captured_at=utcnow().isoformat())
+            assert (await webhook(p, intent.provider_id)).status == 200
+            async with p.db() as db:
+                sub = await db.scalar(select(Subscription))
+                assert as_utc(sub.expires_at) > utcnow() + timedelta(days=27 * TARIFFS[old_plan].months)
+                assert (await db.get(Payment, old.id)).amount_kopecks == old_amount
+    asyncio.run(run())
+
+
+def test_restart_recovers_pending_order_session_and_once_only_fulfillment(tmp_path):
+    async def run():
+        async with portal(tmp_path) as p:
+            order = await create(p, 'pilot_quarter_499')
+            async with p.db() as db:
+                saved = await db.scalar(select(Payment))
+                stable_key, provider_id = saved.idempotency_key, saved.provider_payment_id
+            cookie = p.http.session.cookie_jar.filter_cookies(p.http.make_url('/checkout'))['kuda_test_checkout'].value
+            # A new engine, session ledger and app reuse only durable state.
+            # Provider state represents the remote shop, independent of the app.
+            engine = create_async_engine('sqlite+aiosqlite:///' + str(tmp_path / 'payments.db'))
+            db = async_sessionmaker(engine, expire_on_commit=False)
+            try:
+                browser = CheckoutSessions(str(p.sessions.path), 501)
+                assert browser.owner(cookie) == 501
+                checkout = PaymentCheckoutService(db, p.client, ORIGIN + '/checkout', tariffs=PILOT_TARIFFS)
+                processor = PaymentNotificationProcessor(db, p.client)
+                service = WebCheckout(db, checkout, processor, p.service.happ, 501)
+                assert (await service.latest(501))['id'] == order['id']
+                retried = await service.create(501, 'pilot_quarter_499')
+                assert retried['id'] == order['id']
+                async with db() as session:
+                    assert (await session.get(Payment, saved.id)).idempotency_key == stable_key
+                await provider_success(p, order)
+                # Restarted poller recovers a confirmation missed during downtime.
+                await PaymentPoller(db, p.client).tick()
+                state = await service.state(501, order['id'])
+                assert state['state'] == 'succeeded' and state['subscription_expires_at']
+                await PaymentNotificationProcessor(db, p.client).process(provider_id)
+                await PaymentPoller(db, p.client).tick()
+                assert (await service.state(501, order['id']))['subscription_expires_at'] == state['subscription_expires_at']
+                async with db() as session:
+                    assert await session.scalar(select(func.count()).select_from(SubscriptionHistory).where(
+                        SubscriptionHistory.reason == 'payment')) == 1
+                    assert await session.scalar(select(func.count()).select_from(Payment)) == 1
+                app = create_checkout_app(service, browser, ORIGIN, local_demo=True)
+                async with TestClient(TestServer(app), cookie_jar=CookieJar(unsafe=True)) as restarted:
+                    restarted.session.cookie_jar.update_cookies({'kuda_test_checkout': cookie})
+                    response = await restarted.get('/checkout/api/orders/latest')
+                    assert response.status == 200
+                    restored = (await response.json())['order']
+                    assert restored['id'] == order['id'] and restored['state'] == 'succeeded'
+            finally:
+                await engine.dispose()
     asyncio.run(run())
 
 
@@ -291,7 +374,7 @@ def test_refund_of_earlier_payment_is_reviewed_without_removing_later_renewal(tm
             first = await create(p)
             first_provider = await provider_success(p, first)
             await webhook(p, first_provider)
-            second = await create(p, 'quarter')
+            second = await create(p, 'pilot_quarter_499')
             await webhook(p, await provider_success(p, second))
             async with p.db() as session:
                 end = as_utc((await session.scalar(select(Subscription))).expires_at)
@@ -322,7 +405,7 @@ def test_web_199_purchase_and_renewal_keep_real_issuer_uuid_and_https_link(tmp_p
             reconciler, health = NodeReconciler(db, gateway), NodeHealthMonitor(db, gateway)
             original_uuid = original_link = first_expiry = None
             paid = []
-            for _ in range(2):
+            for attempt in range(2):
                 order = await website.create(501, 'pilot_month_199')
                 async with db() as session:
                     payment = await session.scalar(select(Payment).where(
@@ -335,10 +418,26 @@ def test_web_199_purchase_and_renewal_keep_real_issuer_uuid_and_https_link(tmp_p
                 await processor.process(payment.provider_payment_id)
                 async with db() as session:
                     sub = await session.scalar(select(Subscription))
+                if attempt == 0:
+                    gateway.available = False
+                    with pytest.raises(RuntimeError, match='incomplete'):
+                        await reconciler.reconcile(sub.id)
+                    async with db() as session:
+                        durable = await session.scalar(select(NodeAccess))
+                        pending_uuid = durable.credential
+                        assert durable.desired_enabled and not durable.enabled
+                    waiting = await website.state(501, order['id'])
+                    assert waiting['state'] == 'succeeded' and waiting['access_pending']
+                    assert 'connect_url' not in waiting
+                    gateway.available = True
+                    # A new worker retries the same durable intent after recovery.
+                    reconciler = NodeReconciler(db, gateway)
+                await reconciler.reconcile(sub.id)
                 await reconciler.reconcile(sub.id)
                 await health.tick()
                 async with db() as session:
                     access = await session.scalar(select(NodeAccess))
+                    assert access.credential == pending_uuid
                 link = await feed.issue_for_user(501)
                 state = await website.state(501, order['id'])
                 assert state['state'] == 'succeeded' and '/connect/' in state['connect_url']
