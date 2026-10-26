@@ -28,7 +28,7 @@ class Database:
             for model in (User, Subscription, Device, VPNServer, Payment, ActiveScreen, SubscriptionHistory, SubscriptionToken, VPNNode, NodeHealth, NodeAccess, PremiumNotice):
                 await connection.execute(select(model).limit(0))
             revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
-            if revision != "0008_premium_notices":
+            if revision not in {"0008_premium_notices", "0009_website"}:
                 raise RuntimeError("Примените миграции: alembic upgrade head")
 
     async def close(self) -> None:

@@ -4,3 +4,4 @@ SQLAlchemy[asyncio]>=2.0.36,<2.1
 psycopg[binary]>=3.2,<3.4
 alembic>=1.14,<2
 qrcode==8.2
+PyJWT[crypto]>=2.15.1,<3

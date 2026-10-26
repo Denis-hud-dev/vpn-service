@@ -35,6 +35,57 @@ class User(Record, Base):
                      CheckConstraint("referrer_id IS NULL OR (referrer_id > 0 AND referrer_id != telegram_id)", name="user_valid_referrer"))
 
 
+class WebIdentity(Base):
+    __tablename__ = 'web_identities'
+    subject: Mapped[str] = mapped_column(String(128), primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(ForeignKey('users.id', ondelete='RESTRICT'), unique=True)
+
+
+class WebLoginFlow(Base):
+    __tablename__ = 'web_login_flows'
+    digest: Mapped[str] = mapped_column(String(64), primary_key=True)
+    browser_digest: Mapped[str] = mapped_column(String(64))
+    verifier: Mapped[str] = mapped_column(String(128))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class WebSession(Base):
+    __tablename__ = 'web_sessions'
+    digest: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(ForeignKey('users.id', ondelete='RESTRICT'), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class NPDReceipt(Base):
+    """Obligation ledger, never a fabricated fiscal receipt."""
+    __tablename__ = 'npd_receipts'
+    payment_id: Mapped[UUID] = mapped_column(ForeignKey('payments.id', ondelete='RESTRICT'), primary_key=True)
+    environment: Mapped[str] = mapped_column(String(8))
+    state: Mapped[str] = mapped_column(String(24))
+    amount_kopecks: Mapped[int] = mapped_column(Integer)
+    # Opaque private document reference; never returned as a public URL.
+    document_ref: Mapped[str | None] = mapped_column(String(128))
+    error_code: Mapped[str | None] = mapped_column(String(32))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    __table_args__ = (
+        CheckConstraint("environment IN ('test','live')", name='npd_environment'),
+        CheckConstraint("state IN ('test_not_required','pending','issued','delivered','error','void_pending','voided')", name='npd_state'),
+        CheckConstraint('amount_kopecks > 0', name='npd_amount'),
+        CheckConstraint("environment != 'test' OR state = 'test_not_required'", name='npd_no_test_receipt'),
+        CheckConstraint("state NOT IN ('issued','delivered') OR document_ref IS NOT NULL", name='npd_issued_document'),
+    )
+
+
+class NPDReceiptEvent(Base):
+    __tablename__ = 'npd_receipt_events'
+    operation: Mapped[str] = mapped_column(String(128), primary_key=True)
+    payment_id: Mapped[UUID] = mapped_column(ForeignKey('npd_receipts.payment_id', ondelete='RESTRICT'), index=True)
+    state: Mapped[str] = mapped_column(String(24))
+    error_code: Mapped[str | None] = mapped_column(String(32))
+    document_ref: Mapped[str | None] = mapped_column(String(128))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Subscription(Record, Base):
     __tablename__ = "subscriptions"
     # One current subscription per user; payment rows retain renewal history.
