@@ -1,0 +1,45 @@
+[Unit]
+Description=KudaVPN owner-only infrastructure Monitor
+After=network-online.target kudavpn-monitor-collect.service
+Wants=network-online.target kudavpn-monitor-collect.timer
+
+[Service]
+Type=notify
+NotifyAccess=main
+User=kudavpn_monitor
+Group=kudavpn_monitor
+WorkingDirectory=@RELEASE@
+LoadCredential=token:/etc/kudavpn-monitor/bot-token
+LoadCredential=identity:/etc/kudavpn-monitor/owner.json
+LoadCredential=peer:/etc/kudavpn-monitor/peer-key
+ExecStartPre=/usr/bin/install -m 0600 /run/credentials/kudavpn-monitor.service/token /var/lib/kudavpn-monitor/bot-token
+ExecStartPre=/usr/bin/install -m 0600 /run/credentials/kudavpn-monitor.service/identity /var/lib/kudavpn-monitor/identity.json
+ExecStartPre=/usr/bin/install -m 0600 /run/credentials/kudavpn-monitor.service/peer /var/lib/kudavpn-monitor/peer-key
+ExecStart=/usr/bin/python3 -B -m monitor.worker
+StateDirectory=kudavpn-monitor
+StateDirectoryMode=0700
+ReadWritePaths=/var/lib/kudavpn-monitor
+UMask=0077
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+Restart=always
+RestartSec=10
+WatchdogSec=180
+TimeoutStartSec=45
+TimeoutStopSec=15
+MemoryMax=192M
+TasksMax=32
+Environment=PYTHONDONTWRITEBYTECODE=1
+LogRateLimitIntervalSec=30
+LogRateLimitBurst=20
+
+[Install]
+WantedBy=multi-user.target

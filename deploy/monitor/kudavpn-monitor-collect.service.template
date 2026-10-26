@@ -1,0 +1,29 @@
+[Unit]
+Description=Read-only KudaVPN metric collection (no Telegram credential)
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=kudavpn_monitor
+WorkingDirectory=@RELEASE@
+ExecStart=/usr/bin/python3 -B -m monitor.collector --host @HOST@ @PROBE@
+StateDirectory=kudavpn-monitor-collector
+StateDirectoryMode=0750
+ReadWritePaths=/var/lib/kudavpn-monitor-collector
+UMask=0027
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_SETUID CAP_SETGID CAP_AUDIT_WRITE
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+TimeoutStartSec=75
+MemoryMax=256M
+CPUQuota=25%
+TasksMax=32
+Environment=PYTHONDONTWRITEBYTECODE=1
