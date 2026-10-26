@@ -113,6 +113,7 @@ class Controller:
     def __init__(self, state, sender, owner, host, role, *, initial_offset=0):
         self.state, self.sender, self.owner = state, sender, owner
         self.host, self.role = host, role
+        self.started_at = None
         if self.state.get('offset') is None:
             self.state.put('offset', initial_offset)
 
@@ -167,6 +168,8 @@ class Controller:
         self.state.put('incidents', records)
 
     def tick(self, samples, now, updates=()):
+        if self.started_at is None:
+            self.started_at = now
         if self.state.get('started_at') is None:
             self.state.put('started_at', now)
         peer = next(s for s in samples if s['host'] != self.host)
@@ -195,7 +198,7 @@ class Controller:
             samples = [dict(s, checks=s['checks']+observer['checks']) if s['host'] == peer['host'] else s for s in samples]
             changes = self.incidents([observer])
             due = (slot > self.state.get('full_slot', -1) and now >= slot_start+600
-                   and now-self.state.get('started_at') >= STALE
+                   and now-self.started_at >= STALE
                    and peer_full < slot_start)
             if peer_full >= slot_start:
                 self.state.put('full_slot', slot)

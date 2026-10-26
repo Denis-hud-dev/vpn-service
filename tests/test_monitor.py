@@ -263,3 +263,13 @@ def test_main_bot_api_probe_keeps_token_inside_existing_container(monkeypatch,co
     assert "os.environ.get('BOT_TOKEN'" in source and '/getMe' in source
     assert 'sendMessage' not in source and 'print(token)' not in source
     compile(source,'container-read-only-probe','exec')
+
+
+def test_watchdog_startup_grace_is_reset_after_process_restart(tmp_path):
+    c,sender=controller(tmp_path,'watchdog')
+    now=PERIOD*100+900
+    c.state.put('started_at',now-100000)
+    restarted=Controller(State(c.state.path),sender,501,'digitalocean','watchdog')
+    restarted.tick([sample('digitalocean',now),sample('justhost',now,tick=now-300)],now)
+    assert not sender.texts
+    assert restarted.state.get('full_slot') is None
