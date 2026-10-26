@@ -1,5 +1,11 @@
 # KudaVPN — текущая передача состояния
 
+## Приоритет изменён: KudaVPN Monitor — 26 октября 2026
+
+Работа над YooKassa приостановлена до готовности мониторинга. Новая ветка `codex/infrastructure-monitor-20261026` от PR №27. Владелец создал Monitor и нажал Start; токен ещё нужно безопасно сохранить. Подтверждены read-only точки JustHost и DO, рабочие сервисы не менялись. Коллекторы, notifier и systemd ещё не реализованы/не установлены, доставка отчёта пока не проверена. Подробный план и точка продолжения: `docs/kudavpn-monitor.md`.
+
+Исправлен SyntaxError локального `save-monitor-token.py`: пропущенная скобка в проверке /start, ошибка показывалась на config.update. Точная копия на Mac успешно проверена `python3 -m py_compile` под3.9 и3.12;16 тестов скрытого ввода/режимов/атомарной записи/отказов прошли, токены и API в них фиктивные. Секретов в Git нет. Владелец должен повторить `python3 /Users/gr/Documents/KudaVPN-private/monitor/save-monitor-token.py`, вставить токен только в скрытый запрос и ответить «Готово». ID уже взят из доверенной приватной конфигурации, заново не спрашивать. Сначала закончить мониторинг, не переходить к платежам.
+
 ## HTTPS checkout PR №27 развёрнут — 26 октября 2026 UTC
 
 По отдельному разрешению владельца запущены только `kudavpn-test-checkout.service` (HTTPS18543) и обновлённый `@KudaVPN_Test_Bot`. Release обеих служб: `/opt/kudavpn-telegram-pilot/app-checkout-08fbff6`, ActiveState=active, NRestarts=0. [CI кода08fbff6](https://github.com/Denis-hud-dev/vpn-service/actions/runs/40281868644) успешен;43 профильных теста прошли. Всё в Draft PR №27, merge не выполнялся.
