@@ -1,0 +1,12 @@
+[Unit]
+Description=Collect KudaVPN infrastructure metrics every minute
+
+[Timer]
+OnBootSec=30
+OnCalendar=*-*-* *:*:00
+Persistent=true
+AccuracySec=3
+Unit=kudavpn-monitor-collect.service
+
+[Install]
+WantedBy=timers.target

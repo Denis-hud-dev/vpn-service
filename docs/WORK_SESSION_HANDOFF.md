@@ -1,5 +1,23 @@
 # KudaVPN — текущая передача состояния
 
+## KudaVPN Monitor завершён и проверен — 26 октября 2026
+
+[Draft PR №28](https://github.com/Denis-hud-dev/vpn-service/pull/28), ветка `codex/infrastructure-monitor-20261026`, база PR №27. Рабочий код `74f9a3f476df1ff76a3fb7200aac51ce4f276834` опубликован и развёрнут на обоих VPS; последние изменения worker уже сохранены, незавершённой установки нет. [CI 40296372021](https://github.com/Denis-hud-dev/vpn-service/actions/runs/40296372021) успешен. Повторная профильная проверка: **51 passed**, без внешних отправок. Merge не выполнялся.
+
+**Работает независимо от Mac/Codex:** primary на JustHost, watchdog на DigitalOcean, на каждом `kudavpn-monitor.service` и `kudavpn-monitor-collect.timer` active/enabled; NRestarts=0. Release `/opt/kudavpn-monitor/releases/74f9a3f`. Коллектор каждую минуту; полный отчёт по UTC00/04/08/12/16/20 даже без новых сбоев; timezone в сообщениях America/Los_Angeles. Состояние/курсор/дедупликация SQLite сохраняются после restart; watchdog180сек и резервные отчёты при пропуске primary более10мин.
+
+**Фактическая доставка Telegram:** первый полный message_id3, ответ на команду владельца4, явно тестовое срочное уведомление5 (повтор подавлен, реальная авария не создавалась), итоговая проверка6. Автоматические отчёты7 и8 приняты **26.10 в05:00:38 и09:00:38 PDT**, разница ровно14400сек. Это подтверждение принятия Telegram, не прочтения человеком. При завершении проверки следующий полный отчёт — **26.10 около13:00 PDT /20:00 UTC**. Не отправлять повторные тесты без причины. Команды /status, /report, /start, /help доступны только настроенному владельцу в private chat; команды изменения сервисов отсутствуют.
+
+Контролируются CPU/RAM/диск, systemd/Docker, PostgreSQL SELECT1 read-only, fresh node_health агента10443, порты443/8443/9443/10443, HTTPS feed18443, test checkout18543, доверенный TLS, существующая личная подписка (один узел10443), readiness обоих ботов и getMe основного бота внутри его контейнера. Production-токен не копируется. Ошибки журналов только агрегатами, статусы работают/ошибка/нет данных; просроченные снимки не считаются успешными. Реальный VPN/YouTube и обработка кнопок с телефона автоматически не доказаны.
+
+**Оставшаяся известная ошибка:** старый `kudavpn-pilot-control.service` failed, последний запуск18.10.2026 13:40:30 UTC, NRestarts=0. Monitor показывает legacy_failed без аварийного спама и ничего не перезапускает. Рабочие VPN PID, SHA256 конфигураций и DO container ID/StartedAt совпали с исходными; test bot/feed/checkout active. Новых сбоев этих приложений при проверке не обнаружено. YooKassa, подписки, цены, production и размещение DO не изменялись.
+
+**Безопасность и откат:** notifier непривилегированный, ProtectSystem=strict/NoNewPrivileges; token/identity/peer-key/state0600, state directory0700. Collector read-only root с ограниченными capabilities; Unix setuid не используется, существующий test DB credential только в child env и локальном root-файле600, транзакции read-only. Межсерверные ключи from-IP/restrict/forced cat только `/var/lib/kudavpn-monitor-collector/export.json`, строгий host-key pinning; попытка другой команды вернула только snapshot. Прежние административные ключи сохранены; проверено, что добавлена ровно одна ожидаемая строка на каждом VPS. Токен Monitor и owner ID вне Git/журналов; private chat подтверждён getChat.
+
+Исходные закрытые backup на обоих VPS: `/opt/kudavpn-monitor/backups/368a641/`; код предыдущих release сохранён. Откат только Monitor: `rollback.sh` из этого backup отключает собственные service/timer и удаляет только добавленную строку ключа, не восстанавливает БД/приложения. Оба VPS одновременно недоступны либо Telegram недоступен — отдельного внешнего канала нет; абсолютное exactly-once при потерянном ответе Bot API невозможно, используется backoff. Детали: `docs/kudavpn-monitor.md`.
+
+**Точка продолжения:** мониторинг завершён, самостоятельных технических действий больше не требуется. Владелец может проверить отчёты в `@KudaVPN_Monitor_Bot` и /status (ответ примерно за минуту). Ждать следующего задания; не переходить к YooKassa, миграции DO, исправлению старого контроллера или новым тестовым уведомлениям без отдельного запроса.
+
 ## HTTPS checkout PR №27 развёрнут — 26 октября 2026 UTC
 
 По отдельному разрешению владельца запущены только `kudavpn-test-checkout.service` (HTTPS18543) и обновлённый `@KudaVPN_Test_Bot`. Release обеих служб: `/opt/kudavpn-telegram-pilot/app-checkout-08fbff6`, ActiveState=active, NRestarts=0. [CI кода08fbff6](https://github.com/Denis-hud-dev/vpn-service/actions/runs/40281868644) успешен;43 профильных теста прошли. Всё в Draft PR №27, merge не выполнялся.
