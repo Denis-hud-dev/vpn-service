@@ -8,6 +8,7 @@ from uuid import UUID
 import aiohttp
 from sqlalchemy import text
 
+from bot.services import PILOT_TARIFFS
 from bot.services.web_checkout import WebCheckout, OrderUnavailable
 from bot.services.payments import _safe_confirmation_url
 from bot.services.yookassa_verification import identity_from_lookup
@@ -26,6 +27,19 @@ class NoProfileIssuance:
 class CanonicalPaymentCheckout(WebCheckout):
     def __init__(self, sessions, checkout, processor, owner):
         super().__init__(sessions, checkout, processor, NoProfileIssuance(), owner)
+
+    async def create(self, user_id, tariff_id):
+        self._owner(user_id)
+        if tariff_id not in PILOT_TARIFFS:
+            raise ValueError('Unknown plan')
+        row = await self.checkout.repository.create_or_reuse_pending(user_id, PILOT_TARIFFS[tariff_id])
+        if row.provider_payment_id:
+            # A pending order may originate in the previous checkout, whose
+            # return_url differs. Reuse its authenticated GET; never POST the
+            # same key with changed payload or create a second provider object.
+            return await self.refresh(user_id, str(row.id))
+        await self.checkout._start(row)
+        return await self.state(user_id, str(row.id))
 
     async def ready(self):
         async with self.sessions() as session:

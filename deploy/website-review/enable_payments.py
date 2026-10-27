@@ -96,6 +96,9 @@ def main():
         from bot.subscription_api.payment_bridge import validate_configuration
         validate_configuration(values)
         if run(['runuser','-u','postgres','--','psql','-X','-At','-d','kudavpn_telegram_pilot','-c','SELECT version_num FROM alembic_version'])!='0008_premium_notices':raise ValueError()
+        uncertain=run(['runuser','-u','postgres','--','psql','-X','-At','-d','kudavpn_telegram_pilot','-c',
+                       "SELECT count(*) FROM payments WHERE provider='yookassa' AND status='pending' AND provider_payment_id IS NULL"])
+        if uncertain!='0':raise ValueError('Existing uncertain orders require reconciliation first')
         BACKUP.mkdir(mode=0o700)
         baseline('save')
         shutil.copy2(CONFIG/'site.env',BACKUP/'site.env')
@@ -122,7 +125,7 @@ systemctl restart kudavpn-website-review.service
             if path.is_dir():path.chmod(0o755)
             elif path.is_file():path.chmod(0o644)
         run(['useradd','--system','--no-create-home','--home-dir','/nonexistent','--shell','/usr/sbin/nologin',
-             '--gid','kudavpn_website_test','kudavpn_site_payments'])
+             '--user-group','kudavpn_site_payments'])
         PAYMENT_CONFIG.mkdir(mode=0o700)
         write(PAYMENT_CONFIG/'payments.json',json.dumps(values))
         values.clear();env.clear()
@@ -146,6 +149,10 @@ systemctl restart kudavpn-website-review.service
                 break
             except Exception:time.sleep(1)
         else:raise RuntimeError('Bridge failed readiness')
+        # Verify that sharing socket access does not share payment credentials.
+        bridge_pid=run(['systemctl','show','-P','MainPID',BRIDGE])
+        secret_probe="from pathlib import Path;import os;assert not os.access('/run/credentials/kudavpn-site-payments.service/payments.json',os.R_OK)"
+        run(['nsenter','--target',bridge_pid,'--mount','--','runuser','-u','kudavpn_website_test','--',PYTHON,'-c',secret_probe])
         stage='website_readiness'
         run(['systemctl','restart',SITE])
         for _ in range(45):

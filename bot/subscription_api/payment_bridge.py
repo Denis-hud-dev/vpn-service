@@ -146,7 +146,26 @@ def main():
     logging.disable(logging.CRITICAL)
     os.umask(0o007)
     try:
-        web.run_app(build(), path=SOCKET, access_log=None, print=None)
+        # Credentials use the bridge's private primary group. Only this socket
+        # and its directory use the website supplementary group, never secrets.
+        app=build()
+        directory=Path(SOCKET).parent
+        group=pwd.getpwnam('kudavpn_website_test').pw_gid
+        if directory.is_symlink() or directory.stat().st_uid!=os.geteuid():
+            raise ValueError('Private runtime directory required')
+        os.chown(directory,-1,group)
+        directory.chmod(0o750)
+        path=Path(SOCKET)
+        if path.exists():
+            import stat
+            if path.is_symlink() or path.lstat().st_uid!=os.geteuid() or not stat.S_ISSOCK(path.lstat().st_mode):
+                raise ValueError('Unexpected runtime socket')
+            path.unlink()
+        sock=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
+        sock.bind(SOCKET)
+        os.chown(SOCKET,-1,group)
+        os.chmod(SOCKET,0o660)
+        web.run_app(app, sock=sock, access_log=None, print=None)
     except Exception:
         raise SystemExit('Isolated payment bridge unavailable; details withheld') from None
 

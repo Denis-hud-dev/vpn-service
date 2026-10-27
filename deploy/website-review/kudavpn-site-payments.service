@@ -6,7 +6,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=kudavpn_site_payments
-Group=kudavpn_website_test
+Group=kudavpn_site_payments
+SupplementaryGroups=kudavpn_website_test
 WorkingDirectory=/opt/kudavpn-website-review/current
 Environment=KUDAVPN_PAYMENT_BRIDGE_MODE=owner-sandbox
 Environment=PYTHONDONTWRITEBYTECODE=1

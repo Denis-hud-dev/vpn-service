@@ -271,7 +271,28 @@ def test_deployment_has_narrow_rollback_and_no_schema_or_vpn_operations():
     assert 'rows_digest' in installer and "baseline('verify')" in installer
     assert 'alembic upgrade' not in installer and 'pg_restore -d' not in installer
     assert 'User=kudavpn_site_payments' in unit and 'LoadCredential=payments.json:' in unit
+    assert 'Group=kudavpn_site_payments' in unit and 'SupplementaryGroups=kudavpn_website_test' in unit
+    assert 'nsenter' in installer and 'secret_probe' in installer
     assert 'RuntimeDirectoryMode=0750' in unit and 'ProtectSystem=strict' in unit
     assert "'systemctl','restart',SITE" in installer
     for protected in ('xray.service','kudavpn-telegram-pilot-bot.service','kudavpn-monitor.service'):
         assert protected not in installer
+
+
+def test_existing_legacy_pending_order_resumes_without_changed_return_url(tmp_path):
+    async def run():
+        engine,db,fake,client,_=await setup(tmp_path)
+        try:
+            old=PaymentCheckoutService(db,client,'https://legacy.example/checkout',tariffs=PILOT_TARIFFS)
+            intent=await old.create_for_user(501,'pilot_month_199')
+            new=PaymentCheckoutService(db,client,ORIGIN+'/account',tariffs=PILOT_TARIFFS)
+            service=CanonicalPaymentCheckout(db,new,PaymentNotificationProcessor(db,client),501)
+            resumed=await service.create(501,'pilot_month_199')
+            assert resumed['state']=='pending' and resumed['payment_url']
+            posts=[c for c in fake.calls if c[0]=='POST']
+            assert len(posts)==1 and posts[0][2]['confirmation']['return_url']=='https://legacy.example/checkout'
+            fake.rows[intent.provider_id].update(status='succeeded',paid=True,captured_at=utcnow().isoformat())
+            assert (await service.create(501,'pilot_month_199'))['state']=='succeeded'
+            assert len([c for c in fake.calls if c[0]=='POST'])==1
+        finally:await engine.dispose()
+    asyncio.run(run())
