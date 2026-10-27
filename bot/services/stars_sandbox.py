@@ -7,10 +7,15 @@ any access grant. No bot handler or live settings import this prototype.
 from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
+from types import MappingProxyType
 
 from aiogram.client.telegram import TEST, TelegramAPIServer
 from aiogram.methods import AnswerPreCheckoutQuery, SendInvoice
 from aiogram.types import LabeledPrice, Message, PreCheckoutQuery
+
+# Explicit owner approval, 27 Oct 2026. TEST-server prices, never RUB conversion
+# or a live commercial catalog. No runtime loads or enables this module.
+TEST_STARS_PRICES = MappingProxyType({1: 1, 3: 2, 12: 3})
 
 
 @dataclass(frozen=True)
@@ -37,6 +42,13 @@ class StarsObservation:
     environment: str = 'telegram_test'
 
 
+def approved_test_order(order_id, test_user_id, months, expires_at):
+    if type(months) is not int or months not in TEST_STARS_PRICES:
+        raise ValueError('Approved test duration required')
+    return StarsTestOrder(order_id,test_user_id,months,TEST_STARS_PRICES[months],expires_at,
+                          price_approved=True)
+
+
 class StarsSandbox:
     def __init__(self, *, enabled=False, api: TelegramAPIServer=TEST):
         if api != TEST:
@@ -51,6 +63,8 @@ class StarsSandbox:
                 or type(order.stars) is not int or order.stars<=0
                 or not isinstance(order.expires_at,datetime) or order.expires_at.tzinfo is None):
             raise ValueError('Explicit test order in whole Stars required')
+        if order.stars != TEST_STARS_PRICES[order.months]:
+            raise ValueError('Amount differs from the approved TEST price')
 
     def invoice(self, order, *, now):
         self._validate(order)

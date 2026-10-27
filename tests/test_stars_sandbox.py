@@ -7,14 +7,14 @@ import pytest
 from aiogram.client.telegram import PRODUCTION,TEST
 from aiogram.types import Chat,Message,PreCheckoutQuery,SuccessfulPayment,User
 
-from bot.services.stars_sandbox import StarsSandbox,StarsTestOrder
+from bot.services.stars_sandbox import StarsSandbox,StarsTestOrder,approved_test_order,TEST_STARS_PRICES
 
 NOW=datetime(2026,10,27,tzinfo=timezone.utc)
 
 
 def order():
-    # Fixture price, not a proposed or enabled KudaVPN tariff.
-    return StarsTestOrder(uuid4(),501,1,7,NOW+timedelta(minutes=30),price_approved=True)
+    # Owner-approved TEST price; no real Telegram endpoint is called.
+    return approved_test_order(uuid4(),501,1,NOW+timedelta(minutes=30))
 
 
 def query(row,**changes):
@@ -47,7 +47,7 @@ def test_invoice_uses_official_stars_fields_without_recurrence_or_provider():
     row=order();invoice=StarsSandbox(enabled=True).invoice(row,now=NOW)
     assert invoice.__api_method__=='sendInvoice'
     assert invoice.currency=='XTR' and invoice.provider_token=='' and len(invoice.prices)==1
-    assert invoice.prices[0].amount==7 and invoice.chat_id==501 and invoice.payload==row.payload
+    assert invoice.prices[0].amount==1 and invoice.chat_id==501 and invoice.payload==row.payload
     assert invoice.start_parameter and invoice.protect_content
     assert not invoice.need_email and not invoice.need_phone_number
     assert 'subscription_period' not in invoice.model_dump(exclude_none=True)
@@ -92,3 +92,13 @@ def test_foreign_and_group_messages_are_rejected():
     for message in (paid(row).model_copy(update={'from_user':User(id=502,is_bot=False,first_name='Other')}),
                     paid(row).model_copy(update={'chat':Chat(id=-100,type='group')})):
         with pytest.raises(ValueError):adapter.inspect_successful_payment(row,message)
+
+
+@pytest.mark.parametrize('months,stars',[(1,1),(3,2),(12,3)])
+def test_owner_approved_test_catalog_keeps_xtr_units(months,stars):
+    row=approved_test_order(uuid4(),501,months,NOW+timedelta(minutes=30))
+    method=StarsSandbox(enabled=True).invoice(row,now=NOW)
+    assert method.prices[0].amount==stars and method.currency=='XTR'
+    assert row.months==months and TEST_STARS_PRICES[months]==stars
+    with pytest.raises(ValueError):StarsSandbox(enabled=True).invoice(replace(row,stars=stars+1),now=NOW)
+    assert not hasattr(method,'return_url')
