@@ -17,13 +17,15 @@ CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self';
        "connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
 
 
-def create_website(service, auth, ledger, origin, *, local_demo=False):
+def create_website(service, auth, ledger, origin, *, local_demo=False, closed_review=False):
     url = urlsplit(origin)
     if (url.path or url.query or url.fragment or url.username or not url.hostname
             or (local_demo and (url.scheme != 'http' or url.hostname != '127.0.0.1'))
             or (not local_demo and url.scheme != 'https')):
         raise ValueError('Explicit HTTPS website origin required')
     cookie, flow_cookie = (DEMO_COOKIE, DEMO_FLOW) if local_demo else (COOKIE, FLOW_COOKIE)
+    if closed_review and (auth.allowed_telegram_ids is None or len(auth.allowed_telegram_ids) != 1):
+        raise ValueError('Exactly one trusted review owner required')
     buckets = {name: deque() for name in ('auth', 'create', 'refresh')}
 
     def limit(name, maximum, seconds):
@@ -37,9 +39,17 @@ def create_website(service, auth, ledger, origin, *, local_demo=False):
     @web.middleware
     async def private(request, handler):
         try:
+            if closed_review and request.path not in {
+                    '/auth/login', '/auth/callback', '/auth/assets/login.css', '/auth/assets/logo.png'}:
+                if not (request.path == '/ready' and request.remote in {'127.0.0.1', '::1'}):
+                    await auth.owner(request.cookies.get(cookie, ''))
             response = await handler(request)
         except PermissionError:
-            response = web.json_response({'error': 'authentication_required'}, status=401)
+            if closed_review and request.path in {'/', '/account'} and request.method == 'GET':
+                response = web.Response(body=(ASSETS/'website-login.html').read_bytes(),
+                                        content_type='text/html', status=401)
+            else:
+                response = web.json_response({'error': 'authentication_required'}, status=401)
         except OrderUnavailable:
             response = web.json_response({'error': 'order_unavailable'}, status=404)
         except PaymentProviderUnavailable:
@@ -120,8 +130,15 @@ def create_website(service, auth, ledger, origin, *, local_demo=False):
         return response
 
     async def plans(request):
+        read_only = bool(getattr(service, 'read_only', False))
         return web.json_response({'plans': service.plans(), 'test': True, 'sbp_available': False,
-                                 'methods': ['bank_card', 'yoo_money'], 'documents_approved': False})
+                                 'methods': [] if read_only else ['bank_card', 'yoo_money'],
+                                 'read_only': read_only, 'documents_approved': False})
+
+    async def connection(request):
+        from bot.subscription_api.connect_page import render_connection_page
+        feed, expiry = await service.connection(await identity(request))
+        return web.Response(text=render_connection_page(feed, expiry), content_type='text/html')
 
     async def account(request):
         return web.json_response(await service.account(await identity(request)))
@@ -158,9 +175,17 @@ def create_website(service, auth, ledger, origin, *, local_demo=False):
 
     for path in ('/', '/account'):
         app.router.add_get(path, page)
+    app.router.add_get('/connect', connection)
     app.router.add_get('/assets/{name}', asset)
     app.router.add_get('/auth/login', login)
     app.router.add_get('/auth/callback', callback)
+    async def login_asset(request):
+        if request.match_info['name'] == 'login.css':
+            return web.Response(body=(ASSETS/'website-login.css').read_bytes(),content_type='text/css')
+        if request.match_info['name'] == 'logo.png':
+            return web.Response(body=(ASSETS/'kudavpn-orbit-emblem.png').read_bytes(),content_type='image/png')
+        raise web.HTTPNotFound()
+    app.router.add_get('/auth/assets/{name}', login_asset)
     app.router.add_get('/api/session', session)
     app.router.add_post('/api/logout', logout)
     app.router.add_get('/api/plans', plans)

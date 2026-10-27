@@ -2,9 +2,9 @@
 (() => {
   const el = id => document.getElementById(id);
   const money = n => new Intl.NumberFormat('ru-RU').format(n / 100) + ' ₽';
-  const date = value => value ? new Date(value).toLocaleString('ru-RU', {day:'numeric',month:'long',year:'numeric'}) : '—';
-  let csrf = '', current = null, busy = false, timer = null, paymentUrl = null;
-  const status = {pending:'Ожидаем оплату',succeeded:'Оплата подтверждена',canceled:'Платёж отменён',expired:'Окно оплаты истекло',refunded:'Возврат подтверждён',refund_review:'Возврат требует проверки'};
+  const date = value => value ? new Date(value).toLocaleString('ru-RU', {day:'numeric',month:'long',year:'numeric',timeZone:'UTC'})+' · UTC' : '—';
+  let csrf = '', current = null, busy = false, timer = null, paymentUrl = null, readOnly = false;
+  const status = {selection_only:'Тариф выбран · без оплаты',pending:'Ожидаем оплату',succeeded:'Оплата подтверждена',canceled:'Платёж отменён',expired:'Окно оплаты истекло',refunded:'Возврат подтверждён',refund_review:'Возврат требует проверки'};
   const receipt = {test_not_required:'Тест · чек НПД не формируется',not_due:'Чек пока не требуется',pending:'Ожидает выдачи чека НПД',issued:'Чек НПД зарегистрирован · ожидает передачи',delivered:'Чек НПД передан покупателю',error:'Ошибка выдачи или доставки чека',void_pending:'Ожидает корректировки после возврата',voided:'Чек аннулирован / обязательство закрыто'};
   async function api(path, data) {
     const response = await fetch('/api/'+path,{method:data === undefined?'GET':'POST',credentials:'same-origin',
@@ -22,7 +22,7 @@
     element.href=url.href; element.hidden=false;
   }
   async function account() {
-    const data=await api('account'); el('account-panel').hidden=false;el('auth-message').hidden=true;
+    const data=await api('account'); el('account-name').textContent=data.display_name||'Ваш личный кабинет'; el('account-panel').hidden=false;el('auth-message').hidden=true;
     const labels={active:'Подписка активна',expired:'Срок подписки истёк',inactive:'Подписки пока нет',pending:'Ожидает активации',blocked:'Доступ ограничен'};
     el('account-status').textContent=labels[data.status]||'Статус недоступен';
     el('account-dot').className='status-dot'+(data.status==='active'?' success':'');
@@ -48,9 +48,10 @@
     if (!current || current.id!==order.id) paymentUrl=null;
     if (order.payment_url) paymentUrl=order.payment_url;
     current=order; el('order-panel').hidden=false;el('order-status').textContent=status[order.state]||'Статус уточняется';
-    el('order-summary').textContent=order.label+' · тестовый заказ';
+    el('order-summary').textContent=order.label+(order.state==='selection_only'?' · предварительный выбор':' · тестовый заказ');
+    el('refresh-order').hidden=order.state==='selection_only';
     link(el('pay-link'),order.state==='pending'?paymentUrl:null);
-    el('order-note').textContent=order.state==='succeeded'?'Срок добавлен к подписке один раз. Профиль Happ сохраняется.':order.state==='pending'?'Данные карты вводятся только в форме провайдера. Подтверждение проверяет сервер.':'Если нужна помощь, откройте поддержку. Повторное нажатие проверки не добавляет срок.';
+    el('order-note').textContent=order.state==='selection_only'?'Оплата на этом стенде выключена. Заказ не создан, срок подписки не менялся.':order.state==='succeeded'?'Срок добавлен к подписке один раз. Профиль Happ сохраняется.':order.state==='pending'?'Данные карты вводятся только в форме провайдера. Подтверждение проверяет сервер.':'Если нужна помощь, откройте поддержку. Повторное нажатие проверки не добавляет срок.';
     if (order.state==='succeeded'||order.state==='refunded') await account();
     clearTimeout(timer);
     if (order.state==='pending') timer=setTimeout(refresh,8000);
@@ -63,7 +64,8 @@
   }
   async function start() {
     try {
-      const data=await api('plans');
+      const data=await api('plans'); readOnly=data.read_only===true;
+      if(readOnly){el('review-caption').textContent=location.hostname==='127.0.0.1'?'Локальная имитация данных · не настоящий VPN':'Закрытый просмотр · существующая тестовая подписка';el('methods-note').textContent='Оплата и автосписания выключены. Выбор тарифа не создаёт заказ и не меняет подписку.';el('auth-message').firstChild.textContent='Для просмотра существующей подписки войдите в свой аккаунт. ';}
       for (const plan of data.plans) {
         const card=document.createElement('article');card.className='plan';
         const note=document.createElement('p');note.className='plan-note';note.textContent=plan.months===1?'Начните с одного месяца':plan.months===3?'Ваш привычный ритм':'Доступ на целый год';

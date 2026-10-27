@@ -57,18 +57,19 @@ class IdentityProvider:
 
 
 @asynccontextmanager
-async def site(tmp_path, key, *, secure=False):
+async def site(tmp_path, key, *, secure=False, closed=False):
     engine, db, fake, provider, _ = await setup(tmp_path)
     identity = IdentityProvider(key)
     oidc = TelegramOIDC('123456', 'offline-client-secret', 'https://site.example/auth/callback', transport=identity)
-    auth = WebsiteAuth(db, oidc)
+    auth = WebsiteAuth(db, oidc, allowed_telegram_ids={501} if closed else None)
     checkout = PaymentCheckoutService(db, provider, 'https://site.example/account', tariffs=PILOT_TARIFFS)
     processor = PaymentNotificationProcessor(db, provider)
     happ = SimpleNamespace(available_node_names_for_user=AsyncMock(return_value=('Fixture node',)),
         issue_for_user=AsyncMock(side_effect=lambda owner: 'https://vpn.example/s/fixture-'+str(owner)),
         connection_page_url=lambda url:url.replace('/s/', '/connect/'))
     service, ledger = WebsiteCheckout(db, checkout, processor, happ, None), NPDLedger(db)
-    app = create_website(service, auth, ledger, 'https://site.example' if secure else ORIGIN, local_demo=not secure)
+    app = create_website(service, auth, ledger, 'https://site.example' if secure else ORIGIN,
+                         local_demo=not secure, closed_review=closed)
     try:
         async with TestClient(TestServer(app), cookie_jar=CookieJar(unsafe=True)) as http:
             yield SimpleNamespace(engine=engine, db=db, fake=fake, provider=provider, identity=identity,
@@ -286,12 +287,46 @@ def test_concurrent_oidc_callbacks_can_issue_only_one_session(tmp_path,key):
     asyncio.run(run())
 
 
+def test_closed_review_denies_anonymous_and_foreign_identity_before_writes(tmp_path,key):
+    async def run():
+        async with site(tmp_path,key,closed=True) as p:
+            for path in ['/','/account','/docs/terms','/docs/privacy','/api/plans','/assets/site.js']:
+                response=await p.http.get(path)
+                assert response.status==401
+                assert '199' not in await response.text()
+            assert (await p.http.get('/auth/assets/login.css')).status==200
+            assert (await p.http.get('/auth/assets/logo.png')).status==200
+            for foreign in (502,503):
+                with pytest.raises(PermissionError):await login(p,foreign)
+            async with p.db() as session:
+                from bot.db.models import WebIdentity
+                assert await session.scalar(select(func.count()).select_from(WebIdentity))==0
+                assert await session.scalar(select(func.count()).select_from(WebSession))==0
+                assert await session.scalar(select(User).where(User.telegram_id==503)) is None
+                existing=await session.scalar(select(User).where(User.telegram_id==502))
+                with pytest.raises(PermissionError):await p.auth.new_session(existing.id)
+            headers,token=await login(p,501)
+            assert (await p.http.get('/',headers=headers)).status==200
+            assert (await p.http.get('/api/plans',headers=headers)).status==200
+            p.auth.allowed_telegram_ids=frozenset({502})
+            with pytest.raises(PermissionError):await p.auth.owner(token)
+    asyncio.run(run())
+
+
+def test_closed_review_requires_explicit_single_owner(tmp_path,key):
+    async def run():
+        async with site(tmp_path,key) as p:
+            with pytest.raises(ValueError):
+                create_website(p.service,p.auth,p.ledger,ORIGIN,local_demo=True,closed_review=True)
+    asyncio.run(run())
+
+
 @pytest.mark.parametrize('fault',[None,'live','old_db','vpn_port','http','query'])
 def test_review_entrypoint_cannot_use_live_or_existing_pilot_database(monkeypatch,fault):
-    from bot.subscription_api.website_main import settings
+    from bot.subscription_api.website_main import settings, ORIGIN as REVIEW_ORIGIN
     monkeypatch.setenv('KUDAVPN_SITE_MODE','review-test')
     monkeypatch.setenv('DATABASE_URL','postgresql+psycopg://kudavpn_website_test@127.0.0.1/kudavpn_website_test')
-    monkeypatch.setenv('SITE_PUBLIC_ORIGIN','https://site.example')
+    monkeypatch.setenv('SITE_PUBLIC_ORIGIN',REVIEW_ORIGIN)
     monkeypatch.setenv('SITE_PORT','18106')
     if fault=='live':monkeypatch.setenv('KUDAVPN_SITE_MODE','live')
     if fault=='old_db':monkeypatch.setenv('DATABASE_URL','postgresql+psycopg://kudavpn_pilot@127.0.0.1/kudavpn_telegram_pilot')

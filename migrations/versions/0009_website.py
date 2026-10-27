@@ -23,6 +23,12 @@ def upgrade():
         sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False))
     op.create_index('ix_web_sessions_user_id', 'web_sessions', ['user_id'])
     op.create_index('ix_web_sessions_expires_at', 'web_sessions', ['expires_at'])
+    op.create_table('review_sessions',
+        sa.Column('digest', sa.String(64), primary_key=True),
+        sa.Column('owner_id', sa.BigInteger(), nullable=False),
+        sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
+        sa.CheckConstraint('owner_id > 0', name='review_session_owner'))
+    op.create_index('ix_review_sessions_expires_at', 'review_sessions', ['expires_at'])
     op.create_table('npd_receipts',
         sa.Column('payment_id', sa.Uuid(), sa.ForeignKey('payments.id', ondelete='RESTRICT'), primary_key=True),
         sa.Column('environment', sa.String(8), nullable=False),
@@ -47,5 +53,5 @@ def upgrade():
 
 
 def downgrade():
-    for table in ('npd_receipt_events', 'npd_receipts', 'web_sessions', 'web_login_flows', 'web_identities'):
+    for table in ('npd_receipt_events', 'npd_receipts', 'review_sessions', 'web_sessions', 'web_login_flows', 'web_identities'):
         op.drop_table(table)

@@ -56,6 +56,15 @@ class WebSession(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
+class ReviewSession(Base):
+    """Review auth only; no copied canonical User/Subscription records."""
+    __tablename__ = 'review_sessions'
+    digest: Mapped[str] = mapped_column(String(64), primary_key=True)
+    owner_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    __table_args__ = (CheckConstraint('owner_id > 0', name='review_session_owner'),)
+
+
 class NPDReceipt(Base):
     """Obligation ledger, never a fabricated fiscal receipt."""
     __tablename__ = 'npd_receipts'

@@ -92,8 +92,15 @@ class TelegramOIDC:
 
 
 class WebsiteAuth:
-    def __init__(self, sessions, oidc, *, clock=utcnow):
+    def __init__(self, sessions, oidc, *, clock=utcnow, allowed_telegram_ids=None):
         self.sessions, self.oidc, self.clock = sessions, oidc, clock
+        self.allowed_telegram_ids = None if allowed_telegram_ids is None else frozenset(allowed_telegram_ids)
+        if self.allowed_telegram_ids is not None and (not self.allowed_telegram_ids or any(
+                type(value) is not int or not 0 < value < 2**63 for value in self.allowed_telegram_ids)):
+            raise ValueError('Explicit review account allowlist required')
+
+    def permitted(self, owner):
+        return self.allowed_telegram_ids is None or owner in self.allowed_telegram_ids
 
     async def begin(self):
         state, browser, verifier = (secrets.token_urlsafe(32) for _ in range(3))
@@ -108,7 +115,7 @@ class WebsiteAuth:
             'state': state, 'code_challenge': challenge, 'code_challenge_method': 'S256'})
         return url, browser
 
-    async def finish(self, state, browser, code):
+    async def authenticate_code(self, state, browser, code):
         async with self.sessions.begin() as session:
             # DELETE RETURNING is atomic in PostgreSQL and SQLite: one callback wins.
             flow = (await session.execute(delete(WebLoginFlow).where(
@@ -117,6 +124,13 @@ class WebsiteAuth:
             if flow is None:
                 raise PermissionError('Authentication unavailable')
         identity = await self.oidc.exchange(code, flow)
+        if not self.permitted(identity['telegram_id']):
+            # Reject before writing User, WebIdentity or WebSession.
+            raise PermissionError('Authentication unavailable')
+        return identity
+
+    async def finish(self, state, browser, code):
+        identity = await self.authenticate_code(state, browser, code)
         # Only authenticated claims reach the existing user registry. No URL/user body ID.
         async with self.sessions.begin() as session:
             insert = pg_insert if session.bind.dialect.name == 'postgresql' else sqlite_insert
@@ -134,6 +148,9 @@ class WebsiteAuth:
         """Internal only; production HTTP routes can reach it only after verified OIDC."""
         token = secrets.token_urlsafe(32)
         async with self.sessions.begin() as session:
+            owner = await session.scalar(select(User.telegram_id).where(User.id == user_id))
+            if owner is None or not self.permitted(owner):
+                raise PermissionError('Authentication unavailable')
             session.add(WebSession(digest=digest(token), user_id=user_id,
                 expires_at=self.clock()+timedelta(hours=1)))
         return token
@@ -142,7 +159,7 @@ class WebsiteAuth:
         async with self.sessions() as session:
             owner = await session.scalar(select(User.telegram_id).join(WebSession).where(
                 WebSession.digest == digest(token), WebSession.expires_at > self.clock()))
-        if owner is None:
+        if owner is None or not self.permitted(owner):
             raise PermissionError('Authentication unavailable')
         return owner
 

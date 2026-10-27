@@ -1,5 +1,15 @@
 # KudaVPN — текущая передача состояния
 
+## Закрытый кабинет и уточнение OIDC — 26 октября 2026
+
+PR №29 продолжен без развёртывания. Добавлены owner-only perimeter/ReviewAuth с отдельными auth sessions без канонических User/Subscription копий, read-only exporter существующего pilot, проверяемый приватный cache, личная страница Happ/copy/QR и существующая история. Источник проверен на JustHost в REPEATABLE READ, READ ONLY: owner найден, active,3 payment rows, прежний feed готов. Никаких записей/токенов/UUID/конфигураций/служб не меняли. Каталог199/499/1790; review selection_only не создаёт заказа и не продлевает доступ.
+
+53 профильных теста passed,1 PostgreSQL skipped локально; py_compile/синтаксис пройдены. Preview18107 — только синтетический read-only экран, screenshots website-review-*.png;390px без overflow, copy/iOS/QR/выход проверены. Реальный OIDC и физические телефоны ещё не проверены. Сервер не установлен;20443 не открыт.
+
+Владелец выполнил `/setdomain`, но Login Widget не нашёл в текстовом Bot Settings, Mini App своего бота включать не хочет. **Это не требуется:** текущая официальная инструкция ведёт в мини-приложение **самого @BotFather** (`https://t.me/botfather?startapp=`), выбрать тестового бота → Login Widget → Allowed URLs и Client ID/Secret. Секретов пока нет. Порт20443 и точный callback официальной документацией явно не подтверждены/не запрещены, регистрационный тест не выполнен. Нельзя утверждать совместимость до регистрации/живого редиректа. Публичный discovery Telegram подтверждён GET без credentials. При отсутствии раздела и в новом manager — #oidc в BotSupport либо отдельное решение о документированном legacy HMAC Widget. Не включать обход или Mini App без разрешения.
+
+Помощник готов: `python3 /Users/gr/Documents/KudaVPN-private/website-https-review/save-website-oidc.py`; оба поля скрыто, каталог0700/файл0600 вне Git, без сети и перезаписи. Не повторять ввод, пока не получены настоящие OIDC credentials. **Последнее указание: сначала выводы/план, сайт и сервер не менять до разрешения.** Подробная архитектура, ограничения, источники и backup/rollback: [website-closed-review-20261026.md](website-closed-review-20261026.md). Старые разделы ниже — история; сведения о публичном entrypoint без allowlist и независимых пользователях описывают прежний прототип, не нынешний review-runtime.
+
 ## HTTPS preflight сайта — 26 октября 2026, остановка до BotFather
 
 Продолжен PR №29 без изменения runtime. Read-only JustHost: существующее DNS-имя/доверенный TLS подтверждены, сертификат до18.01.2027;2CPU,893MiB MemAvailable,15.34GiB свободно.19443 занят pilot-node — не использовать.20443 свободен; предлагается origin `https://r1276248.s2578.vm.mydomain.zone:20443` и `/auth/callback`, но listener **не запускался**. Рабочие VPN/HTTPS/test bot/Monitor active; никаких restart/config/DB/DO-действий нет. Последний CI8e28bf7 успешен, повторных тестов неизменного кода нет.
