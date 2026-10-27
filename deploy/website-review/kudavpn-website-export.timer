@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh private canonical account snapshot
+
+[Timer]
+OnBootSec=15s
+OnUnitInactiveSec=30s
+Unit=kudavpn-website-export.service
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

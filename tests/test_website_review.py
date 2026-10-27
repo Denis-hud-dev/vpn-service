@@ -196,3 +196,18 @@ def test_review_settings_refuse_shared_ports_credentials_and_database(monkeypatc
     with pytest.raises(ValueError):settings()
     monkeypatch.delenv('BOT_TOKEN');monkeypatch.setenv('DATABASE_URL','postgresql+psycopg://kudavpn_pilot:fixture@127.0.0.1/kudavpn_telegram_pilot')
     with pytest.raises(ValueError):settings()
+
+
+def test_review_peer_auth_requires_exact_socket_and_unprivileged_role(monkeypatch):
+    from bot.subscription_api.website_main import settings,ORIGIN as HTTPS
+    monkeypatch.setenv('KUDAVPN_SITE_MODE','review-test')
+    monkeypatch.setenv('SITE_PUBLIC_ORIGIN',HTTPS)
+    monkeypatch.setenv('SITE_PORT','18106')
+    monkeypatch.delenv('SITE_APPROVED_PUBLIC_REVIEW',raising=False)
+    for suffix in ('?host=/tmp','?host=/var/run/postgresql&service=other',''):
+        monkeypatch.setenv('DATABASE_URL','postgresql+psycopg://kudavpn_website_test@/kudavpn_website_test'+suffix)
+        with pytest.raises(ValueError):settings()
+    monkeypatch.setenv('DATABASE_URL','postgresql+psycopg://kudavpn_website_test@/kudavpn_website_test?host=/var/run/postgresql')
+    assert settings()[0].password is None
+    monkeypatch.setenv('DATABASE_URL','postgresql+psycopg://postgres@/kudavpn_website_test?host=/var/run/postgresql')
+    with pytest.raises(ValueError):settings()

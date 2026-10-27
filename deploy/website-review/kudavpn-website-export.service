@@ -1,0 +1,28 @@
+[Unit]
+Description=Fixed read-only export of existing isolated pilot account
+After=postgresql.service kudavpn-telegram-pilot-bot.service
+
+[Service]
+Type=oneshot
+User=root
+Group=kudavpn_website_test
+WorkingDirectory=/opt/kudavpn-website-review/current
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/kudavpn-website-review/venv/bin/python -m bot.services.website_export --output /var/lib/kudavpn-website-export/snapshot.json
+UMask=0027
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHome=yes
+ProtectSystem=strict
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ReadWritePaths=/var/lib/kudavpn-website-export
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=CAP_SYS_PTRACE CAP_DAC_READ_SEARCH CAP_CHOWN
+MemoryMax=192M
+CPUQuota=25%
+TasksMax=32
+TimeoutStartSec=20

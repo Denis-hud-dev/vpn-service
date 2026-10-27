@@ -31,8 +31,10 @@ def settings():
     if os.getenv('KUDAVPN_SITE_MODE') != 'review-test':
         raise ValueError('Website is owner review only; public sales unavailable')
     url = make_url(os.environ['DATABASE_URL'])
+    local_peer = url.host is None and dict(url.query) == {'host':'/var/run/postgresql'} and url.password is None
     if (url.drivername != 'postgresql+psycopg' or url.database != 'kudavpn_website_test'
-            or url.host != '127.0.0.1' or url.username != 'kudavpn_website_test'):
+            or not (local_peer or url.host == '127.0.0.1' and not url.query)
+            or url.username != 'kudavpn_website_test'):
         raise ValueError('Separate website auth PostgreSQL required')
     if os.environ['SITE_PUBLIC_ORIGIN'] != ORIGIN:
         raise ValueError('Only the approved review origin is allowed')

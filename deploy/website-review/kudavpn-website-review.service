@@ -1,0 +1,38 @@
+[Unit]
+Description=KudaVPN owner-only read-only website review
+After=network-online.target postgresql.service kudavpn-website-export.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kudavpn_website_test
+Group=kudavpn_website_test
+WorkingDirectory=/opt/kudavpn-website-review/current
+EnvironmentFile=/etc/kudavpn-website-review/site.env
+LoadCredential=oidc.json:/etc/kudavpn-website-review/oidc.json
+LoadCredential=owner.json:/etc/kudavpn-website-review/owner.json
+LoadCredential=tls.crt:/etc/kudavpn-website-review/tls.crt
+LoadCredential=tls.key:/etc/kudavpn-website-review/tls.key
+ExecStart=/opt/kudavpn-website-review/venv/bin/python -m bot.subscription_api.website_main
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHome=yes
+ProtectSystem=strict
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectProc=invisible
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+InaccessiblePaths=/opt/kudavpn-telegram-pilot /etc/kudavpn-telegram-pilot /root
+MemoryMax=256M
+CPUQuota=50%
+TasksMax=48
+
+[Install]
+WantedBy=multi-user.target
