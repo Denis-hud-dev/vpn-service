@@ -32,3 +32,64 @@ def test_runtime_permission_repair_preserves_private_bundle_and_external_targets
     assert stat.S_IMODE(outside.stat().st_mode)==0o700
     with pytest.raises(ValueError):install.public_runtime(outside)
     with pytest.raises(ValueError):install.public_runtime(private)
+
+
+def test_runtime_credential_requires_exact_root_owned_readonly_systemd_mount(monkeypatch):
+    from types import SimpleNamespace
+    import bot.subscription_api.website_main as app
+    directory='/run/credentials/kudavpn-website-review.service'
+    path=Path(directory)/'oidc.json'
+    monkeypatch.setenv('CREDENTIALS_DIRECTORY',directory)
+    monkeypatch.setattr(app.os,'getegid',lambda:123)
+    monkeypatch.setattr(app.os,'statvfs',lambda _:SimpleNamespace(f_flag=os.ST_RDONLY))
+    info=SimpleNamespace(st_mode=0o440,st_uid=0,st_gid=123)
+    parent=SimpleNamespace(st_mode=0o550,st_uid=0,st_gid=123)
+    assert app.sealed_systemd_credential(path,info,parent)
+    assert not app.sealed_systemd_credential(Path('/tmp/oidc.json'),info,parent)
+    assert not app.sealed_systemd_credential(Path(directory)/'unregistered.json',info,parent)
+    info.st_gid=124
+    assert not app.sealed_systemd_credential(path,info,parent)
+    info.st_gid=123;info.st_mode=0o444
+    assert not app.sealed_systemd_credential(path,info,parent)
+    info.st_mode=0o440;info.st_uid=1000
+    assert not app.sealed_systemd_credential(path,info,parent)
+    info.st_uid=0
+    monkeypatch.setattr(app.os,'statvfs',lambda _:SimpleNamespace(f_flag=0))
+    assert not app.sealed_systemd_credential(path,info,parent)
+
+
+def test_private_input_outside_systemd_still_requires_private_file_and_directory(tmp_path,monkeypatch):
+    from bot.subscription_api.website_main import private_file
+    folder=tmp_path/'credentials';folder.mkdir(mode=0o700)
+    path=folder/'oidc.json';path.write_text('offline fixture');path.chmod(0o600)
+    monkeypatch.setenv('SITE_OIDC_BUNDLE_FILE',str(path))
+    assert private_file('SITE_OIDC_BUNDLE_FILE')=='offline fixture'
+    path.chmod(0o440)
+    with pytest.raises(ValueError):private_file('SITE_OIDC_BUNDLE_FILE')
+
+
+def test_sealed_root_group_credentials_require_exclusive_service_uid_acl(monkeypatch):
+    import struct
+    from types import SimpleNamespace
+    import bot.subscription_api.website_main as app
+    directory=Path('/run/credentials/kudavpn-website-review.service')
+    path=directory/'oidc.json'
+    monkeypatch.setenv('CREDENTIALS_DIRECTORY',str(directory))
+    monkeypatch.setattr(app.os,'geteuid',lambda:501)
+    monkeypatch.setattr(app.os,'getegid',lambda:123)
+    monkeypatch.setattr(app.os,'statvfs',lambda _:SimpleNamespace(f_flag=os.ST_RDONLY))
+    foreign=False
+    def acl(p,name):
+        permission=5 if p==directory else 4
+        entries=[(1,permission,0xffffffff),(2,permission,502 if foreign else 501),
+                 (4,0,0xffffffff),(16,permission,0xffffffff),(32,0,0xffffffff)]
+        return struct.pack('<I',2)+b''.join(struct.pack('<HHI',*row) for row in entries)
+    monkeypatch.setattr(app.os,'getxattr',acl,raising=False)
+    info=SimpleNamespace(st_mode=0o440,st_uid=0,st_gid=0)
+    parent=SimpleNamespace(st_mode=0o550,st_uid=0,st_gid=0)
+    assert app.sealed_systemd_credential(path,info,parent)
+    foreign=True
+    assert not app.sealed_systemd_credential(path,info,parent)
+    foreign=False
+    monkeypatch.setattr(app.os,'getxattr',lambda *args:struct.pack('<I',2))
+    assert not app.sealed_systemd_credential(path,info,parent)
