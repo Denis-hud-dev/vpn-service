@@ -23,6 +23,8 @@ HTTP JSON читается полностью по частям с лимито�
 
 Профильный прогон: **160 passed,1 skipped** — платежи/уведомления/повторы/возвраты/сроки/авторизация/реестр и проверка выключенных каналов. Единственный локальный skip: `tests/test_website_payments.py::test_linux_unix_socket_rejects_nonwebsite_peer` (Linux SO_PEERCRED на Mac недоступен). GitHub Linux CI проверяет его. Это отдельный локальный skip, не три исторических Xray skip полного CI. Новые серверные/физические Android тесты не заявляются.
 
+Код36127c8: оба [branch CI](https://github.com/Denis-hud-dev/vpn-service/actions/runs/40566763747) и [PR CI](https://github.com/Denis-hud-dev/vpn-service/actions/runs/40567030221) successful; журнал branch — **447 passed,3 skipped** (trusted local TEST_XRAY_BINARY не настроен). Проверены diff/синтаксис и tracked-file hygiene. Сервер не обновлялся.
+
 ## Блокеры и порядок устранения
 
 | Приоритет | Осталось | Конкретный критерий готовности |
