@@ -38,7 +38,7 @@ async def build(port, directory):
     provider = YooKassaTestClient('1503208', 'offline-fixture', transport=fake)
     checkout = PaymentCheckoutService(db, provider, 'https://demo.invalid/account', tariffs=PILOT_TARIFFS)
     processor = PaymentNotificationProcessor(db, provider)
-    async def link(owner): return origin+'/__demo__/happ'
+    async def link(owner): return origin+'/__demo__/feed'
     async def nodes(owner): return ('Демонстрационный узел · имитация',)
     happ = SimpleNamespace(issue_for_user=link, available_node_names_for_user=nodes,
                            connection_page_url=lambda url:url)
@@ -60,6 +60,9 @@ async def build(port, directory):
                 data['payment_url'] = origin+'/__demo__/pay/'+data['id']
             # Preserve all security headers from the website middleware.
             response.body = json.dumps(data).encode()
+        if request.path == '/connect' and response.status == 200:
+            response.body = response.body.decode().replace('<body>',
+                '<body><p role="status">ЛОКАЛЬНОЕ ДЕМО: ссылка и QR — заглушки, не импортируйте их в Happ.</p>').encode()
         return response
     # First middleware wraps the security middleware; demo HTML is static and
     # keeps the original policy, rather than enabling unsafe inline scripts.

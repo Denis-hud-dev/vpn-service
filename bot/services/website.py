@@ -31,6 +31,15 @@ class WebsiteCheckout(WebCheckout):
                 result['access_pending'] = True
         return result
 
+    async def connection(self, owner):
+        """The HTTP layer supplies the owner exclusively from its session."""
+        self._owner(owner)
+        snapshot = await SubscriptionService(self.sessions).snapshot(owner)
+        if snapshot.status != 'active' or snapshot.expires_at is None:
+            raise PermissionError('Active subscription required')
+        # Existing idempotent Happ service; never create another subscription.
+        return await self.happ.issue_for_user(owner), int(snapshot.expires_at.timestamp())
+
 
 class NPDLedger:
     """Recoverable obligations, not a provider receipt or a My Tax integration.
@@ -94,10 +103,14 @@ class NPDLedger:
                 'test': self.test} for p, r in rows]
 
     async def record(self, payment_id, state, *, operation, document_ref=None,
-                     error_code=None, operator_confirmed=False):
+                     error_code=None, operator_confirmed=False,
+                     registration_confirmed=False, delivery_confirmed=False):
         """Internal future operator boundary; no public website route calls this."""
         import re
-        if (not operator_confirmed or self.test or not re.fullmatch(r'[A-Za-z0-9_-]{16,128}', operation)
+        if (operator_confirmed is not True or self.test
+                or state == 'issued' and registration_confirmed is not True
+                or state == 'delivered' and delivery_confirmed is not True
+                or not re.fullmatch(r'[A-Za-z0-9_-]{16,128}', operation)
                 or error_code not in {None, 'my_tax_unavailable', 'delivery_failed', 'operator_review'}
                 or document_ref is not None and not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', document_ref)):
             raise PermissionError('Receipt operation unavailable')

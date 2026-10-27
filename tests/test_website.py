@@ -194,7 +194,10 @@ def test_two_accounts_cannot_read_or_buy_for_each_other(tmp_path,key):
             assert len(rows)==1 and rows[0]['receipt']=='test_not_required'
             assert (await (await p.http.get('/api/payments',headers=b)).json())['payments']==[]
             account=await (await p.http.get('/api/account',headers=a)).json()
-            assert account['status']=='active' and account['connect_url'].endswith('501')
+            assert account['status']=='active' and account['connect_url']==ORIGIN+'/connect'
+            connection=await p.http.get('/connect',headers=a)
+            assert connection.status==200
+            assert (await p.http.get('/connect',headers=b)).status==401
             assert 'connect_url' not in await (await p.http.get('/api/account',headers=b)).json()
             assert (await p.http.get('/yookassa/test-webhook')).status==404
             assert (await p.http.post('/api/receipts',json={},headers=a)).status==404
@@ -238,10 +241,12 @@ def test_live_receipt_states_are_offline_operator_only_and_idempotent(tmp_path,k
             # Offline ledger semantics only, not a live gateway or actual fiscal receipt.
             ledger=NPDLedger(p.db,test=False);await ledger.tick()
             with pytest.raises(PermissionError):await ledger.record(payment.id,'issued',operation='fixture_operation1',document_ref='fixture')
+            with pytest.raises(PermissionError):await ledger.record(payment.id,'issued',operation='unverified_registration',document_ref='fixture',operator_confirmed=True)
             await ledger.record(payment.id,'error',operation='fixture_operation1',error_code='my_tax_unavailable',operator_confirmed=True)
-            for _ in range(2):await ledger.record(payment.id,'issued',operation='fixture_operation2',document_ref='private_fixture',operator_confirmed=True)
-            with pytest.raises(ValueError):await ledger.record(payment.id,'issued',operation='fixture_operation2',document_ref='other',operator_confirmed=True)
-            await ledger.record(payment.id,'delivered',operation='fixture_delivery1',operator_confirmed=True)
+            for _ in range(2):await ledger.record(payment.id,'issued',operation='fixture_operation2',document_ref='private_fixture',operator_confirmed=True,registration_confirmed=True)
+            with pytest.raises(ValueError):await ledger.record(payment.id,'issued',operation='fixture_operation2',document_ref='other',operator_confirmed=True,registration_confirmed=True)
+            with pytest.raises(PermissionError):await ledger.record(payment.id,'delivered',operation='unverified_delivery',operator_confirmed=True)
+            await ledger.record(payment.id,'delivered',operation='fixture_delivery1',operator_confirmed=True,delivery_confirmed=True)
             async with p.db.begin() as session:
                 row=await session.get(Payment,payment.id);row.status='refunded'
             await ledger.tick()

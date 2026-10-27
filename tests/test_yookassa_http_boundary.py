@@ -1,6 +1,8 @@
 """Exercise the real HTTP adapter branch with an offline session, no API calls."""
 import asyncio
 import json
+from datetime import datetime, timezone
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
@@ -102,3 +104,36 @@ def test_http_failure_is_sanitized_and_never_accepted(monkeypatch, caplog, body,
     assert str(error.value) in {
         'Тестовый провайдер временно недоступен', 'Ответ не относится к тестовому магазину'}
     assert caplog.text == ''
+
+
+@pytest.mark.parametrize('kind', ['payments', 'refunds'])
+def test_list_discovery_uses_bounded_get_with_exact_window_and_opaque_cursor(kind):
+    calls = []
+    async def transport(method, path, payload, key):
+        calls.append((method, path, payload, key))
+        item = {'id':'fixture', 'test':True} if kind=='payments' else {'id':'fixture', 'payment_id':'parent-fixture'}
+        return {'type':'list', 'items':[item], 'next_cursor':'next-fixture'}
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    end = datetime(2026, 2, 1, tzinfo=timezone.utc)
+    client = api.YooKassaTestClient('123456', 'offline-placeholder', transport=transport)
+    items, cursor = asyncio.run(client.list_page(kind, start, end, 'opaque+/=cursor'))
+    method, path, payload, key = calls[0]
+    assert method=='GET' and payload is None and key is None
+    assert urlsplit(path).path == '/v3/'+kind
+    assert parse_qs(urlsplit(path).query) == {'created_at.gte':[start.isoformat()],
+        'created_at.lte':[end.isoformat()], 'limit':['10'], 'cursor':['opaque+/=cursor']}
+    assert cursor=='next-fixture' and len(items)==1
+
+
+@pytest.mark.parametrize('data', [
+    {'type':'list','items':[{'id':'live-fixture','test':False}]},
+    {'type':'list','items':[],'next_cursor':'bad\ncursor'},
+    {'type':'list','items':{}},
+    {'type':'list','items':[{'id':'fixture','test':True}]*11},
+])
+def test_list_rejects_live_malformed_or_oversized_page(data):
+    async def transport(*args): return data
+    client=api.YooKassaTestClient('123456','offline-placeholder',transport=transport)
+    now=datetime.now(timezone.utc)
+    with pytest.raises(api.PaymentProviderUnavailable):
+        asyncio.run(client.list_page('payments',now,now))

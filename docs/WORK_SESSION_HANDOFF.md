@@ -1,5 +1,21 @@
 # KudaVPN — текущая передача состояния
 
+## Покупка на сайте: подтверждение заказа и устойчивая сверка — 27 октября 2026
+
+Продолжен существующий PR29, без нового PR и без развёртывания. Результат/порядок включения: [website-purchase-flow-20261027.md](website-purchase-flow-20261027.md). Сайт на JustHost остаётсяfaca30b; production/DO/Monitor/Xray, канонические данные, UUID и Happ не менялись. Не повторять завершённый реальный sandbox E2E199 ₽. В этой работе только mocks/disposable SQLite, localhost и GitHub CI, новых запросов к магазину не было.
+
+Владелец подтвердил поддержку СБП его магазином. Sandbox по-прежнему только карта/ЮMoney, СБП не включать и отсутствие её в тесте ошибкой не считать. Фактическую live-операцию/доступность метода проверять только после отдельного разрешения. Stars остаются выключенными; TEST-бот/токен не требуются для сайта. Telegram не получает внешних платёжных ссылок.
+
+Добавлен подтверждающий экран: тариф199/499/1790 → стоимость/срок/доступные способы → явное подтверждение → проверенная ЮKassa в той же вкладке → API polling → успех/Happ/актуальный срок. На sandbox выбор карты/ЮMoney выполняется в hosted форме ЮKassa, сайт этого не имитирует. Выбор тарифа сам не создаёт payment. Нативные защищённые `/connect`/session checks распространены на прежний WebsiteCheckout prototype; персональный bearer не используется в CTA. Read-only review прежний, без создания заказа. Старый HTML/JS API сохраняет совместимость.
+
+`payment_reconciliation.py`: private0700/0600 SQLite inbox/cursors/outcomes, отдельный `.lock` inode для worker lease (не блокировать сам SQLite), fixed UTC windows, пагинация с сохранением cursor, overlap15min, daily full sweep, bounded jobs/pages и backoff. Только GET; API list — discovery, затем независимый GET/сверка известных канонических заказов. Восстанавливает потерянный provider ID, включая succeeded без confirmation URL после23h, без повторного POST/нового key. Канонические processors/unique grant остаются общими. Refund предварительно сверяет parent, поэтому refund раньше отложенного payment retry не оставляет возвращённый срок активным. Частичные/ранние возвраты → review без произвольного отзыва чужого оплаченного времени. Cursor cycles/ошибки видимы как discovery_retry, не пропускают страницу. Журнал не хранит payload/секреты/личные ссылки.
+
+Опциональный durable webhook ack сохраняет только IDs перед200; неизвестный локальный платёж не вызывает API lookup. Публичный webhook не включён,443/8443 не менялись. Новый worker по умолчанию off (`CHECKOUT_RECONCILIATION=0`), opt-in внутри прежнего checkout poll loop; отдельный competing poller не создаётся. Config/backup/rollback в отчёте. NPD hook вызывает только reconcile/tick, не issued/delivered; для таких переходов теперь нужны отдельные явные подтверждения регистрации/доставки. Реального процесса «Мой налог» пока нет; canonical0008 не мигрировалась.
+
+Проверен локальный browser demo18108: подтверждение → имитация оплаты → активный срок → защищённая кнопка Happ. На390/375/1440px нет horizontal overflow; viewport reset. Это не физические Android/iOS и не новая оплата ЮKassa. Вкладка11 markDeliverable; demo не импортировать в Happ. Mobile screenshot `/private/tmp/kuda-purchase-confirmation-mobile.png` содержит только fixture. **227 passed,1 skipped** в профильном наборе; skip — Linux SO_PEERCRED на Mac. Полный локальный аудит не запускался; GitHub CI — в checks PR29.
+
+Точка продолжения: проверить CI этого кода, затем отдельно подготовить guarded rollout только тестового checkout/сайта с backup текущегоfaca30b/env и обоих private journals; сначала worker disabled, затем opt-in smoke GET без создания платежа и контролируемый owner sandbox. Не использовать старый rollback в read-only28f9c23. До продаж остаются multi-user/live readiness, процесс/доставка чеков НПД, договор/документы и отдельно разрешённые live карта/СБП/возврат. Новые ключи сейчас не нужны.
+
 ## Текущий приоритет: самостоятельный сайт, Stars отложены — 27 октября 2026
 
 Последнее решение владельца: вход в Telegram TEST не удался, Stars **снова отложены**. Не просить TEST-бота/токен и не считать это блокером сайта. Прототип выключен, Router не зарегистрирован, обычный бот не меняется. Утверждённые1/2/3 XTR остаются только историческими TEST-ценами, не коммерческими тарифами.

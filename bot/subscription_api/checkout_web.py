@@ -20,7 +20,7 @@ CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self';
 
 
 def create_checkout_app(service, sessions, public_origin: str, *, local_demo=False,
-                        refund_processor=None, enable_webhook=False):
+                        refund_processor=None, enable_webhook=False, webhook_inbox=None):
     parsed = urlsplit(public_origin)
     if (parsed.path not in ('', '/') or parsed.query or parsed.fragment or parsed.username or parsed.password
             or not parsed.hostname or (parsed.scheme != 'https' and not
@@ -152,5 +152,5 @@ def create_checkout_app(service, sessions, public_origin: str, *, local_demo=Fal
     app.router.add_post('/checkout/api/orders/{order}/refresh', refresh)
     if enable_webhook:
         from bot.subscription_api.payment_webhook import install_test_payment_webhook
-        install_test_payment_webhook(app, service.processor, refund_processor=refund_processor)
+        install_test_payment_webhook(app, service.processor, refund_processor=refund_processor, inbox=webhook_inbox)
     return app

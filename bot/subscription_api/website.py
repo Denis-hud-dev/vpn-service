@@ -144,6 +144,7 @@ def create_website(service, auth, ledger, origin, *, local_demo=False, closed_re
         read_only = bool(getattr(service, 'read_only', False))
         return web.json_response({'plans': service.plans(), 'test': True, 'sbp_available': False,
                                  'methods': [] if read_only else ['bank_card', 'yoo_money'],
+                                 'order_confirmation': not read_only,
                                  'read_only': read_only, 'documents_approved': False,
                                  'direct_checkout': direct_checkout and not read_only})
 
@@ -153,7 +154,14 @@ def create_website(service, auth, ledger, origin, *, local_demo=False, closed_re
         return web.Response(text=render_connection_page(feed, expiry), content_type='text/html')
 
     async def account(request):
-        return web.json_response(await service.account(await identity(request)))
+        return web.json_response(protected_connection(await service.account(await identity(request))))
+
+    def protected_connection(data):
+        # Return a session-protected first-party page, never a bearer URL in a
+        # purchase CTA. The backend has already checked this owner's access.
+        if data.get('connect_url'):
+            data['connect_url'] = origin + '/connect'
+        return data
 
     async def history(request):
         return web.json_response({'payments': await ledger.history(await identity(request))})
@@ -164,20 +172,21 @@ def create_website(service, auth, ledger, origin, *, local_demo=False, closed_re
         data = await request.json()
         if not isinstance(data, dict) or set(data) != {'tariff_id'}:
             raise ValueError()
-        return web.json_response(await service.create(owner, data['tariff_id']))
+        return web.json_response(protected_connection(await service.create(owner, data['tariff_id'])))
 
     async def order(request):
-        return web.json_response(await service.state(await identity(request), request.match_info['order']))
+        return web.json_response(protected_connection(await service.state(await identity(request), request.match_info['order'])))
 
     async def latest(request):
-        return web.json_response({'order': await service.latest(await identity(request))})
+        value = await service.latest(await identity(request))
+        return web.json_response({'order': protected_connection(value) if value else None})
 
     async def refresh(request):
         owner = await identity(request, mutation=True)
         limit('refresh', 20, 60)
         result = await service.refresh(owner, request.match_info['order'])
         await ledger.reconcile(owner)
-        return web.json_response(result)
+        return web.json_response(protected_connection(result))
 
     async def documents(request):
         name = request.match_info['name']
