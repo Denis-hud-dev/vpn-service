@@ -1,10 +1,20 @@
 # Закрытый HTTPS-стенд сайта — 26–27 октября 2026
 
-[Draft PR №29](https://github.com/Denis-hud-dev/vpn-service/pull/29), runtime `b7c636db94b9db7a48d577f97d81cbcd53f34277`, отдельная ветка `codex/standalone-site-v1-20261026`. Сайт развёрнут только для владельца:
+[Draft PR №29](https://github.com/Denis-hud-dev/vpn-service/pull/29), runtime `28f9c2360ffccfc76d9c21e8ac46d4be3ff0f3ae`, отдельная ветка `codex/standalone-site-v1-20261026`. Сайт развёрнут только для владельца:
 
 **https://r1276248.s2578.vm.mydomain.zone:20443/**
 
 Это закрытая проверка авторизации и существующей подписки. Реальные продажи/платежи, новые UUID, переключение production и миграция DigitalOcean не выполнялись. Telegram-боты, Xray, Monitor и исходная pilot-БД не обновлялись/не перезапускались.
+
+## Итог: вход исправлен и завершён
+
+Актуальный runtime28f9c23; [CI PR](https://github.com/Denis-hud-dev/vpn-service/actions/runs/40497938149) и [CI branch](https://github.com/Denis-hud-dev/vpn-service/actions/runs/40497930261) успешны,76 профильных тестов. Причина: подписанный Telegram id приходит строкой. Исправлена только каноническая нормализация verified ID; подпись/issuer/audience/expiry/owner/state/PKCE не ослаблены. Принимается ASCII decimal без ведущих нулей, int64 positive; неподходящие типы/строки и чужой ID отвергаются.
+
+Реальный owner login → `/account` выполнен. Тариф/окончание/статус/история совпали с canonical snapshot;3 сохранённые test payment строки, остаток показан. Сеанс пережил refresh. В auth DB ровно1 активный разрешённый owner session, только digest, TTL≤1h; canonical user/subscription/token/payment rows0. Никакого повторного VPN UUID/срока/оплаты.
+
+Защищённая `/connect` открыта, digest feed URL точно совпал с прежней подпиской, origin18443. Feed200/один10443. UI QR/iOS и390px без overflow проверены; реальные URL/QR/имя/ID/даты не сохранены в отчёт/Git. Живой selection_only не создал заказа/платежа и не изменил историю. Реальный clipboard с bearer не трогали; физический Happ/Android трафик не заявляется новым тестом. Logout/чужие signed identities/state replay покрыты автотестами; owner session оставлен в браузере для проверки владельцем.
+
+Protected baseline PID/configs одинаков, Monitor active, VPN/боты/source DB/DO/платежи не менялись. Сайт остаётся owner-only без продаж. Владелец может открыть стабильный origin и посмотреть кабинет, историю и Happ-страницу; старые callback URLs не использовать. Подробности старых ошибок/ожидания ниже сохранены как история, они не описывают итоговое состояние.
 
 ## Установка и изоляция
 
