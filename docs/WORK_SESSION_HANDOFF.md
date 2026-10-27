@@ -2,7 +2,7 @@
 
 ## Покупка на сайте: подтверждение заказа и устойчивая сверка — 27 октября 2026
 
-Продолжен существующий PR29, без нового PR и без развёртывания. Результат/порядок включения: [website-purchase-flow-20261027.md](website-purchase-flow-20261027.md). Сайт на JustHost остаётсяfaca30b; production/DO/Monitor/Xray, канонические данные, UUID и Happ не менялись. Не повторять завершённый реальный sandbox E2E199 ₽. В этой работе только mocks/disposable SQLite, localhost и GitHub CI, новых запросов к магазину не было.
+Продолжен существующий PR29, без нового PR и без развёртывания. Результат/порядок включения: [website-purchase-flow-20261027.md](website-purchase-flow-20261027.md). Сайт на JustHost остаётсяfaca30b; production/DO/Monitor/Xray, канонические данные, UUID и Happ не менялись. Не повторять завершённый реальный sandbox E2E199 ₽. Все новые покупки/возвраты только mocks/disposable SQLite/localhost. Дополнительно выполнены ровно3 read-only GET тестового магазина: payments list, следующая страница и refunds list — все HTTP200; возвратов в списке0. Никаких API POST/финансовых операций/записей БД не было.
 
 Владелец подтвердил поддержку СБП его магазином. Sandbox по-прежнему только карта/ЮMoney, СБП не включать и отсутствие её в тесте ошибкой не считать. Фактическую live-операцию/доступность метода проверять только после отдельного разрешения. Stars остаются выключенными; TEST-бот/токен не требуются для сайта. Telegram не получает внешних платёжных ссылок.
 
@@ -14,7 +14,9 @@
 
 Проверен локальный browser demo18108: подтверждение → имитация оплаты → активный срок → защищённая кнопка Happ. На390/375/1440px нет horizontal overflow; viewport reset. Это не физические Android/iOS и не новая оплата ЮKassa. Вкладка11 markDeliverable; demo не импортировать в Happ. Mobile screenshot `/private/tmp/kuda-purchase-confirmation-mobile.png` содержит только fixture. **227 passed,1 skipped** в профильном наборе; skip — Linux SO_PEERCRED на Mac. Полный локальный аудит не запускался; GitHub CI — в checks PR29.
 
-Точка продолжения: проверить CI этого кода, затем отдельно подготовить guarded rollout только тестового checkout/сайта с backup текущегоfaca30b/env и обоих private journals; сначала worker disabled, затем opt-in smoke GET без создания платежа и контролируемый owner sandbox. Не использовать старый rollback в read-only28f9c23. До продаж остаются multi-user/live readiness, процесс/доставка чеков НПД, договор/документы и отдельно разрешённые live карта/СБП/возврат. Новые ключи сейчас не нужны.
+Код726f7dc опубликован; [branch CI40571434004](https://github.com/Denis-hud-dev/vpn-service/actions/runs/40571434004) success: **477 passed,3 skipped** (trusted TEST_XRAY_BINARY). Второй [PR CI40571441281](https://github.com/Denis-hud-dev/vpn-service/actions/runs/40571441281) также success. Непроверенными остаются живое исполнение нового worker/доставка webhook/реальный refund и физические телефоны. Не выдавать успешную пагинацию GET за повторный payment E2E или развёртывание.
+
+Точка продолжения: оба CI кода successful; отдельно подготовить guarded rollout только тестового checkout/сайта с backup текущегоfaca30b/env и обоих private journals; сначала worker disabled, затем opt-in smoke GET без создания платежа и контролируемый owner sandbox. Не использовать старый rollback в read-only28f9c23. До продаж остаются multi-user/live readiness, процесс/доставка чеков НПД, договор/документы и отдельно разрешённые live карта/СБП/возврат. Новые ключи сейчас не нужны.
 
 ## Текущий приоритет: самостоятельный сайт, Stars отложены — 27 октября 2026
 
