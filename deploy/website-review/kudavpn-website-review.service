@@ -30,7 +30,7 @@ RestrictSUIDSGID=yes
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 CapabilityBoundingSet=
 InaccessiblePaths=/opt/kudavpn-telegram-pilot /etc/kudavpn-telegram-pilot /root
-MemoryMax=256M
+MemoryMax=320M
 CPUQuota=50%
 TasksMax=48
 
