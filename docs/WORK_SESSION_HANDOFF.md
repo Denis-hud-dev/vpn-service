@@ -1,5 +1,15 @@
 # KudaVPN — текущая передача состояния
 
+## Закрытый HTTPS-сайт запущен, живой вход на проверке — 27 октября 2026
+
+**Последняя остановка:** Mac заблокирован. UI и push последнего документационного commit требуют разблокировки владельцем. Код b7c636d уже на GitHub/CI green и на VPS; сайт/export timer/Monitor active, baseline unchanged, auth sessions0, новая Telegram confirmation ожидается. Не переустанавливать. После разблокировки закончить обычный OAuth и отправить сохранённый docs commit.
+
+PR №29: runtime **b7c636d**, CI successful (runs40465856441/40465850212). Сайт **https://r1276248.s2578.vm.mydomain.zone:20443/** доступен только владельцу через проверенный gate; снаружи data/страницы/API/private assets401. Новые website service и export timer активны/autostart; отдельный peer-only auth DB, source READ ONLY snapshot, никакого второго lifecycle/UUID/controller. Существующие PID/конфиги/порты/боты/Monitor/DO не изменены. Исходная активная подписка и3 test payments читаются; прежний feed200/один10443, ссылка не переиздавалась. Цены199/499/1790 — selection_only, без платежей/продления.
+
+OIDC файлы теперь есть вне Git600; проверены точные origin/callback и соответствие test bot. Telegram принял переход и вернул реальный callback code/state на20443, но первое подтверждение владельца закончилось401 без ReviewSession. Flow был использован, код не повторяли, часы совпадают с Telegram. Negative probe invalid_grant без токенов не считается входом. В b7c636d добавлена безопасная outcome-диагностика и полное ограниченное чтение HTTP JSON;49 профильных тестов passed. Последний шаг: создан один новый нормальный flow, Telegram отправил владельцу уведомление подтверждения. Ждём подтверждения, затем смотрим `/account` и owner-only sessions либо точный whitelist outcome нового website unit. Никаких догадок, снижения проверки подписи/owner или повторного использования кода.
+
+Исправлены подтверждённые deployment-проблемы: runtime dirs из-заumask077; недостаточный cold-start лимит; sealed systemd credentials root ACL; cleanup legacy sessions вне grants. Откат только новых компонентов реально проходил, protected baseline сохранялся. Backup/rollback root-only `/var/backups/kudavpn-website-review/20261026`. Подробности и точные следующие шаги: [website-review-deployment-20261027.md](website-review-deployment-20261027.md). Старые записи ниже «не развёрнут/credentials отсутствуют» — история, не текущее состояние. До успешного живого входа полный E2E не объявлять завершённым; к платежам/другим задачам не переходить.
+
 ## Закрытый кабинет и уточнение OIDC — 26 октября 2026
 
 PR №29 продолжен без развёртывания. Добавлены owner-only perimeter/ReviewAuth с отдельными auth sessions без канонических User/Subscription копий, read-only exporter существующего pilot, проверяемый приватный cache, личная страница Happ/copy/QR и существующая история. Источник проверен на JustHost в REPEATABLE READ, READ ONLY: owner найден, active,3 payment rows, прежний feed готов. Никаких записей/токенов/UUID/конфигураций/служб не меняли. Каталог199/499/1790; review selection_only не создаёт заказа и не продлевает доступ.
