@@ -39,6 +39,18 @@ Backup: `/var/backups/kudavpn-website-review/20261027-payments`. `rollback.sh` �
 
 ## Подтверждённые внешние ограничения
 
+### Результат реального изолированного обновления
+
+Runtime `faca30b` успешно развёрнут с `--resume-rolled-back`. Оба [PR CI](https://github.com/Denis-hud-dev/vpn-service/actions/runs/40505351772) и [branch CI](https://github.com/Denis-hud-dev/vpn-service/actions/runs/40505343623) успешны:381 passed,3 skipped. В дополнение к предыдущим130 локальным проверкам исправление probe прошло19 профильных тестов,1 Linux-only пропущен на Mac; Linux-проверка peer UID выполняется в CI.
+
+Новый мост и HTTPS-сайт active/running, NRestarts0. Unix socket0660 и директория0750 принадлежат отдельному bridge UID с группой сайта. Ключ600/каталог700 root-only; отказ его чтения web UID доказан из реального mount namespace. Auth-приложение не получает provider/canonical credentials. Сохранены приватные pg_dump двух тестовых БД, source digest и прежний code/env; автоматический откат уже реально вернул рабочую старую версию при первой ошибке probe.
+
+После обновления protected baseline совпал, canonical rows unchanged, созданных платежей0. Анонимные пять маршрутов сайта401; доверенный TLS. Прежний feed200 с единственным VLESS узлом10443, без переиздания. Reload живой вкладки сохранил авторизацию, реальную подписку/историю3 операций; каталог199/499/1790 и три enabled кнопки подтверждены DOM. На319px нет горизонтального overflow. Скриншот каталога не содержит имени, токенов или личных ссылок.
+
+Для следующей сессии сохранены root-only исходные метрики `/var/backups/kudavpn-website-review/20261027-payments/before-owner-payment.json`. После ручной тестовой покупки владельца нужно проверить ровно один новый заказ/успех, единственную payment history запись, окончание до/после, повторный provider GET и прежний feed hash. До этого новый live sandbox E2E не считается выполненным. Никакой реальной оплаты, СБП, MyTax/НПД-чека или настоящей webhook-доставки эта проверка не подтверждает.
+
+### Ограничения платформ и провайдера
+
 Проверено27.10.2026 по первичным источникам:
 
 - [ЮKassa webhook](https://yookassa.ru/developers/using-api/webhooks): HTTPS только443/8443.20443 и18543 не подходят.443/8443 заняты защищённым VPN; нельзя их занимать/менять reverse proxy. Для настоящего webhook потребуется отдельно согласованный ingress. Пока используется существующий polling.

@@ -1,6 +1,18 @@
 # KudaVPN — текущая передача состояния
 
-## Сайт: подготовка тестовых платежей — 27 октября 2026
+## Сайт: sandbox-платежи развёрнуты, нужен ручной E2E — 27 октября 2026
+
+**Текущий runtime `faca30b97eea6a56695d152ff59b9b906e295c64`, Draft PR29.** Оба CI успешны: [PR-run](https://github.com/Denis-hud-dev/vpn-service/actions/runs/40505351772), [branch-run](https://github.com/Denis-hud-dev/vpn-service/actions/runs/40505343623);381 passed,3 skipped. До исправления probe локально130 passed/1 Mac skip; после исправления19 профильных passed/1 Mac skip, включая реальный stdlib Unix HTTP probe из пустого cwd.
+
+Guarded resume успешно завершён. Работают `kudavpn-site-payments.service` и прежний закрытый сайт на20443; оба без аварийных рестартов. Новый отдельный UID/первичная группа хранит sealed test credentials, группа сайта получает только сокет0660/директорию0750. Проверка из mount namespace моста подтвердила: web UID не читает платёжный ключ. Бэкапы/реально проверенный rollback: `/var/backups/kudavpn-website-review/20261027-payments`. Никаких миграций или второго poller, новых платежей при установке0, canonical rows digest неизменен. Protected PID/listeners/Xray config hashes совпали; боты/feed/старый checkout/Monitor/DO не перенастраивались.
+
+В живом браузере после reload прежний OIDC-сеанс и кабинет работают, без ошибок; каталог199/499/1790, три кнопки enabled, история по-прежнему3 операции. Мобильный viewport319px без overflow; безопасный скриншот только тарифов сохранён. Анонимные `/`, `/api/account`, `/api/orders/latest`, `/connect`, `/assets/site.js` дают401 с доверенным TLS. Прежняя персональная Happ-подписка даёт200, ровно один прежний узел10443. Ключи/UUID/личные ссылки не публиковались.
+
+**Стоп перед ручной оплатой.** Владелец должен открыть `https://r1276248.s2578.vm.mydomain.zone:20443/`, выбрать1 месяц199 ₽ и пройти только тестовую оплату ЮKassa, затем вернуться в кабинет и ответить «Готово». За него заказ/оплата не создавались. Исходные окончание/тариф/history count и hash прежней ссылки сохранены root-only `before-owner-payment.json` в backup. После ответа: найти ровно новый owner order, проверить YooKassa GET/test flag/сумму/локальную history, сравнить add_months с сохранённым окончанием, повторить проверенный статус без повторного начисления и сравнить hash feed. Не начинать новый аудит/платёж и не переиздавать UUID.
+
+Новый живой E2E пока НЕ доказан. Webhook не подключён: ЮKassa требует443/8443, оба заняты защищённым VPN; используется прежний background polling18543. Нужны отдельное согласование ingress, НПД-чек/доставка/возврат, legal docs и разрешение перед реальными продажами. СБП/live/автосписания выключены. Подробности: [website-payments-review-20261027.md](website-payments-review-20261027.md).
+
+### История подготовки до успешного guarded resume (не текущее состояние)
 
 Промежуточная точка: первая установка5297e8a откатилась на прежний рабочий28f9c23 из-за cwd проверочного subprocess; мост сам стартовал, защищённые службы не менялись. Backup тестовых БД/config сохранён `/var/backups/kudavpn-website-review/20261027-payments`, реальный откат подтвердил read_only readiness. Исправление использует лёгкий Unix HTTP probe и явный cwd;19 профильных тестов passed,1 Mac skip, включая два воспроизводящих теста readiness из пустого каталога. Полный предыдущий профильный набор130 passed,1 skipped; CI5297e8a успешен (379 passed,3 skipped). Нужны публикация/CI исправления и один guarded resume; не запускать обычный install поверх backup, использовать только `--resume-rolled-back`. Платежи ещё не создавались.
 
