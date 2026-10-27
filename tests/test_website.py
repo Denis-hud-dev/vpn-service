@@ -337,3 +337,22 @@ def test_review_entrypoint_cannot_use_live_or_existing_pilot_database(monkeypatc
         with pytest.raises(ValueError):settings()
     else:
         assert settings()[2]==18106
+
+
+@pytest.mark.parametrize('claims,reason',[
+    ({'id':None},'profile_id_missing'),
+    ({'id':'501'},'profile_id_string'),
+    ({'id':True},'profile_id_type_rejected'),
+    ({'id':0},'profile_id_range_rejected'),
+    ({'sub':''},'subject_shape_rejected'),
+    ({'iat':int(time.time())-700},'token_age_policy_rejected'),
+])
+def test_verified_claim_rejections_are_distinguished_without_logging_values(key,claims,reason):
+    async def run():
+        provider=IdentityProvider(key)
+        client=TelegramOIDC('123456','offline','https://site.example/auth/callback',transport=provider)
+        from bot.services.website_auth import OIDCFailure
+        with pytest.raises(OIDCFailure) as error:await client.validate(provider.token(**claims))
+        assert error.value.reason==reason
+        assert str(error.value)=='Authentication unavailable'
+    asyncio.run(run())

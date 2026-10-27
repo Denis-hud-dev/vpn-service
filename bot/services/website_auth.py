@@ -100,11 +100,16 @@ class TelegramOIDC:
             claims = jwt.decode(token, jwt.PyJWK.from_dict(keys[0]).key,
                 algorithms=['RS256'], issuer=ISSUER, audience=self.client_id, leeway=10,
                 options={'require': ['iss', 'aud', 'sub', 'iat', 'exp'], 'strict_aud': True})
-            if (type(claims.get('id')) is not int or not 0 < claims['id'] < 2**63
-                    or not isinstance(claims['sub'], str) or not 1 <= len(claims['sub']) <= 128
-                    or type(claims['iat']) is not int or type(claims['exp']) is not int
-                    or claims['iat'] < time.time()-600 or claims['exp'] <= claims['iat']):
-                raise OIDCFailure('identity_claims_rejected')
+            if claims.get('id') is None:raise OIDCFailure('profile_id_missing')
+            if type(claims['id']) is not int:
+                raise OIDCFailure('profile_id_string' if isinstance(claims['id'],str) else 'profile_id_type_rejected')
+            if not 0 < claims['id'] < 2**63:raise OIDCFailure('profile_id_range_rejected')
+            if not isinstance(claims['sub'],str) or not 1 <= len(claims['sub']) <= 128:
+                raise OIDCFailure('subject_shape_rejected')
+            if type(claims['iat']) is not int or type(claims['exp']) is not int:
+                raise OIDCFailure('token_time_shape_rejected')
+            if claims['iat'] < time.time()-600:raise OIDCFailure('token_age_policy_rejected')
+            if claims['exp'] <= claims['iat']:raise OIDCFailure('token_time_order_rejected')
             return {'subject': claims['sub'], 'telegram_id': claims['id']}
         except OIDCFailure:
             raise
