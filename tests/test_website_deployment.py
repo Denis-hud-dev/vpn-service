@@ -93,3 +93,32 @@ def test_sealed_root_group_credentials_require_exclusive_service_uid_acl(monkeyp
     foreign=False
     monkeypatch.setattr(app.os,'getxattr',lambda *args:struct.pack('<I',2))
     assert not app.sealed_systemd_credential(path,info,parent)
+
+
+def test_oidc_adapter_reads_fragmented_json_completely_and_bounds_body(monkeypatch,caplog):
+    import asyncio,json
+    from aiohttp import web
+    from aiohttp.test_utils import TestServer
+    import bot.services.website_auth as module
+    async def run():
+        async def streamed(request):
+            response=web.StreamResponse(headers={'Content-Type':'application/json'})
+            await response.prepare(request)
+            await response.write(b'{"public":')
+            await asyncio.sleep(0.03)
+            await response.write(b'"complete"}')
+            await response.write_eof()
+            return response
+        async def large(request):return web.Response(body=b'x'*65537)
+        async def error(request):return web.json_response({'error':'invalid_grant','error_description':'private-fixture-marker'})
+        app=web.Application();app.router.add_get('/fragmented',streamed);app.router.add_get('/large',large);app.router.add_get('/error',error)
+        async with TestServer(app) as server:
+            monkeypatch.setattr(module,'ISSUER',str(server.make_url('')).rstrip('/'))
+            client=module.TelegramOIDC('123456','offline-secret','https://site.example/auth/callback')
+            assert await client.request('GET','/fragmented')=={'public':'complete'}
+            with pytest.raises(module.OIDCFailure) as oversized:await client.request('GET','/large')
+            assert oversized.value.reason=='provider_response_too_large'
+            with pytest.raises(module.OIDCFailure) as rejected:await client.request('GET','/error')
+            assert rejected.value.reason=='provider_invalid_grant'
+            assert 'private-fixture-marker' not in str(rejected.value) and 'private-fixture-marker' not in caplog.text
+    asyncio.run(run())

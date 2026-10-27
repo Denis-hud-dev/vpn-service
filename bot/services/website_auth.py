@@ -3,6 +3,7 @@ import base64
 from datetime import timedelta
 import hashlib
 import hmac
+import logging
 import secrets
 import time
 from urllib.parse import urlencode
@@ -17,6 +18,13 @@ from bot.db.models import User, WebIdentity, WebLoginFlow, WebSession
 from bot.services.subscriptions import as_utc, utcnow
 
 ISSUER = 'https://oauth.telegram.org'
+
+
+class OIDCFailure(PermissionError):
+    """Fixed operator-only reason. Never contains provider bodies or claims."""
+    def __init__(self, reason):
+        super().__init__('Authentication unavailable')
+        self.reason=reason
 
 
 def digest(value):
@@ -43,15 +51,25 @@ class TelegramOIDC:
                         auth=aiohttp.BasicAuth(self.client_id, self._secret) if method == 'POST' else None,
                         allow_redirects=False) as response:
                     if response.status != 200:
-                        raise PermissionError()
-                    body = await response.content.read(65537)
-                    if len(body) > 65536:
-                        raise PermissionError()
+                        raise OIDCFailure('provider_http_'+str(response.status))
+                    chunks=[]
+                    total=0
+                    async for chunk in response.content.iter_chunked(16384):
+                        total+=len(chunk)
+                        if total>65536:raise OIDCFailure('provider_response_too_large')
+                        chunks.append(chunk)
                     import json
-                    return json.loads(body)
+                    body=json.loads(b''.join(chunks))
+                    if not isinstance(body,dict):raise OIDCFailure('provider_payload_invalid')
+                    if 'error' in body:
+                        allowed={'invalid_grant','invalid_client','invalid_request','unauthorized_client','unsupported_grant_type','invalid_scope'}
+                        raise OIDCFailure('provider_'+body['error'] if body['error'] in allowed else 'provider_error')
+                    return body
+        except OIDCFailure:
+            raise
         except Exception:
             # Never expose response bodies, auth codes, client secrets or tokens.
-            raise PermissionError('Authentication unavailable') from None
+            raise OIDCFailure('provider_transport_or_payload_error') from None
 
     async def exchange(self, code, verifier):
         if not isinstance(code, str) or not 1 <= len(code) <= 2048:
@@ -59,15 +77,16 @@ class TelegramOIDC:
         response = await self.request('POST', '/token', data={
             'grant_type': 'authorization_code', 'code': code, 'client_id': self.client_id,
             'redirect_uri': self.redirect_uri, 'code_verifier': verifier})
-        return await self.validate(response.get('id_token'))
+        if not response.get('id_token'):raise OIDCFailure('id_token_missing')
+        return await self.validate(response['id_token'])
 
     async def validate(self, token):
         try:
             if not isinstance(token, str) or len(token) > 16000:
                 raise ValueError()
             header = jwt.get_unverified_header(token)
-            if header.get('alg') != 'RS256' or not isinstance(header.get('kid'), str):
-                raise ValueError()
+            if header.get('alg') != 'RS256':raise OIDCFailure('signing_algorithm_unsupported')
+            if not isinstance(header.get('kid'),str):raise OIDCFailure('key_id_missing')
             if self._keys is None or self._keys_until <= time.monotonic():
                 self._keys = await self.request('GET', '/.well-known/jwks.json')
                 self._keys_until = time.monotonic()+300
@@ -77,7 +96,7 @@ class TelegramOIDC:
             if len(keys) != 1:
                 # Fail closed during a key rollover; the next fresh login can retry.
                 self._keys_until = 0
-                raise ValueError()
+                raise OIDCFailure('signing_key_unavailable')
             claims = jwt.decode(token, jwt.PyJWK.from_dict(keys[0]).key,
                 algorithms=['RS256'], issuer=ISSUER, audience=self.client_id, leeway=10,
                 options={'require': ['iss', 'aud', 'sub', 'iat', 'exp'], 'strict_aud': True})
@@ -85,10 +104,22 @@ class TelegramOIDC:
                     or not isinstance(claims['sub'], str) or not 1 <= len(claims['sub']) <= 128
                     or type(claims['iat']) is not int or type(claims['exp']) is not int
                     or claims['iat'] < time.time()-600 or claims['exp'] <= claims['iat']):
-                raise ValueError()
+                raise OIDCFailure('identity_claims_rejected')
             return {'subject': claims['sub'], 'telegram_id': claims['id']}
+        except OIDCFailure:
+            raise
+        except jwt.ExpiredSignatureError:
+            raise OIDCFailure('id_token_expired') from None
+        except jwt.ImmatureSignatureError:
+            raise OIDCFailure('id_token_not_yet_valid') from None
+        except jwt.InvalidAudienceError:
+            raise OIDCFailure('id_token_audience_rejected') from None
+        except jwt.InvalidIssuerError:
+            raise OIDCFailure('id_token_issuer_rejected') from None
+        except jwt.InvalidSignatureError:
+            raise OIDCFailure('id_token_signature_rejected') from None
         except Exception:
-            raise PermissionError('Authentication unavailable') from None
+            raise OIDCFailure('id_token_structure_rejected') from None
 
 
 class WebsiteAuth:
@@ -125,9 +156,14 @@ class WebsiteAuth:
                 WebLoginFlow.expires_at > self.clock()).returning(WebLoginFlow.verifier))).scalar_one_or_none()
             if flow is None:
                 raise PermissionError('Authentication unavailable')
-        identity = await self.oidc.exchange(code, flow)
+        try:
+            identity = await self.oidc.exchange(code, flow)
+        except OIDCFailure as error:
+            logging.warning('website_auth outcome=%s',error.reason)
+            raise PermissionError('Authentication unavailable') from None
         if not self.permitted(identity['telegram_id']):
             # Reject before writing User, WebIdentity or WebSession.
+            logging.warning('website_auth outcome=owner_not_allowed')
             raise PermissionError('Authentication unavailable')
         return identity
 
