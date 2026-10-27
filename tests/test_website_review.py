@@ -232,3 +232,27 @@ def test_review_peer_auth_requires_exact_socket_and_unprivileged_role(monkeypatc
     assert settings()[0].password is None
     monkeypatch.setenv('DATABASE_URL','postgresql+psycopg://postgres@/kudavpn_website_test?host=/var/run/postgresql')
     with pytest.raises(ValueError):settings()
+
+
+def test_verified_string_id_must_still_match_owner_allowlist(tmp_path,key):
+    async def run():
+        engine=create_async_engine('sqlite+aiosqlite:///'+str(tmp_path/'string-id-auth.db'))
+        try:
+            async with engine.begin() as conn:await conn.run_sync(Base.metadata.create_all)
+            sessions=async_sessionmaker(engine,expire_on_commit=False)
+            provider=IdentityProvider(key)
+            provider.claims['501']=provider.token(501,id='501')
+            provider.claims['502']=provider.token(502,id='502')
+            auth=ReviewAuth(sessions,TelegramOIDC('123456','offline','https://review.example/auth/callback',transport=provider),allowed_telegram_ids={501})
+            async def login(owner):
+                url,browser=await auth.begin()
+                return await auth.finish(parse_qs(urlsplit(url).query)['state'][0],browser,str(owner))
+            token=await login(501)
+            assert await auth.owner(token)==501
+            with pytest.raises(PermissionError):await login(502)
+            async with sessions() as session:
+                assert await session.scalar(select(func.count()).select_from(ReviewSession))==1
+                assert await session.scalar(select(func.count()).select_from(User))==0
+                assert await session.scalar(select(func.count()).select_from(Subscription))==0
+        finally:await engine.dispose()
+    asyncio.run(run())

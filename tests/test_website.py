@@ -341,7 +341,7 @@ def test_review_entrypoint_cannot_use_live_or_existing_pilot_database(monkeypatc
 
 @pytest.mark.parametrize('claims,reason',[
     ({'id':None},'profile_id_missing'),
-    ({'id':'501'},'profile_id_string'),
+    ({'id':'0501'},'profile_id_string_invalid'),
     ({'id':True},'profile_id_type_rejected'),
     ({'id':0},'profile_id_range_rejected'),
     ({'sub':''},'subject_shape_rejected'),
@@ -356,3 +356,19 @@ def test_verified_claim_rejections_are_distinguished_without_logging_values(key,
         assert error.value.reason==reason
         assert str(error.value)=='Authentication unavailable'
     asyncio.run(run())
+
+
+@pytest.mark.parametrize('identifier',[501,'501',2**63-1,str(2**63-1)])
+def test_verified_numeric_id_representations_preserve_the_same_identity(key,identifier):
+    async def run():
+        provider=IdentityProvider(key)
+        client=TelegramOIDC('123456','offline','https://site.example/auth/callback',transport=provider)
+        result=await client.validate(provider.token(id=identifier))
+        assert result['telegram_id']==int(identifier) and type(result['telegram_id']) is int
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize('identifier',[True,501.0,'','0','00','0501','+501','-501',' 501','501 ','5e2','501.0','５０１','٥٠١',str(2**63),'9'*100])
+def test_noncanonical_or_out_of_range_identifier_is_rejected(identifier):
+    from bot.services.website_auth import OIDCFailure,verified_telegram_id
+    with pytest.raises(OIDCFailure):verified_telegram_id(identifier)

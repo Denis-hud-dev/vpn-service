@@ -4,6 +4,7 @@ from datetime import timedelta
 import hashlib
 import hmac
 import logging
+import re
 import secrets
 import time
 from urllib.parse import urlencode
@@ -25,6 +26,21 @@ class OIDCFailure(PermissionError):
     def __init__(self, reason):
         super().__init__('Authentication unavailable')
         self.reason=reason
+
+
+def verified_telegram_id(value):
+    """Normalize a signature-verified ID; never infer identity from other fields."""
+    if value is None:raise OIDCFailure('profile_id_missing')
+    if type(value) is int:
+        identifier=value
+    elif isinstance(value,str):
+        if not re.fullmatch(r'[1-9][0-9]{0,18}',value):
+            raise OIDCFailure('profile_id_string_invalid')
+        identifier=int(value)
+    else:
+        raise OIDCFailure('profile_id_type_rejected')
+    if not 0 < identifier < 2**63:raise OIDCFailure('profile_id_range_rejected')
+    return identifier
 
 
 def digest(value):
@@ -100,17 +116,14 @@ class TelegramOIDC:
             claims = jwt.decode(token, jwt.PyJWK.from_dict(keys[0]).key,
                 algorithms=['RS256'], issuer=ISSUER, audience=self.client_id, leeway=10,
                 options={'require': ['iss', 'aud', 'sub', 'iat', 'exp'], 'strict_aud': True})
-            if claims.get('id') is None:raise OIDCFailure('profile_id_missing')
-            if type(claims['id']) is not int:
-                raise OIDCFailure('profile_id_string' if isinstance(claims['id'],str) else 'profile_id_type_rejected')
-            if not 0 < claims['id'] < 2**63:raise OIDCFailure('profile_id_range_rejected')
+            identifier=verified_telegram_id(claims.get('id'))
             if not isinstance(claims['sub'],str) or not 1 <= len(claims['sub']) <= 128:
                 raise OIDCFailure('subject_shape_rejected')
             if type(claims['iat']) is not int or type(claims['exp']) is not int:
                 raise OIDCFailure('token_time_shape_rejected')
             if claims['iat'] < time.time()-600:raise OIDCFailure('token_age_policy_rejected')
             if claims['exp'] <= claims['iat']:raise OIDCFailure('token_time_order_rejected')
-            return {'subject': claims['sub'], 'telegram_id': claims['id']}
+            return {'subject': claims['sub'], 'telegram_id': identifier}
         except OIDCFailure:
             raise
         except jwt.ExpiredSignatureError:
