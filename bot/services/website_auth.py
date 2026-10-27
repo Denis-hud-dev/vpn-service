@@ -92,6 +92,8 @@ class TelegramOIDC:
 
 
 class WebsiteAuth:
+    session_model = WebSession
+
     def __init__(self, sessions, oidc, *, clock=utcnow, allowed_telegram_ids=None):
         self.sessions, self.oidc, self.clock = sessions, oidc, clock
         self.allowed_telegram_ids = None if allowed_telegram_ids is None else frozenset(allowed_telegram_ids)
@@ -107,7 +109,7 @@ class WebsiteAuth:
         challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b'=').decode()
         async with self.sessions.begin() as session:
             await session.execute(delete(WebLoginFlow).where(WebLoginFlow.expires_at <= self.clock()))
-            await session.execute(delete(WebSession).where(WebSession.expires_at <= self.clock()))
+            await session.execute(delete(self.session_model).where(self.session_model.expires_at <= self.clock()))
             session.add(WebLoginFlow(digest=digest(state), browser_digest=digest(browser),
                 verifier=verifier, expires_at=self.clock()+timedelta(minutes=10)))
         url = ISSUER+'/auth?'+urlencode({'client_id': self.oidc.client_id,

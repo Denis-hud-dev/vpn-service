@@ -22,6 +22,8 @@ from bot.services.website_auth import WebsiteAuth, digest
 
 
 class ReviewAuth(WebsiteAuth):
+    session_model = ReviewSession
+
     def __init__(self, sessions, oidc, *, allowed_telegram_ids, **kwargs):
         super().__init__(sessions, oidc, allowed_telegram_ids=allowed_telegram_ids, **kwargs)
         if len(self.allowed_telegram_ids) != 1:

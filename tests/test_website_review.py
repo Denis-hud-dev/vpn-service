@@ -104,6 +104,27 @@ def test_review_login_has_no_canonical_user_or_subscription_writes(tmp_path,key)
     asyncio.run(run())
 
 
+def test_review_login_uses_only_the_tables_granted_to_isolated_role(tmp_path,key):
+    async def run():
+        engine=create_async_engine('sqlite+aiosqlite:///'+str(tmp_path/'limited-auth.db'))
+        try:
+            async with engine.begin() as conn:await conn.run_sync(Base.metadata.create_all)
+            sessions=async_sessionmaker(engine,expire_on_commit=False)
+            provider=IdentityProvider(key)
+            auth=ReviewAuth(sessions,TelegramOIDC('123456','offline','https://review.example/auth/callback',transport=provider),allowed_telegram_ids={501})
+            def restricted_tables(conn,cursor,statement,parameters,context,executemany):
+                import re
+                assert not re.search(r'\b(web_sessions|web_identities|users|subscriptions|payments)\b',statement), 'Isolated auth role has no rights on this table'
+            event.listen(engine.sync_engine,'before_cursor_execute',restricted_tables)
+            destination,browser=await auth.begin()
+            token=await auth.finish(parse_qs(urlsplit(destination).query)['state'][0],browser,'501')
+            assert await auth.owner(token)==501
+            await auth.logout(token)
+            event.remove(engine.sync_engine,'before_cursor_execute',restricted_tables)
+        finally:await engine.dispose()
+    asyncio.run(run())
+
+
 def test_closed_dashboard_existing_link_selection_and_logout(tmp_path,key):
     async def run():
         engine=create_async_engine('sqlite+aiosqlite:///'+str(tmp_path/'auth.db'))
