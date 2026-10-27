@@ -3,6 +3,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 from uuid import UUID
+import json
 import re
 
 import aiohttp
@@ -12,6 +13,7 @@ from bot.services.yookassa_verification import identity_from_lookup
 
 API_ORIGIN = 'https://api.yookassa.ru'
 PROVIDER_ID = re.compile(r'[A-Za-z0-9-]{1,128}\Z')
+MAX_RESPONSE_BYTES = 256 * 1024
 
 
 class PaymentProviderUnavailable(RuntimeError):
@@ -25,6 +27,10 @@ class YooKassaTestClient:
             raise ValueError('Неверные параметры тестового магазина')
         if payment_method not in {'smart', 'sbp'}:
             raise ValueError('Неподдерживаемый способ тестовой оплаты')
+        # YooKassa sandbox supports cards/YooMoney, not SBP. Keep the payload
+        # contract available to injected offline fixtures, never real HTTP.
+        if payment_method == 'sbp' and transport is None:
+            raise ValueError('СБП недоступна в тестовом магазине ЮKassa')
         self.shop_id, self._secret_key = shop_id, secret_key
         self._transport = transport
         self.payment_method = payment_method
@@ -52,8 +58,15 @@ class YooKassaTestClient:
                                                headers=headers, allow_redirects=False) as response:
                         if response.status != 200:
                             raise PaymentProviderUnavailable('Тестовый провайдер временно недоступен')
-                        data = await response.json(content_type='application/json')
-            except (aiohttp.ClientError, TimeoutError, ValueError) as exc:
+                        if response.content_type != 'application/json':
+                            raise PaymentProviderUnavailable('Тестовый провайдер временно недоступен')
+                        body = bytearray()
+                        async for chunk in response.content.iter_chunked(8192):
+                            if len(body) + len(chunk) > MAX_RESPONSE_BYTES:
+                                raise PaymentProviderUnavailable('Тестовый провайдер временно недоступен')
+                            body.extend(chunk)
+                        data = json.loads(body.decode('utf-8'))
+            except (aiohttp.ClientError, TimeoutError, ValueError, RecursionError):
                 raise PaymentProviderUnavailable('Тестовый провайдер временно недоступен') from None
         if not isinstance(data, dict) or (payment_object and data.get('test') is not True):
             raise PaymentProviderUnavailable('Ответ не относится к тестовому магазину')
