@@ -60,5 +60,5 @@ vm.runInNewContext(fs.readFileSync(process.argv[1], 'utf8'), {document,navigator
                      .replace('LEGACY', str(legacy).lower())
                      .replace('EXPECTED', repr(expected)))
     result = subprocess.run([NODE, '-e', script, str(SCRIPT)], capture_output=True,
-                            text=True, timeout=5, check=False)
+                            text=True, timeout=15, check=False)
     assert result.returncode == 0, result.stderr

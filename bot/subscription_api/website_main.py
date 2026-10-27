@@ -1,4 +1,4 @@
-"""Owner-only HTTPS review. Auth DB only, no payments or canonical DB writes."""
+"""Owner-only HTTPS review. Auth DB and optional Unix-only sandbox payment facade."""
 import asyncio
 import logging
 import json
@@ -93,15 +93,23 @@ def build():
     auth = ReviewAuth(db.sessions,oidc,allowed_telegram_ids={owner['owner_id']})
     snapshot = ReviewSnapshot(os.environ['SITE_SNAPSHOT_FILE'],owner['owner_id'],FEED_ORIGIN)
     service = ReadOnlyReview(snapshot,origin)
+    payment_mode = os.getenv("SITE_PAYMENTS_MODE", "disabled")
+    if payment_mode == "owner-sandbox":
+        from bot.services.website_payments import PaymentReview, LocalPaymentClient
+        service = PaymentReview(snapshot,origin,LocalPaymentClient())
+    elif payment_mode != "disabled":
+        raise ValueError("Only owner sandbox payments are allowed")
     app = create_website(service,auth,service,origin,closed_review=True)
 
     async def ready(request):
         try:
             await asyncio.wait_for(db.ping(),timeout=3)
             snapshot.read(owner['owner_id'])
-            return web.json_response({'ready':True,'read_only':True})
+            if not service.read_only:
+                await asyncio.wait_for(service.payments.request('ready'),timeout=3)
+            return web.json_response({'ready':True,'read_only':service.read_only})
         except Exception:
-            return web.json_response({'ready':False,'read_only':True},status=503)
+            return web.json_response({'ready':False,'read_only':service.read_only},status=503)
     app.router.add_get('/ready',ready)
 
     async def lifecycle(app):

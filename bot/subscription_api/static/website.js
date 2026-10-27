@@ -3,7 +3,7 @@
   const el = id => document.getElementById(id);
   const money = n => new Intl.NumberFormat('ru-RU').format(n / 100) + ' ₽';
   const date = value => value ? new Date(value).toLocaleString('ru-RU', {day:'numeric',month:'long',year:'numeric',timeZone:'UTC'})+' · UTC' : '—';
-  let csrf = '', current = null, busy = false, timer = null, paymentUrl = null, readOnly = false;
+  let csrf = '', current = null, busy = false, timer = null, paymentUrl = null, readOnly = false, failures = 0;
   const status = {selection_only:'Тариф выбран · без оплаты',pending:'Ожидаем оплату',succeeded:'Оплата подтверждена',canceled:'Платёж отменён',expired:'Окно оплаты истекло',refunded:'Возврат подтверждён',refund_review:'Возврат требует проверки'};
   const receipt = {test_not_required:'Тест · чек НПД не формируется',not_due:'Чек пока не требуется',pending:'Ожидает выдачи чека НПД',issued:'Чек НПД зарегистрирован · ожидает передачи',delivered:'Чек НПД передан покупателю',error:'Ошибка выдачи или доставки чека',void_pending:'Ожидает корректировки после возврата',voided:'Чек аннулирован / обязательство закрыто'};
   async function api(path, data) {
@@ -51,12 +51,12 @@
     el('order-summary').textContent=order.label+(order.state==='selection_only'?' · предварительный выбор':' · тестовый заказ');
     el('refresh-order').hidden=order.state==='selection_only';
     link(el('pay-link'),order.state==='pending'?paymentUrl:null);
-    el('order-note').textContent=order.state==='selection_only'?'Оплата на этом стенде выключена. Заказ не создан, срок подписки не менялся.':order.state==='succeeded'?'Срок добавлен к подписке один раз. Профиль Happ сохраняется.':order.state==='pending'?'Данные карты вводятся только в форме провайдера. Подтверждение проверяет сервер.':'Если нужна помощь, откройте поддержку. Повторное нажатие проверки не добавляет срок.';
+    el('order-note').textContent=order.state==='selection_only'?'Оплата на этом стенде выключена. Заказ не создан, срок подписки не менялся.':order.state==='succeeded'?(order.access_pending?'Оплата подтверждена. Обновляем доступ; повторная оплата не нужна.':'Срок добавлен к подписке один раз. Профиль Happ сохраняется.'):order.state==='pending'?'Данные карты вводятся только в форме провайдера. Подтверждение проверяет сервер.':'Если нужна помощь, откройте поддержку. Повторное нажатие проверки не добавляет срок.';
     if (order.state==='succeeded'||order.state==='refunded') await account();
     clearTimeout(timer);
-    if (order.state==='pending') timer=setTimeout(refresh,8000);
+    if (order.state==='pending'||(order.state==='succeeded'&&order.access_pending)) timer=setTimeout(refresh,8000);
   }
-  async function refresh() {if (!current||busy)return;busy=true;try{await render(await api('orders/'+current.id+'/refresh',{}));}catch(e){error(e.message);}finally{busy=false;}}
+  async function refresh() {if (!current||busy)return;busy=true;try{await render(await api('orders/'+current.id+'/refresh',{}));failures=0;el('site-error').hidden=true;}catch(e){error(e.message);if(e.status!==401&&e.status!==404&&failures++<8){clearTimeout(timer);timer=setTimeout(refresh,Math.min(60000,8000*2**Math.min(failures,3)));}}finally{busy=false;}}
   async function choose(plan,button) {
     if (!csrf) {el('auth-message').hidden=false;el('auth-message').scrollIntoView({block:'center'});return;}
     if(busy)return;busy=true;button.disabled=true;el('site-error').hidden=true;
