@@ -36,6 +36,17 @@ def write(path,data,mode=0o600):
     with os.fdopen(fd,'w') as stream:stream.write(data)
 
 
+def public_runtime(path):
+    """Only immutable public code/dependencies, never config or uploaded secrets."""
+    path=Path(path)
+    if path.parent != BASE or (path.name != 'venv' and not path.name.startswith('release-')) or path.is_symlink():
+        raise ValueError('Unexpected runtime directory')
+    for item in (path,*path.rglob('*')):
+        if item.is_symlink():continue
+        if item.is_dir():item.chmod(0o755)
+        elif item.is_file():item.chmod(0o755 if item.stat().st_mode & 0o111 else 0o644)
+
+
 def main():
     stage='preflight'
     try:
@@ -43,19 +54,36 @@ def main():
         revision=sys.argv[1]
         if len(revision)!=40 or any(c not in '0123456789abcdef' for c in revision):raise ValueError()
         release=BASE/('release-'+revision[:7])
+        resume=len(sys.argv)==3 and sys.argv[2]=='--resume-empty-auth'
         if not (release/'bot/subscription_api/website_main.py').is_file():raise ValueError()
         if not (BACKUP/'baseline.json').is_file():raise ValueError()
         run(['bash',str(BACKUP/'rollback.sh')],env={**os.environ,'CHECK_ONLY':'1'})
         if run(['ss','-ltnH','sport = :20443']):raise ValueError()
-        if CONFIG.exists() or (BASE/'current').exists():raise ValueError()
-        if sql("SELECT datname FROM pg_database WHERE datname='kudavpn_website_test';"):raise ValueError()
-        if sql("SELECT rolname FROM pg_roles WHERE rolname='kudavpn_website_test';"):raise ValueError()
-        if subprocess.run(['id',DB],capture_output=True).returncode==0:raise ValueError()
+        if (BASE/'current').exists():raise ValueError()
+        if resume:
+            # Resume only the proven first-install failure: empty DB, prepared
+            # private config, exact passwordless peer role, no installed units.
+            import pwd
+            identity=pwd.getpwnam(DB)
+            if identity.pw_shell!='/usr/sbin/nologin' or identity.pw_dir!='/nonexistent':raise ValueError()
+            if not CONFIG.is_dir() or CONFIG.is_symlink() or CONFIG.stat().st_uid!=0 or CONFIG.stat().st_mode & 0o077:raise ValueError()
+            if sql("SELECT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls AND rolpassword IS NULL FROM pg_authid WHERE rolname='kudavpn_website_test';")!='t':raise ValueError()
+            if sql("SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname='kudavpn_website_test';")!='postgres':raise ValueError()
+            if sql("SELECT count(*) FROM pg_tables WHERE schemaname='public';",DB)!='0':raise ValueError()
+            if any((Path('/etc/systemd/system')/name).exists() for name in UNITS):raise ValueError()
+        else:
+            if CONFIG.exists():raise ValueError()
+            if sql("SELECT datname FROM pg_database WHERE datname='kudavpn_website_test';"):raise ValueError()
+            if sql("SELECT rolname FROM pg_roles WHERE rolname='kudavpn_website_test';"):raise ValueError()
+            if subprocess.run(['id',DB],capture_output=True).returncode==0:raise ValueError()
+        public_runtime(release)
+        public_runtime(BASE/'venv')
         stage='isolated_identity'
-        run(['useradd','--system','--no-create-home','--home-dir','/nonexistent','--shell','/usr/sbin/nologin',DB])
-        CONFIG.mkdir(mode=0o700)
+        if not resume:
+            run(['useradd','--system','--no-create-home','--home-dir','/nonexistent','--shell','/usr/sbin/nologin',DB])
+            CONFIG.mkdir(mode=0o700)
         bundle=BASE/'oidc-upload.json'
-        credentials=json.loads(bundle.read_text())
+        credentials=json.loads((CONFIG/'oidc.json' if resume else bundle).read_text())
         origin='https://r1276248.s2578.vm.mydomain.zone:20443'
         if credentials.get('origin')!=origin or credentials.get('redirect_uri')!=origin+'/auth/callback':raise ValueError()
         pid=run(['systemctl','show','-P','MainPID','kudavpn-telegram-pilot-bot.service'])
@@ -63,17 +91,23 @@ def main():
         if str(credentials['client_id'])!=env['BOT_TOKEN'].split(':',1)[0]:raise ValueError('OIDC must belong to test bot')
         owner=int(env['PILOT_TRIAL_OWNER_ID'])
         if owner<=0:raise ValueError()
-        write(CONFIG/'oidc.json',json.dumps(credentials))
-        bundle.unlink()
-        write(CONFIG/'owner.json',json.dumps({'owner_id':owner}))
+        if not resume:
+            write(CONFIG/'oidc.json',json.dumps(credentials))
+            bundle.unlink()
+            write(CONFIG/'owner.json',json.dumps({'owner_id':owner}))
+        elif json.loads((CONFIG/'owner.json').read_text())!={'owner_id':owner}:raise ValueError()
         pid=run(['systemctl','show','-P','MainPID','kudavpn-test-checkout.service'])
         old=dict(row.split('=',1) for row in Path('/proc/'+pid+'/environ').read_bytes().decode().split('\0') if '=' in row)
         for source,target in [('CHECKOUT_TLS_CERT','tls.crt'),('CHECKOUT_TLS_KEY','tls.key')]:
-            shutil.copyfile(old[source],CONFIG/target);(CONFIG/target).chmod(0o600)
+            if resume:
+                if Path(old[source]).read_bytes()!=(CONFIG/target).read_bytes():raise ValueError()
+            else:
+                shutil.copyfile(old[source],CONFIG/target);(CONFIG/target).chmod(0o600)
         stage='isolated_database'
         # Peer login: no password/key for the database exists at all.
-        sql('CREATE ROLE kudavpn_website_test LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 12;')
-        sql('CREATE DATABASE kudavpn_website_test OWNER postgres;')
+        if not resume:
+            sql('CREATE ROLE kudavpn_website_test LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 12;')
+            sql('CREATE DATABASE kudavpn_website_test OWNER postgres;')
         sql('REVOKE ALL ON DATABASE kudavpn_website_test FROM PUBLIC; GRANT CONNECT ON DATABASE kudavpn_website_test TO kudavpn_website_test;')
         migration_env={**os.environ,'DATABASE_URL':'postgresql+psycopg:///kudavpn_website_test?host=/var/run/postgresql','PYTHONDONTWRITEBYTECODE':'1'}
         run(['runuser','-u','postgres','--',str(BASE/'venv/bin/python'),'-m','alembic','upgrade','head'],env=migration_env,cwd=release)
@@ -93,7 +127,7 @@ def main():
         stage='isolated_configuration'
         export=Path('/var/lib/kudavpn-website-export')
         if export.exists():raise ValueError()
-        export.mkdir(mode=0o750);shutil.chown(export,user='root',group=DB)
+        export.mkdir(mode=0o750);export.chmod(0o750);shutil.chown(export,user='root',group=DB)
         values={'KUDAVPN_SITE_MODE':'review-test','SITE_PUBLIC_ORIGIN':origin,
                 'SITE_APPROVED_PUBLIC_REVIEW':'1','SITE_PORT':'20443',
                 'DATABASE_URL':'postgresql+psycopg://kudavpn_website_test@/kudavpn_website_test?host=/var/run/postgresql',
