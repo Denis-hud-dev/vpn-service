@@ -372,3 +372,41 @@ def test_verified_numeric_id_representations_preserve_the_same_identity(key,iden
 def test_noncanonical_or_out_of_range_identifier_is_rejected(identifier):
     from bot.services.website_auth import OIDCFailure,verified_telegram_id
     with pytest.raises(OIDCFailure):verified_telegram_id(identifier)
+
+
+def test_valid_session_reuses_login_without_new_flow_or_extending_expiry(tmp_path,key):
+    async def run():
+        async with site(tmp_path,key,closed=True) as p:
+            headers,token=await login(p)
+            async with p.db() as session:
+                before=(await session.get(WebSession,digest(token))).expires_at
+            provider_calls=len(p.identity.calls)
+            response=await p.http.get('/auth/login',headers=headers,allow_redirects=False)
+            assert response.status==303 and response.headers['Location']=='/account'
+            assert not response.cookies and len(p.identity.calls)==provider_calls
+            async with p.db() as session:
+                assert (await session.get(WebSession,digest(token))).expires_at==before
+                assert await session.scalar(select(func.count()).select_from(WebLoginFlow))==0
+                assert await session.scalar(select(func.count()).select_from(WebSession))==1
+            assert (await p.http.get('/auth/login?telegram_id=501',headers=headers,allow_redirects=False)).status==400
+            p.auth.clock=lambda:utcnow()+timedelta(hours=2)
+            response=await p.http.get('/auth/login',headers=headers,allow_redirects=False)
+            assert response.status==303 and response.headers['Location'].startswith(ISSUER+'/auth?')
+            async with p.db() as session:
+                assert await session.scalar(select(func.count()).select_from(WebLoginFlow))==1
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize('read_only,direct',[(True,True),(True,False),(False,False),(False,True)])
+def test_direct_checkout_is_explicit_and_never_enabled_for_read_only(read_only,direct):
+    async def run():
+        service=SimpleNamespace(read_only=read_only,plans=lambda:[])
+        auth=SimpleNamespace(allowed_telegram_ids={501})
+        app=create_website(service,auth,service,ORIGIN,local_demo=True,direct_checkout=direct)
+        async with TestClient(TestServer(app)) as http:
+            reply=await http.get('/api/plans')
+            assert reply.status==200
+            data=await reply.json()
+            assert data['direct_checkout'] is (direct and not read_only)
+            assert data['methods']==([] if read_only else ['bank_card','yoo_money'])
+    asyncio.run(run())

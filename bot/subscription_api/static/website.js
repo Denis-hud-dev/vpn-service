@@ -3,7 +3,7 @@
   const el = id => document.getElementById(id);
   const money = n => new Intl.NumberFormat('ru-RU').format(n / 100) + ' ₽';
   const date = value => value ? new Date(value).toLocaleString('ru-RU', {day:'numeric',month:'long',year:'numeric',timeZone:'UTC'})+' · UTC' : '—';
-  let csrf = '', current = null, busy = false, timer = null, paymentUrl = null, readOnly = false, failures = 0;
+  let csrf = '', current = null, busy = false, timer = null, paymentUrl = null, readOnly = false, failures = 0, directCheckout = false;
   const status = {selection_only:'Тариф выбран · без оплаты',pending:'Ожидаем оплату',succeeded:'Оплата подтверждена',canceled:'Платёж отменён',expired:'Окно оплаты истекло',refunded:'Возврат подтверждён',refund_review:'Возврат требует проверки'};
   const receipt = {test_not_required:'Тест · чек НПД не формируется',not_due:'Чек пока не требуется',pending:'Ожидает выдачи чека НПД',issued:'Чек НПД зарегистрирован · ожидает передачи',delivered:'Чек НПД передан покупателю',error:'Ошибка выдачи или доставки чека',void_pending:'Ожидает корректировки после возврата',voided:'Чек аннулирован / обязательство закрыто'};
   async function api(path, data) {
@@ -20,6 +20,13 @@
     const url=new URL(value,location.origin);
     if (url.protocol!=='https:' && !(location.hostname==='127.0.0.1' && url.origin===location.origin)) return;
     element.href=url.href; element.hidden=false;
+  }
+  function providerURL(value) {
+    try {
+      const url=new URL(value);
+      return url.protocol==='https:' && ['yookassa.ru','yoomoney.ru'].includes(url.hostname)
+        && !url.username && !url.password && (!url.port || url.port==='443') && !url.hash ? url.href : null;
+    } catch {return null;}
   }
   async function account() {
     const data=await api('account'); el('account-name').textContent=data.display_name||'Ваш личный кабинет'; el('account-panel').hidden=false;el('auth-message').hidden=true;
@@ -51,6 +58,10 @@
     el('order-summary').textContent=order.label+(order.state==='selection_only'?' · предварительный выбор':' · тестовый заказ');
     el('refresh-order').hidden=order.state==='selection_only';
     link(el('pay-link'),order.state==='pending'?paymentUrl:null);
+    // Only the protected first-party connection page; no feed in this CTA.
+    const orderConnect=el('order-connect');
+    if(orderConnect) link(orderConnect,order.state==='succeeded' && !order.access_pending
+      && order.connect_url===location.origin+'/connect' ? order.connect_url : null);
     el('order-note').textContent=order.state==='selection_only'?'Оплата на этом стенде выключена. Заказ не создан, срок подписки не менялся.':order.state==='succeeded'?(order.access_pending?'Оплата подтверждена. Обновляем доступ; повторная оплата не нужна.':'Срок добавлен к подписке один раз. Профиль Happ сохраняется.'):order.state==='pending'?'Данные карты вводятся только в форме провайдера. Подтверждение проверяет сервер.':'Если нужна помощь, откройте поддержку. Повторное нажатие проверки не добавляет срок.';
     if (order.state==='succeeded'||order.state==='refunded') await account();
     clearTimeout(timer);
@@ -60,18 +71,34 @@
   async function choose(plan,button) {
     if (!csrf) {el('auth-message').hidden=false;el('auth-message').scrollIntoView({block:'center'});return;}
     if(busy)return;busy=true;button.disabled=true;el('site-error').hidden=true;
-    try{await render(await api('orders',{tariff_id:plan.id}));el('order-panel').scrollIntoView({block:'center'});}catch(e){error(e.message);}finally{busy=false;button.disabled=false;}
+    try{
+      const order=await api('orders',{tariff_id:plan.id});
+      const destination=providerURL(order.payment_url);
+      if(directCheckout && (order.test!==true || order.currency!=='RUB'
+          || order.amount_kopecks!==plan.amount_kopecks || order.months!==plan.months
+          || (order.state==='pending' && !destination))) {
+        throw new Error('Параметры оплаты не подтверждены. Обновите страницу и проверьте заказ.');
+      }
+      await render(order);
+      el('order-panel').scrollIntoView({block:'center'});
+      // Only an explicit pay-button click may navigate. Reload, status polling
+      // and a provider return URL never trigger a payment or another redirect.
+      if(directCheckout && order.state==='pending' && order.test===true
+          && order.currency==='RUB' && order.amount_kopecks===plan.amount_kopecks
+          && order.months===plan.months && destination) location.assign(destination);
+    }catch(e){error(e.message);}finally{busy=false;button.disabled=false;}
   }
   async function start() {
     try {
       const data=await api('plans'); readOnly=data.read_only===true;
+      directCheckout=data.direct_checkout===true && !readOnly;
       if(readOnly){el('review-caption').textContent=location.hostname==='127.0.0.1'?'Локальная имитация данных · не настоящий VPN':'Закрытый просмотр · существующая тестовая подписка';el('methods-note').textContent='Оплата и автосписания выключены. Выбор тарифа не создаёт заказ и не меняет подписку.';el('auth-message').firstChild.textContent='Для просмотра существующей подписки войдите в свой аккаунт. ';}
       for (const plan of data.plans) {
         const card=document.createElement('article');card.className='plan';
         const note=document.createElement('p');note.className='plan-note';note.textContent=plan.months===1?'Начните с одного месяца':plan.months===3?'Ваш привычный ритм':'Доступ на целый год';
         const label=document.createElement('p');label.textContent=plan.months+(plan.months===1?' месяц':plan.months===3?' месяца':' месяцев');
         const price=document.createElement('strong');price.textContent=money(plan.amount_kopecks);
-        const button=document.createElement('button');button.type='button';button.className='button '+(plan.months===1?'green':'blue');button.textContent='Выбрать';button.addEventListener('click',()=>choose(plan,button));
+        const button=document.createElement('button');button.type='button';button.className='button '+(plan.months===1?'green':'blue');button.textContent=directCheckout?'К тестовой оплате ↗':'Выбрать';button.addEventListener('click',()=>choose(plan,button));
         card.append(note,label,price,button);el('plan-cards').append(card);
       }
       try {const session=await api('session');csrf=session.csrf;await account();const latest=await api('orders/latest');if(latest.order)await render(latest.order);}catch(e) {if(e.status===401){csrf='';el('auth-message').hidden=false;if(location.pathname==='/account')el('auth-message').scrollIntoView({block:'center'});}else{error(e.message);}}

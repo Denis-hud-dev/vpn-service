@@ -99,7 +99,11 @@ def build():
         service = PaymentReview(snapshot,origin,LocalPaymentClient())
     elif payment_mode != "disabled":
         raise ValueError("Only owner sandbox payments are allowed")
-    app = create_website(service,auth,service,origin,closed_review=True)
+    fast_checkout = os.getenv('SITE_DIRECT_CHECKOUT', '0')
+    if fast_checkout not in {'0', '1'}:
+        raise ValueError('Explicit direct checkout flag required')
+    app = create_website(service,auth,service,origin,closed_review=True,
+                         direct_checkout=fast_checkout == '1')
 
     async def ready(request):
         try:

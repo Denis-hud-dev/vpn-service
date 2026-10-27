@@ -17,7 +17,8 @@ CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self';
        "connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
 
 
-def create_website(service, auth, ledger, origin, *, local_demo=False, closed_review=False):
+def create_website(service, auth, ledger, origin, *, local_demo=False, closed_review=False,
+                   direct_checkout=False):
     url = urlsplit(origin)
     if (url.path or url.query or url.fragment or url.username or not url.hostname
             or (local_demo and (url.scheme != 'http' or url.hostname != '127.0.0.1'))
@@ -103,6 +104,16 @@ def create_website(service, auth, ledger, origin, *, local_demo=False, closed_re
         # No user ID, return URL or caller-selected identity is accepted.
         if request.query:
             raise ValueError()
+        token = request.cookies.get(cookie, '')
+        if token:
+            try:
+                await auth.owner(token)
+            except PermissionError:
+                pass
+            else:
+                # Reuse only a valid, owner-authorized session. No extension
+                # of its TTL, new flow or caller-selected redirect is involved.
+                return web.Response(status=303, headers={'Location': '/account'})
         destination, binder = await auth.begin()
         response = web.Response(status=303, headers={'Location': destination})
         set_cookie(response, flow_cookie, binder, 600)
@@ -133,7 +144,8 @@ def create_website(service, auth, ledger, origin, *, local_demo=False, closed_re
         read_only = bool(getattr(service, 'read_only', False))
         return web.json_response({'plans': service.plans(), 'test': True, 'sbp_available': False,
                                  'methods': [] if read_only else ['bank_card', 'yoo_money'],
-                                 'read_only': read_only, 'documents_approved': False})
+                                 'read_only': read_only, 'documents_approved': False,
+                                 'direct_checkout': direct_checkout and not read_only})
 
     async def connection(request):
         from bot.subscription_api.connect_page import render_connection_page
