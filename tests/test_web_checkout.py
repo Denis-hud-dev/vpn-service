@@ -34,7 +34,7 @@ async def portal(tmp_path):
     sessions = CheckoutSessions(str(tmp_path / 'browser.sqlite'), 501)
     reviews = RefundReviews(sessions)
     checkout = PaymentCheckoutService(db, client, ORIGIN + '/checkout', tariffs=PILOT_TARIFFS)
-    processor = PaymentNotificationProcessor(db, client)
+    processor = PaymentNotificationProcessor(db, client, refund_reviews=reviews)
     happ = SimpleNamespace(issue_for_user=AsyncMock(return_value='https://vpn.example/s/offline'),
                            connection_page_url=lambda link: 'https://vpn.example/connect/offline')
     service = WebCheckout(db, checkout, processor, happ, 501, reviews=reviews)
@@ -299,7 +299,7 @@ def test_expired_order_and_mismatched_amount_then_late_verified_payment(tmp_path
     asyncio.run(run())
 
 
-def test_full_refund_is_verified_idempotent_and_preserves_prior_paid_time(tmp_path):
+def test_full_refund_is_verified_idempotent_and_keeps_all_time_for_manual_review(tmp_path):
     async def run():
         async with portal(tmp_path) as p:
             first = await create(p)
@@ -309,6 +309,8 @@ def test_full_refund_is_verified_idempotent_and_preserves_prior_paid_time(tmp_pa
             second = await create(p)
             provider_id = await provider_success(p, second)
             await webhook(p, provider_id)
+            async with p.db() as session:
+                paid_end = as_utc((await session.scalar(select(Subscription))).expires_at)
             p.fake.rows['refund-test'] = {'id': 'refund-test', 'payment_id': provider_id,
                 'status': 'succeeded', 'amount': {'value': '199.00', 'currency': 'RUB'}}
             event = {'type': 'notification', 'event': 'refund.succeeded',
@@ -317,11 +319,11 @@ def test_full_refund_is_verified_idempotent_and_preserves_prior_paid_time(tmp_pa
             await webhook(p, provider_id)  # Late duplicate payment cannot restore refunded time.
             async with p.db() as session:
                 sub = await session.scalar(select(Subscription))
-                assert as_utc(sub.expires_at) == before and sub.status == 'active'
+                assert as_utc(sub.expires_at) == paid_end and paid_end > before and sub.status == 'active'
                 assert await session.scalar(select(func.count()).select_from(SubscriptionHistory).where(
-                    SubscriptionHistory.reason == 'payment_refund')) == 1
+                    SubscriptionHistory.reason == 'payment_refund')) == 0
             state = await (await p.http.get('/checkout/api/orders/' + second['id'])).json()
-            assert state['state'] == 'refunded' and 'connect_url' not in state
+            assert state['state'] == 'refund_review' and 'connect_url' not in state
     asyncio.run(run())
 
 
@@ -345,6 +347,28 @@ def test_partial_refund_requires_review_without_revoking_other_paid_time(tmp_pat
     asyncio.run(run())
 
 
+@pytest.mark.parametrize('amount',['199.00','50.00'])
+def test_verified_refund_before_fulfillment_holds_late_payment_for_manual_review(tmp_path,amount):
+    async def run():
+        async with portal(tmp_path) as p:
+            order=await create(p)
+            provider_id=await provider_success(p,order)  # Not fulfilled locally yet.
+            p.fake.rows['held-refund']={'id':'held-refund','payment_id':provider_id,
+                'status':'succeeded','amount':{'value':amount,'currency':'RUB'}}
+            event={'type':'notification','event':'refund.succeeded',
+                'object':{'id':'held-refund','payment_id':provider_id}}
+            for _ in range(2):
+                assert (await p.http.post('/yookassa/test-webhook',json=event)).status==200
+                assert (await webhook(p,provider_id)).status==200
+            state=await (await p.http.get('/checkout/api/orders/'+order['id'])).json()
+            assert state['state']=='refund_review'
+            async with p.db() as session:
+                assert await session.scalar(select(func.count()).select_from(Subscription))==0
+                assert await session.scalar(select(func.count()).select_from(SubscriptionHistory))==0
+                assert (await session.scalar(select(Payment))).status=='pending'
+    asyncio.run(run())
+
+
 @pytest.mark.parametrize('state', ['pending', 'canceled', 'wrong-parent', 'succeeded'])
 def test_refund_does_not_trust_notification_or_incomplete_provider_state(tmp_path, state):
     async def run():
@@ -362,7 +386,7 @@ def test_refund_does_not_trust_notification_or_incomplete_provider_state(tmp_pat
                 sub = await session.scalar(select(Subscription))
                 row = await session.scalar(select(Payment))
                 if state == 'succeeded':
-                    assert sub.status == 'expired' and row.status == 'refunded'
+                    assert sub.status == 'active' and row.status == 'succeeded'
                 else:
                     assert sub.status == 'active' and row.status == 'succeeded'
     asyncio.run(run())
@@ -450,8 +474,8 @@ def test_web_199_purchase_and_renewal_keep_real_issuer_uuid_and_https_link(tmp_p
                 assert await session.scalar(select(func.count()).select_from(Subscription)) == 1
                 assert await session.scalar(select(func.count()).select_from(SubscriptionHistory).where(
                     SubscriptionHistory.reason == 'payment')) == 2
-            # Refund the latest remaining grant, then the initial one; the real
-            # reconciler/issuer deny access without changing the personal UUID.
+            # Verified refunds await manual review; neither grant nor the
+            # existing profile may be withdrawn automatically.
             reviews = RefundReviews(CheckoutSessions(str(tmp_path / 'refund-sessions.sqlite'), 501))
             for index, payment in enumerate(reversed(paid)):
                 refund_id = f'offline-refund-{index}'
@@ -459,14 +483,13 @@ def test_web_199_purchase_and_renewal_keep_real_issuer_uuid_and_https_link(tmp_p
                     'payment_id': payment.provider_payment_id, 'status': 'succeeded',
                     'amount': {'value': '199.00', 'currency': 'RUB'}})
                 assert await RefundProcessor(db, lookup, reviews).process(
-                    refund_id, payment.provider_payment_id) == 'refunded'
+                    refund_id, payment.provider_payment_id) == 'review'
             await reconciler.reconcile(sub.id)
             await health.tick()
-            with pytest.raises(AccessDenied):
-                await feed.issue_for_user(501)
+            assert await feed.issue_for_user(501) == original_link
             async with db() as session:
                 access = await session.scalar(select(NodeAccess))
-                assert not access.enabled and access.credential == original_uuid
+                assert access.enabled and access.credential == original_uuid
         finally:
             gateway.close()
             await engine.dispose()

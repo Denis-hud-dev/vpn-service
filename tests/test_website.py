@@ -272,7 +272,7 @@ def test_secure_cookie_callback_and_no_secret_headers(tmp_path,key):
             assert 'no-store' in response.headers['Cache-Control'] and response.headers['Referrer-Policy']=='no-referrer'
             assert cookie.value not in await response.text()
             assert 'code=' not in response.headers['Location']
-            for path in ['/','/account','/docs/terms','/docs/privacy','/docs/support']:
+            for path in ['/','/account','/docs/terms','/docs/privacy','/docs/support','/docs/offer','/docs/seller','/docs/payments']:
                 page=await p.http.get(path);assert page.status==200
                 assert 'no-store' in page.headers['Cache-Control']
             data=await (await p.http.get('/api/plans')).json()
@@ -295,7 +295,7 @@ def test_concurrent_oidc_callbacks_can_issue_only_one_session(tmp_path,key):
 def test_closed_review_denies_anonymous_and_foreign_identity_before_writes(tmp_path,key):
     async def run():
         async with site(tmp_path,key,closed=True) as p:
-            for path in ['/','/account','/docs/terms','/docs/privacy','/api/plans','/assets/site.js']:
+            for path in ['/','/account','/docs/terms','/docs/privacy','/docs/offer','/docs/seller','/docs/payments','/api/plans','/assets/site.js']:
                 response=await p.http.get(path)
                 assert response.status==401
                 assert '199' not in await response.text()
@@ -414,4 +414,21 @@ def test_direct_checkout_is_explicit_and_never_enabled_for_read_only(read_only,d
             data=await reply.json()
             assert data['direct_checkout'] is (direct and not read_only)
             assert data['methods']==([] if read_only else ['bank_card'])
+    asyncio.run(run())
+
+
+def test_new_legal_pages_are_unapproved_drafts_without_fake_seller_details(tmp_path,key):
+    async def run():
+        async with site(tmp_path,key) as p:
+            headers,_=await login(p)
+            for name in ('offer','seller','payments'):
+                response=await p.http.get('/docs/'+name,headers=headers)
+                assert response.status==200
+                body=await response.text()
+                assert 'ЧЕРНОВИК' in body and 'не утвержд' in body.lower()
+                assert 'noindex,nofollow' in body and 'no-store' in response.headers['Cache-Control']
+            body=await (await p.http.get('/docs/payments',headers=headers)).text()
+            assert 'срок автоматически не уменьшается' in body
+            assert (await (await p.http.get('/api/plans',headers=headers)).json())['documents_approved'] is False
+            assert (await p.http.get('/docs/unknown-document',headers=headers)).status==404
     asyncio.run(run())

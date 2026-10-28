@@ -193,7 +193,7 @@ def create_website(service, auth, ledger, origin, *, local_demo=False, closed_re
 
     async def documents(request):
         name = request.match_info['name']
-        if name not in {'terms', 'privacy', 'support'}:
+        if name not in {'terms', 'privacy', 'support', 'offer', 'seller', 'payments'}:
             raise web.HTTPNotFound()
         return web.Response(body=(ASSETS/('site-'+name+'.html')).read_bytes(), content_type='text/html')
 

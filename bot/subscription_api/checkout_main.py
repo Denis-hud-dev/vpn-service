@@ -59,7 +59,7 @@ def build():
     if not client._secret_key.startswith('test_'):
         raise ValueError('Only a test API secret is allowed')
     checkout = PaymentCheckoutService(db.sessions, client, origin + '/checkout', tariffs=PILOT_TARIFFS)
-    processor = PaymentNotificationProcessor(db.sessions, client)
+    processor = PaymentNotificationProcessor(db.sessions, client, refund_reviews=reviews)
     happ = HappService(db.sessions, os.environ['SUBSCRIPTION_PUBLIC_URL'],
                        link_key=os.environ['HAPP_LINK_SECRET'], trial_owner_id=owner, trial_node_port=10443)
     service = WebCheckout(db.sessions, checkout, processor, happ, owner, reviews=reviews)

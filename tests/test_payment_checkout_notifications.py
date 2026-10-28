@@ -205,3 +205,28 @@ def test_gateway_failure_retries_same_order_without_second_charge(tmp_path):
         finally:
             await engine.dispose()
     asyncio.run(run())
+
+
+def test_bound_payment_cannot_activate_another_users_unbound_order(tmp_path):
+    async def run():
+        from bot.services import TARIFFS
+        from bot.services.payments import PaymentRepository
+        engine,sessions=await setup(tmp_path)
+        try:
+            checkout=PaymentCheckoutService(sessions,FakeGateway(),'https://example.org/return')
+            intent=await checkout.create(501,'month',uuid4())
+            other=await PaymentRepository(sessions).create_pending(502,TARIFFS['month'],uuid4())
+            async with sessions() as session:
+                bound=await session.scalar(select(Payment).where(Payment.provider_payment_id==intent.provider_id))
+            lookup=FakeLookup();lookup.rows[intent.provider_id]=provider_row(bound)
+            lookup.rows[intent.provider_id]['metadata']['order_id']=str(other.id)
+            with pytest.raises(ValueError):
+                await PaymentNotificationProcessor(sessions,lookup).process(intent.provider_id)
+            async with sessions() as session:
+                assert await session.scalar(select(func.count()).select_from(Subscription))==0
+                assert await session.scalar(select(func.count()).select_from(SubscriptionHistory))==0
+                assert (await session.get(Payment,bound.id)).status=='pending'
+                other_row=await session.get(Payment,other.id)
+                assert other_row.status=='pending' and other_row.provider_payment_id is None
+        finally:await engine.dispose()
+    asyncio.run(run())

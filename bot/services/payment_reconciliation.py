@@ -221,10 +221,9 @@ class TestPaymentReconciler:
                     # A payment may be waiting for ID repair; do not lose its refund.
                     state, outcome, delay = 'retry', 'unmatched_parent', 300
                 else:
-                    # A refund may arrive while its parent is still pending
-                    # locally (lost webhook/backoff). Reconcile the parent first
-                    # so a later payment retry cannot grant refunded time.
-                    await self._payment(parent)
+                    # A verified refund queues review without first granting a
+                    # still-unfulfilled parent. The shared processor review gate
+                    # holds a later payment retry; existing grants stay intact.
                     outcome = await self.refunds.process(key, parent)
                 if outcome in {'pending', 'waiting_for_capture'}:
                     state, delay = 'retry', 30

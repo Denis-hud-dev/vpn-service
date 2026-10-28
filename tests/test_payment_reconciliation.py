@@ -42,8 +42,8 @@ async def fixture(tmp_path):
 
     client.list_page = list_page
     checkout = PaymentCheckoutService(sessions, client, 'https://site.example/account', tariffs=PILOT_TARIFFS)
-    processor = PaymentNotificationProcessor(sessions, client)
     reviews = RefundReviews(CheckoutSessions(str(tmp_path / 'sessions.sqlite'), 501))
+    processor = PaymentNotificationProcessor(sessions, client, refund_reviews=reviews)
     refunds = RefundProcessor(sessions, client, reviews)
     journal = ReconciliationJournal(tmp_path / 'reconciliation.sqlite')
     receipts = SimpleNamespace(tick=AsyncMock())
@@ -193,15 +193,12 @@ def test_refund_discovered_without_webhook_is_idempotent_or_reviewed(tmp_path, a
             f.fake.rows['refund-fixture'] = {'id':'refund-fixture', 'payment_id':provider,
                 'status':'succeeded', 'amount':{'value':amount,'currency':'RUB'}}
             await f.worker().tick(); after = await f.snapshot()
-            if amount == '10.00':
-                assert after == before
-            else:
-                assert after[2]=='expired' and after[3]==before[3]
+            assert after == before
             f.now[0] += timedelta(minutes=2)
             await f.worker().tick()
             assert await f.snapshot() == after
             with closing(f.journal.connect()) as db:
-                assert db.execute("SELECT state FROM inbox WHERE kind='refunds'").fetchone()[0] == ('review' if amount=='10.00' else 'done')
+                assert db.execute("SELECT state FROM inbox WHERE kind='refunds'").fetchone()[0] == 'review'
     asyncio.run(run())
 
 
@@ -254,7 +251,7 @@ def test_journal_permissions_and_symlinks_are_rejected(tmp_path):
     with pytest.raises(OSError): ReconciliationJournal(link)
 
 
-def test_refund_before_delayed_payment_retry_does_not_leave_refunded_access(tmp_path):
+def test_refund_before_delayed_payment_retry_holds_new_access_for_manual_review(tmp_path):
     async def run():
         async with fixture(tmp_path) as f:
             provider = await f.order(status='pending')
@@ -264,10 +261,10 @@ def test_refund_before_delayed_payment_retry_does_not_leave_refunded_access(tmp_
                 'status':'succeeded','amount':{'value':'199.00','currency':'RUB'}}
             # Parent inbox retry is still in backoff; refund is due now.
             await f.worker().tick()
-            assert (await f.snapshot())[2:] == ('expired', 1)
+            assert (await f.snapshot())[2:] == (None, 0)
             f.now[0] += timedelta(seconds=31)
             await f.worker().tick()
-            assert (await f.snapshot())[2:] == ('expired', 1)
+            assert (await f.snapshot())[2:] == (None, 0)
     asyncio.run(run())
 
 
