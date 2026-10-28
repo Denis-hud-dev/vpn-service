@@ -59,8 +59,13 @@ def extras():
         values = dict(row.split('=',1) for row in raw.splitlines() if '=' in row)
         if values['ActiveState'] != 'active':
             raise ValueError('Protected dependency unavailable')
+        # Timers have no process/MainPID property. Running services still must
+        # have a live PID; do not treat a missing service process as healthy.
+        pid = values.get('MainPID','0')
+        if not unit.endswith('.timer') and (not pid.isdecimal() or int(pid)<2):
+            raise ValueError('Protected dependency process unavailable')
         files = [values['FragmentPath'], *values['DropInPaths'].split()]
-        result[unit] = {'pid':values['MainPID'], 'state':values['ActiveState'],
+        result[unit] = {'pid':pid, 'state':values['ActiveState'],
             'files':{name:hashlib.sha256(Path(name).read_bytes()).hexdigest() for name in files}}
     return result
 

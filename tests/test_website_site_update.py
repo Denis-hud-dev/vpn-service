@@ -34,6 +34,28 @@ def test_readiness_deadline_does_not_accept_false():
     assert now[0]==90
 
 
+@pytest.mark.parametrize('kind,active,pid,accepted',[
+    ('timer',True,None,True),
+    ('timer',False,None,False),
+    ('service',True,'123',True),
+    ('service',True,None,False),
+    ('service',True,'0',False),
+])
+def test_baseline_distinguishes_timer_from_service_process(tmp_path,monkeypatch,kind,active,pid,accepted):
+    app=module();unit='isolated.'+kind
+    fragment=tmp_path/unit;fragment.write_text('[Unit]\nDescription=fixture\n')
+    monkeypatch.setattr(app,'EXTRA',(unit,))
+    raw='ActiveState='+('active' if active else 'inactive')+'\nFragmentPath='+str(fragment)+'\nDropInPaths=\n'
+    if pid is not None:raw+='MainPID='+pid+'\n'
+    monkeypatch.setattr(app,'run',lambda *args,**kwargs:raw)
+    if accepted:
+        result=app.extras()[unit]
+        assert result['pid']==(pid or '0') and result['state']=='active'
+        assert str(fragment) in result['files']
+    else:
+        with pytest.raises(ValueError):app.extras()
+
+
 @pytest.mark.parametrize('existed',[False,True])
 def test_rollback_restores_exact_override_only(tmp_path,monkeypatch,existed):
     app=module();backup=tmp_path/'backup';backup.mkdir()
