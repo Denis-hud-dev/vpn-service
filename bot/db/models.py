@@ -95,6 +95,56 @@ class NPDReceiptEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class NPDReceiptJob(Base):
+    """Sandbox dispatcher state, one job per existing receipt obligation."""
+    __tablename__ = 'npd_receipt_jobs'
+    payment_id: Mapped[UUID] = mapped_column(ForeignKey('npd_receipts.payment_id', ondelete='RESTRICT'), primary_key=True)
+    operation_key: Mapped[str] = mapped_column(String(64), unique=True)
+    state: Mapped[str] = mapped_column(String(24), default='queued')
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    lease_token: Mapped[str | None] = mapped_column(String(32))
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    error_code: Mapped[str | None] = mapped_column(String(32))
+    document_ref: Mapped[str | None] = mapped_column(String(128))
+    # Private simulation URL. Never put it in logs or administrator messages.
+    receipt_url: Mapped[str | None] = mapped_column(String(512))
+    __table_args__ = (
+        CheckConstraint("state IN ('queued','processing','retry','simulated','review')", name='npd_job_state'),
+        CheckConstraint('attempts >= 0', name='npd_job_attempts'),
+        CheckConstraint("state != 'processing' OR (lease_token IS NOT NULL AND lease_until IS NOT NULL)", name='npd_job_lease'),
+    )
+
+
+class NPDReceiptHold(Base):
+    """Verified refund intent can precede receipt creation; review is manual."""
+    __tablename__ = 'npd_receipt_holds'
+    refund_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    payment_id: Mapped[UUID] = mapped_column(ForeignKey('payments.id', ondelete='RESTRICT'), index=True)
+    amount_kopecks: Mapped[int] = mapped_column(Integer)
+    state: Mapped[str] = mapped_column(String(16), default='review')
+    __table_args__ = (
+        CheckConstraint('amount_kopecks > 0', name='npd_hold_amount'),
+        CheckConstraint("state = 'review'", name='npd_hold_manual_only'),
+    )
+
+
+class NPDAdminAlert(Base):
+    """Owner-only durable outbox; no payer contacts or receipt URLs."""
+    __tablename__ = 'npd_admin_alerts'
+    event_key: Mapped[str] = mapped_column(String(128), primary_key=True)
+    payment_id: Mapped[UUID] = mapped_column(ForeignKey('payments.id', ondelete='RESTRICT'), index=True)
+    kind: Mapped[str] = mapped_column(String(24))
+    state: Mapped[str] = mapped_column(String(16), default='pending')
+    lease_token: Mapped[str | None] = mapped_column(String(32))
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (
+        CheckConstraint("kind IN ('retry','review','recovered','refund_review')", name='npd_alert_kind'),
+        CheckConstraint("state IN ('pending','sending','sent')", name='npd_alert_state'),
+        CheckConstraint("state != 'sending' OR (lease_token IS NOT NULL AND lease_until IS NOT NULL)", name='npd_alert_lease'),
+    )
+
+
 class Subscription(Record, Base):
     __tablename__ = "subscriptions"
     # One current subscription per user; payment rows retain renewal history.

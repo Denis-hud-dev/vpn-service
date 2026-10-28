@@ -1,5 +1,13 @@
 # KudaVPN — текущая передача состояния
 
+## НПД: независимый реестр и sandbox-очередь — 28 октября 2026
+
+PR29 source: NPDLedger перенесён в npd_receipts.py; импорт website.NPDLedger совместим. Payment/User/receipt/event/grant сохранены. Additive0010 jobs/holds/admin outbox подготовлена, на сервере не применялась. NPDQueue defaultoff, только tmpSQLite/утверждённый localhost pilotPG и injected sandbox adapter. Нет HTTP/FNS/Telegram transport/startup. Успех только simulated, реальный NPDReceipt остаётся test_not_required. [Архитектура](npd-queue-architecture-20261028.md), [ФНС/4 провайдера/API/стоимость](npd-provider-comparison-20261028.md).
+
+Один job/key на платёж, source grant, lease, bounded retry, safe errors, lookup после crash/async pending, owner-only details/outbox. Verified refund optional hook пишет canonical receipt hold без изменения доступа. Общая refund/subscription транзакция всех сервисов ещё не заявляется готовой. Registered document identity неизменна, аннулирование требует явного подтверждения. Настоящие чеки/доходы не регистрировались, реальные уведомления не отправлялись.
+
+119 профильных passed/1 local disposablePG skip, дополнительно1 verified-refund→hold passed. Публикация/CI ожидаются. Никакого server rollout: runtime0d45896/canonical0008/auth0009/VPN/UUID/Happ/Monitor/DO прежние. Следующий шаг — письменное подтверждение cheque-only партнёра без смены ЮKassa, договора/поручения/доставки и isolated PG приёмка. Новые секреты и пароль «Моего налога» сейчас не нужны.
+
 ## Текущая задача: подготовка к live-продажам — 28 октября 2026 (Mac)
 
 Source PR29 подготовлен, **серверные службы не обновлялись**: runtime остаётся0d45896 ниже. [Точечный аудит/владельцу/блокеры](sales-readiness-20261028.md). Тестовый E2E199 ₽ не повторять. Ключи/production/DO/Monitor/VPN/БД не затрагивались, реальные продажи off.

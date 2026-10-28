@@ -32,8 +32,9 @@ class RefundReviews:
 
 
 class TestRefundProcessor:
-    def __init__(self, sessions, lookup, reviews):
+    def __init__(self, sessions, lookup, reviews, *, receipt_queue=None):
         self.sessions, self.lookup, self.reviews = sessions, lookup, reviews
+        self.receipt_queue = receipt_queue
 
     async def process(self, refund_id, provider_payment_id):
         async with self.sessions() as session:
@@ -67,6 +68,8 @@ class TestRefundProcessor:
         # Owner-approved launch policy: a verified refund is a financial event,
         # not permission to subtract time, revoke a profile or rewrite a grant.
         # Full, partial and repeated refunds all await a separate owner decision.
+        if self.receipt_queue is not None:
+            await self.receipt_queue.hold_refund(known.id, refund_id, int(value), provider_verified=True)
         self.reviews.record(refund_id, known.id, 'review')
         logger.info('test_refund outcome=review_required')
         return 'review'

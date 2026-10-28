@@ -252,7 +252,9 @@ def test_live_receipt_states_are_offline_operator_only_and_idempotent(tmp_path,k
             await ledger.tick()
             await ledger.record(payment.id,'error',operation='fixture_operation3',error_code='operator_review',operator_confirmed=True)
             await ledger.tick()
-            await ledger.record(payment.id,'voided',operation='fixture_operation4',operator_confirmed=True)
+            with pytest.raises(PermissionError):
+                await ledger.record(payment.id,'voided',operation='unverified_annulment',operator_confirmed=True)
+            await ledger.record(payment.id,'voided',operation='fixture_operation4',operator_confirmed=True,annulment_confirmed=True)
             rows=await ledger.history(501)
             assert rows[0]['receipt']=='voided' and 'document_ref' not in rows[0]
     asyncio.run(run())
