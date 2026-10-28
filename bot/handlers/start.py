@@ -5,7 +5,7 @@ from pathlib import Path
 from aiogram import F, Router
 from aiogram.exceptions import TelegramAPIError
 from aiogram.filters import CommandStart, CommandObject
-from aiogram.types import CallbackQuery, Message, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import CallbackQuery, Message, FSInputFile
 from sqlalchemy.exc import SQLAlchemyError
 from bot.navigation import Navigation
 from bot.screens import home
@@ -18,11 +18,6 @@ from bot.services import Services, parse_referrer
 
 logger = logging.getLogger(__name__)
 BANNER = Path(__file__).resolve().parents[1] / "assets" / "welcome-premium.png"
-WELCOME = ("<b>Добро пожаловать в KudaVPN.</b>\n\n"
-           "<b>Свобода быть на связи.</b>\n\n"
-           "Твоё пространство в интернете — без лишних границ и сложных настроек.\n\n"
-           "Один доступ. Твои устройства. Подключение за несколько шагов.\n\n"
-           "<i>KudaVPN Premium — технологии, которые работают для тебя</i>")
 
 
 async def install_reply_keyboard(bot, user_id: int, services: Services) -> None:
@@ -75,17 +70,15 @@ async def start(message: Message, command: CommandObject, services: Services, na
             # Preserve /start even if the isolated onboarding ledger is unavailable.
             logger.warning("Pilot onboarding state unavailable: %s", type(exc).__name__)
             first = False
+        await install_reply_keyboard(message.bot, user_id, services)
         if first:
             try:
-                sent = await message.bot.send_photo(message.chat.id, FSInputFile(BANNER),
-                    caption=WELCOME, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(
-                        inline_keyboard=[[InlineKeyboardButton(
-                            text="🚀 Начать пользоваться", callback_data="pilot:begin")]]))
+                # Preserve the original banner as history. The immediately following
+                # tracked text screen holds the live status and all main actions.
+                sent = await message.bot.send_photo(message.chat.id, FSInputFile(BANNER))
                 await services.onboarding.record_welcome(user_id, sent.message_id)
-                return
             except (TelegramAPIError, OSError):
                 logger.warning("Pilot welcome unavailable; showing navigation")
-        await install_reply_keyboard(message.bot, user_id, services)
     # Always ask Telegram: a cached home screen may have been manually deleted.
     await navigation.message(message, await home_for_user(
         services, message.from_user.id if message.from_user else message.chat.id), verify=True,
@@ -158,12 +151,17 @@ async def reply_info(message: Message, navigation: Navigation, services: Service
                               await home_for_user(services, message.from_user.id))
 
 
+async def information(callback: CallbackQuery, navigation: Navigation, config: Config):
+    await navigation.callback(callback, screens.information(config.support_username))
+
+
 def create_router() -> Router:
     router = Router(name="start")
     router.message.register(start, CommandStart())
     router.message.register(reply_connect, F.text == CONNECT)
     router.message.register(reply_account, F.text == ACCOUNT)
     router.message.register(reply_info, F.text == INFO)
+    router.callback_query.register(information, F.data == "nav:info")
     router.callback_query.register(back, F.data.in_({"nav:home", "menu"}))
     router.callback_query.register(begin, F.data == "pilot:begin")
     return router

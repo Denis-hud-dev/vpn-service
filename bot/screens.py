@@ -50,12 +50,21 @@ def panel(title: str, body: str, keyboard: InlineKeyboardMarkup | None = None) -
 def home(*, premium_account: bool = False, snapshot: AccountSnapshot | None = None,
          reply_navigation: bool = False) -> Screen:
     if premium_account:
-        statuses = {"inactive": "Не активна", "active": "Активна", "expired": "Истекла",
-                    "pending": "Ожидает активации", "blocked": "Заблокирована"}
-        state = (f"◆ Подписка: <b>{statuses.get(snapshot.status, 'Нет данных')}</b>"
-                 if snapshot else "◆ Статус подписки — в личном кабинете")
-        return Screen(f"{BRAND}\n<i>Свобода подключения. Простота управления.</i>\n\n"
-                      f"{state}\n┃ Личный доступ и управление — здесь.",
+        status = snapshot.status if snapshot else None
+        if status == "active" and snapshot.expires_at is not None:
+            end = snapshot.expires_at
+            end = end.replace(tzinfo=timezone.utc) if end.tzinfo is None else end
+            if end <= datetime.now(timezone.utc):
+                status = "expired"
+        statuses = {"inactive": "🔴 Подписка: не активна", "active": "🟢 Подписка: активна",
+                    "expired": "🔴 Подписка: срок истёк", "pending": "◈ Подписка: ожидает активации",
+                    "blocked": "◈ Подписка: доступ заблокирован"}
+        state = statuses.get(status, "◈ Статус подписки временно недоступен")
+        if status == "active":
+            state += "\n📅 Действует до: " + expiry_label(snapshot.expires_at)
+        return Screen(f"{BRAND}\n<i>Свобода начинается здесь.</i>\n\n"
+                      "🔒 Безопасное подключение\n⚡ Высокая скорость\n🌍 Доступные серверы\n\n"
+                      f"{state}",
                       main_menu(premium_account=True, reply_navigation=reply_navigation))
     intro = ("Ваш VPN и подписка всегда под рукой."
              if premium_account else "VPN, подписка и устройства — в одном месте.")

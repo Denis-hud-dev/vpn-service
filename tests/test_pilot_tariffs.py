@@ -76,7 +76,7 @@ def test_tariffs_keep_navigation_when_telegram_rejects_styles():
             assert '199 ₽' in screen.text
             assert not any(b.style for row in screen.keyboard.inline_keyboard for b in row)
             await app.callback('nav:home')
-            assert 'Свобода подключения' in app.navigation.views[123].screen.text
+            assert 'Свобода начинается здесь' in app.navigation.views[123].screen.text
         finally:
             await app.close()
     asyncio.run(run())

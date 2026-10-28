@@ -29,12 +29,11 @@ def test_first_start_preserves_banner_and_reply_navigation():
             await app.text('/start')
             banners = [call for call in app.calls if isinstance(call, SendPhoto)]
             assert len(banners) == 1
-            assert 'Свобода быть на связи' in banners[0].caption
-            assert banners[0].reply_markup.inline_keyboard[0][0].callback_data == 'pilot:begin'
-            banner_id = app.sequence
-            await app.callback('pilot:begin', message_id=banner_id + 99)
-            assert app.navigation.views.get(123) is None
-            await app.callback('pilot:begin', message_id=banner_id)
+            assert banners[0].caption is None and banners[0].reply_markup is None
+            banner_id = services.onboarding.rows[123]['message_id']
+            assert app.navigation.views[123].message_id > banner_id
+            assert 'Свобода начинается здесь' in app.navigation.views[123].screen.text
+            assert '🔴 Подписка: не активна' in app.navigation.views[123].screen.text
             keyboard = [call for call in app.calls if isinstance(call, SendMessage)
                         and isinstance(call.reply_markup, ReplyKeyboardMarkup)]
             assert len(keyboard) == 1
@@ -46,7 +45,7 @@ def test_first_start_preserves_banner_and_reply_navigation():
             menu_buttons = [button.callback_data for row in app.navigation.views[123].screen.keyboard.inline_keyboard
                             for button in row]
             assert 'nav:connect' in menu_buttons and 'nav:account' in menu_buttons
-            assert {'nav:tariffs', 'nav:account', 'nav:connect', 'nav:help'} <= set(menu_buttons)
+            assert {'nav:tariffs', 'nav:account', 'nav:connect', 'nav:support', 'nav:info'} <= set(menu_buttons)
             await app.text('ℹ️ Информация')
             info_id = app.navigation.views[123].message_id
             assert info_id != menu_id

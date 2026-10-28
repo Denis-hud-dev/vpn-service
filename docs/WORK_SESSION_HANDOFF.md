@@ -1,5 +1,11 @@
 # KudaVPN — текущая передача состояния
 
+## Стартовый экран и главное меню — 28 октября 2026 (Mac)
+
+Продолжен PR29, source b2ec06a не теряется. [Описание/проверки/план отката](premium-start-menu-20261028.md). Первый start сохраняет оригинальный баннер и сразу показывает меню без begin-кнопки. Повторный start обновляет реальный статус/UTC expiry и восстанавливает ReplyKeyboard, без нового баннера. Меню: купить отдельно, подписка/подключение, поддержка/информация. Каталог199/499/1790 прежний, checkout/Stars в Telegram не создаются. Legacy begin совместим; важные уведомления/ledger сохранены.
+
+88 различных профильных проверок пройдены (базовые86 + новые2 в наборе15). Без reset владельца, платежей, НПД или миграций. Развёртывание пока не заявлено: ожидаются публикация и CI, затем guarded clone текущего0d45896 только с5 UI-файлами. Финальный результат будет дописан после фактической проверки.
+
 ## НПД: независимый реестр и sandbox-очередь — 28 октября 2026
 
 PR29 source: NPDLedger перенесён в npd_receipts.py; импорт website.NPDLedger совместим. Payment/User/receipt/event/grant сохранены. Additive0010 jobs/holds/admin outbox подготовлена, на сервере не применялась. NPDQueue defaultoff, только tmpSQLite/утверждённый localhost pilotPG и injected sandbox adapter. Нет HTTP/FNS/Telegram transport/startup. Успех только simulated, реальный NPDReceipt остаётся test_not_required. [Архитектура](npd-queue-architecture-20261028.md), [ФНС/4 провайдера/API/стоимость](npd-provider-comparison-20261028.md).

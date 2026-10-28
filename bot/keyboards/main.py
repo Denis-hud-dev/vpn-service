@@ -22,10 +22,11 @@ def main_menu(*, premium_account: bool = False,
     if premium_account:
         # Catalog only: no external-provider purchase is initiated in Telegram.
         rows = [
-            [button("💎 Купить VPN", "nav:tariffs")],
-            [button("◈ Моя подписка", "nav:account")],
-            [button("🚀 Подключиться через Happ", "nav:connect", primary=True)],
-            [button("💬 Поддержка", "nav:help")],
+            [button("💎 Купить VPN", "nav:tariffs", primary=True)],
+            [button("👤 Моя подписка", "nav:account"),
+             button("🚀 Подключиться", "nav:connect")],
+            [button("💬 Поддержка", "nav:support"),
+             button("ℹ️ Информация", "nav:info")],
         ]
         return InlineKeyboardMarkup(inline_keyboard=rows)
     return InlineKeyboardMarkup(inline_keyboard=[

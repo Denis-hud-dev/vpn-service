@@ -11,9 +11,10 @@ def module():
     return result
 
 
-def test_overlay_is_limited_to_three_presentation_files(tmp_path):
+def test_overlay_is_limited_to_reviewed_welcome_and_navigation_files(tmp_path):
     app=module()
-    assert set(app.FILES)=={'bot/keyboards/tariffs.py','bot/screens.py','bot/premium_emoji.py'}
+    assert set(app.FILES)=={'bot/keyboards/main.py','bot/screens.py','bot/premium_emoji.py',
+                           'bot/handlers/start.py','bot/navigation.py'}
     old,new=tmp_path/'old',tmp_path/'new'
     for base in (old,new):
         for name in app.FILES:
@@ -61,3 +62,18 @@ def test_rollback_preserves_previous_ui_override_and_security(tmp_path,monkeypat
     monkeypatch.setattr(app,'DROPIN',dropin)
     app.restore_dropin(backup)
     assert dropin.read_text()==previous and security.read_text()=='unchanged'
+
+
+def test_overlay_allows_only_new_information_route_and_preserves_existing_functions(tmp_path):
+    app=module();old,new=tmp_path/'old',tmp_path/'new'
+    for base in (old,new):
+        for name in app.FILES:
+            path=base/name;path.parent.mkdir(parents=True,exist_ok=True)
+            path.write_text('def screen(user): pass\n')
+    handler=new/'bot/handlers/start.py'
+    handler.write_text('def screen(user): pass\nasync def information(callback, navigation, config): pass\n')
+    app.validate_overlay(old,new)
+    handler.write_text(handler.read_text()+'def unrelated(): pass\n')
+    with pytest.raises(ValueError,match='signatures'):app.validate_overlay(old,new)
+    handler.write_text('async def information(callback, navigation, config): pass\n')
+    with pytest.raises(ValueError,match='signatures'):app.validate_overlay(old,new)

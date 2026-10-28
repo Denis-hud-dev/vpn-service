@@ -17,9 +17,10 @@ from urllib.parse import urlsplit
 
 BOT='kudavpn-telegram-pilot-bot.service'
 ROOT=Path('/opt/kudavpn-telegram-pilot')
-OLD=ROOT/'app-purchase-menu-f4f3f875856f'
+OLD=ROOT/'app-purchase-menu-0d45896c9317'
 DROPIN=Path('/etc/systemd/system')/(BOT+'.d')/'98-purchase-menu.conf'
-FILES=('bot/keyboards/tariffs.py','bot/screens.py','bot/premium_emoji.py')
+FILES=('bot/keyboards/main.py','bot/screens.py','bot/premium_emoji.py',
+       'bot/handlers/start.py','bot/navigation.py')
 
 
 def restore_dropin(backup):
@@ -42,7 +43,11 @@ def validate_overlay(old,new):
     for name in FILES:
         if not (old/name).is_file() or not (new/name).is_file() or (new/name).is_symlink():
             raise ValueError('Exact UI source files required')
-        if signatures(old/name)!=signatures(new/name):
+        previous, updated = signatures(old/name), signatures(new/name)
+        additions = set(updated) - set(previous)
+        allowed = {"information"} if name == "bot/handlers/start.py" else set()
+        if (any(updated.get(key) != value for key, value in previous.items())
+                or additions - allowed):
             raise ValueError('UI signatures differ from working runtime')
 
 
@@ -113,10 +118,10 @@ def main(revision):
     for name in FILES:shutil.copy2(source/name,clone/name)
     if code_digest(OLD)!=code_digest(clone):raise ValueError('Non-UI code changed')
     probe=('import sys;sys.path.insert(0,'+repr(str(clone))+');'
-           'from bot.screens import home,tariffs,connect;from bot.handlers.subscription import create_router;'
+           'from bot.screens import home,tariffs,connect;from bot.handlers.start import create_router;'
            'screen=home(premium_account=True);create_router();'
            'assert [b.callback_data for row in screen.keyboard.inline_keyboard for b in row]'
-           '==["nav:tariffs","nav:account","nav:connect","nav:help"];'
+           '==["nav:tariffs","nav:account","nav:connect","nav:support","nav:info"];'
            'assert [row[0].style for row in tariffs(premium_account=True).keyboard.inline_keyboard[:3]]'
            '==["primary","success","primary"];'
            'assert "private-fixture" not in connect("https://example.invalid/private-fixture",premium_account=True).text')
