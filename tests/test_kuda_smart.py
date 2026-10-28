@@ -25,6 +25,10 @@ def test_smart_screen_only_in_premium_pilot_and_never_activates_a_mode():
         app = TelegramHarness(services=services)
         try:
             await app.text('/start')
+            assert 'nav:smart' not in routes(app.navigation.views[123].screen)
+            await app.callback('nav:account')
+            assert 'nav:manage' in routes(app.navigation.views[123].screen)
+            await app.callback('nav:manage')
             assert 'nav:smart' in routes(app.navigation.views[123].screen)
             await app.callback('nav:smart')
             screen = app.navigation.views[123].screen
@@ -33,6 +37,8 @@ def test_smart_screen_only_in_premium_pilot_and_never_activates_a_mode():
             assert 'Автоматическое переключение при обрыве пока не подтверждено' in screen.text
             assert routes(screen) == {'nav:connect', 'nav:home'}
             await app.callback('nav:home')
+            assert 'nav:smart' not in routes(app.navigation.views[123].screen)
+            await app.callback('nav:manage')
             assert 'nav:smart' in routes(app.navigation.views[123].screen)
         finally:
             await app.close()
