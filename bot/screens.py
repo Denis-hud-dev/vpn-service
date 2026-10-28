@@ -1,7 +1,7 @@
 """Russian HTML presentation, independent of Telegram delivery and DB writes."""
 from dataclasses import dataclass
 from html import escape
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from math import ceil
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from bot.keyboards.main import back_keyboard, main_menu
@@ -124,6 +124,9 @@ def kuda_status(snapshot: AccountSnapshot, *, trial_available: bool = False,
     states = {"active": "🟢 Подписка активна", "expired": "◈ Срок подписки истёк",
               "inactive": "◈ Подписка не активна", "pending": "◈ Ожидает активации",
               "blocked": "◈ Доступ заблокирован"}
+    if status == "active" and snapshot.expires_at is not None:
+        if end <= datetime.now(timezone.utc) + timedelta(days=3):
+            states["active"] = "◈ Подписка заканчивается"
     expiry = expiry_label(snapshot.expires_at)
     # The full timestamp remains in «Моя подписка»; the summary names UTC explicitly.
     if snapshot.expires_at is not None:
@@ -261,8 +264,11 @@ def tariffs(*, test_payment: bool = False, premium_account: bool = False) -> Scr
             + "\n\n" + note)
     keyboard = tariffs_keyboard(pilot=premium_account)
     if premium_account:
-        body = ("◆ Тарифы KudaVPN Premium.\n"
-                "╰ Здесь можно посмотреть тарифы. Оплата в этом боте не принимается.\n\n" + body)
+        body = ("◆ Выберите срок доступа\n"
+                + "\n".join(("├ " if idx < len(plans) - 1 else "╰ ")
+                            + escape(t.label) + (" · рекомендуем" if t.months == 3 else "")
+                            for idx, t in enumerate(plans))
+                + "\n\nЭто каталог. Заказ и оплата в Telegram не оформляются.")
     return panel("💎 Тарифы", body, keyboard)
 
 
@@ -271,9 +277,13 @@ def tariff_details(tariff_id: str, *, test_payment: bool = False, pilot: bool = 
     if tariff is None:
         return panel("💎 Тарифы", "Тариф не найден. Выберите один из доступных вариантов.", back_keyboard(back="nav:tariffs"))
     if pilot:
+        duration = f"{tariff.months} " + ("месяц" if tariff.months == 1 else "месяца" if tariff.months == 3 else "месяцев")
         return panel("💎 Ваш выбор", f"◆ <b>{escape(tariff.label)}</b>\n"
-                     "├ Личный профиль Happ сохраняется при продлении.\n"
-                     "╰ Оплата в этом боте не принимается. Заказ не создан.",
+                     f"├ Срок: <b>{duration}</b>\n"
+                     f"├ Стоимость: <b>{escape(tariff.label.split(' — ')[-1])}</b>\n"
+                     "╰ Личный профиль Happ сохраняется при продлении.\n\n"
+                     "Это карточка тарифа, не заказ. Оплата в этом боте не принимается. Заказ не создан.\n"
+                     "После подтверждённой покупки срок обновится автоматически здесь и в личном кабинете.",
                      back_keyboard(("◈ Моя подписка", "nav:account"),back="nav:tariffs"))
     return panel("💎 Ваш выбор", f"◆ <b>{escape(tariff.label)}</b>\n╰ Оплата ещё не подключена. Платёж не создан.", back_keyboard(back="nav:tariffs"))
 
@@ -287,12 +297,23 @@ def connect(link: str | None = None, *, page_url: str | None = None,
             style="primary" if premium_account and not page_url else None)])
         if page_url:
             keyboard.inline_keyboard.insert(0, [InlineKeyboardButton(
-                text="✦ KudaVPN Premium · Подключить", url=page_url,
+                text="🚀 Подключиться через Happ", url=page_url,
                 style="primary" if premium_account else None)])
         body = ("◆ Подключение через <b>Happ</b>\n"
                 "├ Откройте фирменную страницу или скопируйте личную HTTPS-ссылку:\n"
                 f"<code>{escape(link)}</code>\n"
                 "╰ Не передавайте ссылку другим: она даёт доступ к подписке.")
+        if premium_account:
+            body = ("◆ Подключение через <b>Happ</b>\n"
+                    "├ Ваш персональный доступ готов.\n"
+                    "├ Откройте страницу подключения кнопкой ниже.\n"
+                    "├ Android и iPhone: инструкции, копирование ссылки и QR-код — на странице.\n"
+                    "╰ При продлении профиль Happ сохраняется."
+                    if page_url else
+                    "◆ Подключение через <b>Happ</b>\n"
+                    "├ Ваш персональный доступ готов.\n"
+                    "├ Откройте подписку кнопкой ниже и добавьте её в Happ.\n"
+                    "╰ Ссылка персональная — не передавайте её другим.")
     else:
         body = ("◆ Подключение через <b>Happ</b>\n"
                 "╰ Личная ссылка появится после активации подписки и проверки VPN-сервера.")
@@ -302,7 +323,8 @@ def connect(link: str | None = None, *, page_url: str | None = None,
 def happ() -> Screen:
     return panel("📖 Настройка Happ", "◆ <b>Android и iPhone</b>\n"
                  "├ Установите Happ на своё устройство.\n"
-                 "├ Откройте «Подключить VPN» и скопируйте личную ссылку.\n"
+                 "├ Откройте «Подключить VPN» → страницу подключения.\n"
+                 "├ Скопируйте ссылку на странице или откройте QR-код.\n"
                  "├ В Happ нажмите «+» и добавьте подписку из буфера обмена.\n"
                  "╰ Выберите KudaVPN и включите VPN.\n\n"
                  "Если ссылка пока недоступна, проверьте статус подписки позже.",

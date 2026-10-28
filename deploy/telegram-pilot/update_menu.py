@@ -17,9 +17,13 @@ from urllib.parse import urlsplit
 
 BOT='kudavpn-telegram-pilot-bot.service'
 ROOT=Path('/opt/kudavpn-telegram-pilot')
-OLD=ROOT/'app-checkout-08fbff6'
+OLD=ROOT/'app-purchase-menu-f4f3f875856f'
 DROPIN=Path('/etc/systemd/system')/(BOT+'.d')/'98-purchase-menu.conf'
-FILES=('bot/keyboards/main.py','bot/screens.py','bot/handlers/subscription.py')
+FILES=('bot/keyboards/tariffs.py','bot/screens.py')
+
+
+def restore_dropin(backup):
+    shutil.copy2(backup/'previous-dropin',DROPIN)
 
 
 def bot_ready(run, port):
@@ -73,7 +77,9 @@ def main(revision):
     health=lambda:bot_ready(run,port)
     guard.wait_ready(probe=health)
     validate_overlay(OLD,source)
-    if DROPIN.exists():raise ValueError('UI update already exists; do not replay')
+    if (DROPIN.is_symlink() or not DROPIN.is_file()
+            or DROPIN.read_text()!='[Service]\nWorkingDirectory='+str(OLD)+'\n'):
+        raise ValueError('Expected managed test UI override required')
     backup=Path('/var/backups/kudavpn-telegram-pilot')/('menu-'+revision[:12])
     backup.mkdir(mode=0o700,parents=True)
     # Reuse protected collection but allow exactly the requested bot PID/unit
@@ -87,6 +93,7 @@ def main(revision):
     guard.write(backup/'protected.json',json.dumps(before))
     guard.write(backup/'extra.json',json.dumps(extra))
     guard.write(backup/'old-directory',str(OLD))
+    shutil.copy2(DROPIN,backup/'previous-dropin')
     unitfiles=[run(['systemctl','show','-P','FragmentPath',BOT]),*run(['systemctl','show','-P','DropInPaths',BOT]).split()]
     for i,name in enumerate(unitfiles):shutil.copy2(name,backup/('unit-'+str(i)))
     state=Path(env['PILOT_WELCOME_STATE_FILE'])
@@ -106,17 +113,20 @@ def main(revision):
     for name in FILES:shutil.copy2(source/name,clone/name)
     if code_digest(OLD)!=code_digest(clone):raise ValueError('Non-UI code changed')
     probe=('import sys;sys.path.insert(0,'+repr(str(clone))+');'
-           'from bot.screens import home;from bot.handlers.subscription import create_router;'
+           'from bot.screens import home,tariffs,connect;from bot.handlers.subscription import create_router;'
            'screen=home(premium_account=True);create_router();'
            'assert [b.callback_data for row in screen.keyboard.inline_keyboard for b in row]'
-           '==["nav:tariffs","nav:account","nav:connect","nav:help"]')
+           '==["nav:tariffs","nav:account","nav:connect","nav:help"];'
+           'assert [row[0].style for row in tariffs(premium_account=True).keyboard.inline_keyboard[:3]]'
+           '==["primary","success","primary"];'
+           'assert "private-fixture" not in connect("https://example.invalid/private-fixture",premium_account=True).text')
     run(['runuser','-u','kudavpn_trial_bot','--',str(ROOT/'venv/bin/python'),'-c',probe],timeout=30)
-    rollback='#!/bin/sh\nset -eu\nrm -f '+str(DROPIN)+'\nsystemctl daemon-reload\nsystemctl restart '+BOT+'\n'
+    rollback='#!/bin/sh\nset -eu\ncp -p '+str(backup/'previous-dropin')+' '+str(DROPIN)+'\nsystemctl daemon-reload\nsystemctl restart '+BOT+'\n'
     guard.write(backup/'rollback.sh',rollback,0o700);run(['sh','-n',str(backup/'rollback.sh')])
     changed=False
     try:
         changed=True
-        guard.write(DROPIN,'[Service]\nWorkingDirectory='+str(clone)+'\n',0o644)
+        DROPIN.write_text('[Service]\nWorkingDirectory='+str(clone)+'\n');DROPIN.chmod(0o644)
         run(['systemd-analyze','verify','/etc/systemd/system/'+BOT])
         run(['systemctl','daemon-reload']);run(['systemctl','restart',BOT],timeout=60)
         guard.wait_ready(probe=health)
@@ -127,7 +137,9 @@ def main(revision):
         print('test_bot_menu=ready ui_files_only=true canonical_data=unchanged protected_services=unchanged')
     except Exception:
         if changed:
-            run(['sh',str(backup/'rollback.sh')]);guard.wait_ready(probe=health)
+            restore_dropin(backup)
+            run(['systemctl','daemon-reload']);run(['systemctl','restart',BOT],timeout=60)
+            guard.wait_ready(probe=health)
         raise
 
 

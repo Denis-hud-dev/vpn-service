@@ -19,8 +19,8 @@ def test_pilot_catalog_and_native_styles_do_not_change_legacy_catalog():
     screen = screens.tariffs(premium_account=True, test_payment=True)
     buttons = [b for row in screen.keyboard.inline_keyboard for b in row]
     assert [b.text for b in buttons[:3]] == [
-        '1 месяц — 199 ₽', '3 месяца — 499 ₽', '12 месяцев — 1790 ₽']
-    assert [b.style for b in buttons[:3]] == ['success', 'primary', 'primary']
+        '1 месяц — 199 ₽', '3 месяца — 499 ₽ · Рекомендуем', '12 месяцев — 1790 ₽']
+    assert [b.style for b in buttons[:3]] == ['primary', 'success', 'primary']
     assert '299 ₽' not in screen.text and 'Стартовые' not in screen.text
     assert not any((b.callback_data or '').startswith(('launchplan:', 'nav:launch')) for b in buttons)
     default = screens.tariffs()

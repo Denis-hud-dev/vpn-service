@@ -71,7 +71,7 @@ def test_premium_client_navigation_and_unrecognised_text_keep_one_screen():
                 ('nav:billing', 'Автопродление'),
                 ('nav:gift', 'пока не выдаются'),
                 ('nav:invite', 'не запущены'),
-                ('nav:connect', 'https://subscriptions.example/s/'),
+                ('nav:connect', 'Ваш персональный доступ готов'),
                 ('nav:happ', 'Настройка Happ'),
                 ('nav:help', 'Как подключиться?'),
                 ('nav:home', 'Свобода подключения. Простота управления.'),

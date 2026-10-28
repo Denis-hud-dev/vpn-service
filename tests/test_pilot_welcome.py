@@ -137,7 +137,8 @@ def test_active_owner_keeps_existing_happ_path_and_opens_new_sections():
             account_id = app.navigation.views[123].message_id
             assert account_id != menu_id
             await app.text('🔑 Подключиться')
-            assert 'https://subscriptions.example.invalid/s/demo' in app.navigation.views[123].screen.text
+            assert 'https://subscriptions.example.invalid/s/demo' not in app.navigation.views[123].screen.text
+            assert any(b.url == 'https://subscriptions.example.invalid/s/demo' for row in app.navigation.views[123].screen.keyboard.inline_keyboard for b in row)
             assert app.navigation.views[123].message_id != account_id
             services.happ.issue_for_user.assert_awaited_once_with(123)
             await app.text('ℹ️ Информация')

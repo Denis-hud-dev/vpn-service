@@ -19,7 +19,7 @@ def test_retired_starter_section_is_absent_and_legacy_prices_are_preserved():
     assert '199 ₽' in screen.text and '299 ₽' not in screen.text
     assert 'Стартовые' not in screen.text and 'скоро' not in screen.text.lower()
     buttons = [button for row in screen.keyboard.inline_keyboard for button in row]
-    assert [button.style for button in buttons[:3]] == ['success', 'primary', 'primary']
+    assert [button.style for button in buttons[:3]] == ['primary', 'success', 'primary']
     assert all(not (button.callback_data or '').startswith(('launchplan:', 'nav:launch')) for button in buttons)
     assert [TARIFFS[key].price_rub for key in ('month', 'quarter', 'year')] == [299, 799, 2490]
 
@@ -69,7 +69,8 @@ def test_start_and_callbacks_keep_notice_separate_and_retire_old_personal_screen
             await app.text('/start')
             await app.callback('nav:connect')
             old_id = app.navigation.views[123].message_id
-            assert personal in app.messages[(123, old_id)].text
+            assert personal not in app.messages[(123, old_id)].text
+            assert any(b.url == personal for row in app.messages[(123, old_id)].reply_markup.inline_keyboard for b in row)
             # This independently delivered payment notice is not navigation.
             notice = app.bot_message(123, 150, 'Тестовая оплата подтверждена')
             app.messages[(123, 150)] = notice

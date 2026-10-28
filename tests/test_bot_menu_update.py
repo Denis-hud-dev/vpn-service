@@ -11,9 +11,9 @@ def module():
     return result
 
 
-def test_overlay_is_limited_to_three_ui_files(tmp_path):
+def test_overlay_is_limited_to_two_presentation_files(tmp_path):
     app=module()
-    assert set(app.FILES)=={'bot/keyboards/main.py','bot/screens.py','bot/handlers/subscription.py'}
+    assert set(app.FILES)=={'bot/keyboards/tariffs.py','bot/screens.py'}
     old,new=tmp_path/'old',tmp_path/'new'
     for base in (old,new):
         for name in app.FILES:
@@ -49,3 +49,15 @@ def test_bot_readiness_uses_database_checked_endpoint_not_liveness():
     assert '--fail' in calls[0]
     assert not app.bot_ready(lambda args:'{"ready":false}',18081)
     assert not app.bot_ready(lambda args:'{"status":"alive"}',18081)
+
+
+def test_rollback_preserves_previous_ui_override_and_security(tmp_path,monkeypatch):
+    app=module();backup=tmp_path/'backup';backup.mkdir()
+    dropin=tmp_path/'service.d/98-purchase-menu.conf';dropin.parent.mkdir()
+    previous='[Service]\nWorkingDirectory=/previous-test-ui\n'
+    (backup/'previous-dropin').write_text(previous)
+    dropin.write_text('[Service]\nWorkingDirectory=/new-test-ui\n')
+    security=dropin.parent/'96-security.conf';security.write_text('unchanged')
+    monkeypatch.setattr(app,'DROPIN',dropin)
+    app.restore_dropin(backup)
+    assert dropin.read_text()==previous and security.read_text()=='unchanged'

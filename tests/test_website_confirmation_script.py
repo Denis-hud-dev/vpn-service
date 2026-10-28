@@ -11,7 +11,7 @@ SCRIPT = Path(__file__).resolve().parents[1]/'bot/subscription_api/static/websit
 
 
 @pytest.mark.skipif(NODE is None, reason='Node.js unavailable')
-@pytest.mark.parametrize('scenario', ['success', 'confirmation_only', 'cancel', 'no_methods', 'no_auth', 'timeout', 'expired', 'double_click'])
+@pytest.mark.parametrize('scenario', ['success', 'confirmation_only', 'cancel', 'no_methods', 'no_auth', 'timeout', 'expired', 'double_click', 'canceled', 'refresh_timeout'])
 def test_confirmation_and_automatic_success_with_happ(scenario):
     harness = r'''
 const fs=require('fs'),vm=require('vm'),assert=require('assert');
@@ -33,7 +33,7 @@ async function fetch(path,opts){
  else if(path==='/api/payments')data={payments:[]};
  else if(path==='/api/orders/latest')data={order:null};
  else if(path==='/api/orders'){posts.push(JSON.parse(opts.body));data=order;if(scenario==='timeout')status=503;}
- else if(path.endsWith('/refresh')){refreshed++;data={...order,state:scenario==='expired'&&refreshed===1?'expired':'succeeded',subscription_expires_at:'2030-02-01T00:00:00Z',connect_url:location.origin+'/connect',access_pending:false};}
+ else if(path.endsWith('/refresh')){refreshed++;if(scenario==='refresh_timeout')status=503;data={...order,state:scenario==='canceled'?'canceled':scenario==='expired'&&refreshed===1?'expired':'succeeded',subscription_expires_at:'2030-02-01T00:00:00Z',connect_url:location.origin+'/connect',access_pending:false};}
  else throw new Error('unexpected fetch');
  return {ok:status===200,status,json:async()=>data};
 }
@@ -55,7 +55,18 @@ const settle=()=>new Promise(setImmediate);
  await first;await settle();assert(posts.length===1 && posts[0].tariff_id===plan.id);
  if(scenario==='timeout'){assert(redirects.length===0 && !el('site-error').hidden);return;}
  assert(redirects.length===1 && redirects[0]===order.payment_url);
+ assert(el('order-note').textContent.includes('Заказ создан'));
  assert(scheduled);await scheduled();await settle();
+ if(scenario==='refresh_timeout'){
+   assert(!el('site-error').hidden && el('site-error').textContent.includes('Не удалось проверить оплату'));
+   assert(el('order-status').textContent==='Ожидаем оплату' && el('order-connect').hidden);
+   assert(scheduled && posts.length===1 && redirects.length===1);return;
+ }
+ if(scenario==='canceled'){
+   assert(el('order-status').textContent.includes('Оплата не завершена'));
+   assert(el('order-connect').hidden && el('pay-link').hidden && !scheduled);
+   assert(posts.length===1);return;
+ }
  if(scenario==='expired'){assert(scheduled);await scheduled();await settle();}
  assert(el('order-status').textContent==='Оплата подтверждена');
  assert(!el('order-connect').hidden && el('order-connect').href===location.origin+'/connect');

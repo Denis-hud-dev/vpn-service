@@ -24,7 +24,7 @@ from tests.test_happ import FakeNode
 from tests.test_subscription_lifecycle import TestVerifier
 
 
-@pytest.mark.parametrize('status,label', [('active', 'Подписка активна'), ('expired', 'Срок подписки истёк'), ('inactive', 'Подписка не активна')])
+@pytest.mark.parametrize('status,label', [('active', 'Подписка заканчивается'), ('expired', 'Срок подписки истёк'), ('inactive', 'Подписка не активна')])
 def test_status_states(status, label):
     snapshot = AccountSnapshot(status=status, tariff_label='Personal <plan>' if status != 'inactive' else None,
         expires_at=utcnow() + timedelta(days=2) if status == 'active' else None,
@@ -154,7 +154,7 @@ def test_management_back_and_connection_preserve_personal_link():
             await app.text('/start')
             for route, expected in (('nav:account', 'Kuda Status'), ('nav:manage', 'Управление'),
                                     ('nav:history', 'История подписки'), ('nav:account', 'Kuda Status'),
-                                    ('nav:connect', 'subscriptions.example'), ('nav:account', 'Kuda Status'),
+                                    ('nav:connect', 'Ваш персональный доступ готов'), ('nav:account', 'Kuda Status'),
                                     ('nav:renew', 'Тарифы')):
                 await app.callback(route)
                 assert expected in app.navigation.views[123].screen.text

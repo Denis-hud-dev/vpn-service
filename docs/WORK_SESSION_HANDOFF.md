@@ -1,5 +1,11 @@
 # KudaVPN — текущая передача состояния
 
+## Текущая задача: карточки тарифов, цвета и приватный Happ — 28 октября 2026 (Mac)
+
+Подготовлена точечная доработка в PR29: primary/success/primary, рекомендуемый квартал499, реальные карточки без заказа/внешнего payment steering, Premium feed только в кнопках, near-expiry по реальному сроку, website result→account CTA и состояния canceled/expired/refresh error. [Отчёт и официальные источники](purchase-polish-20261028.md). 186 профильных passed/1 Mac SO_PEERCRED skip. Ждём CI и безопасное развёртывание; не объявлять новый код установленным до postcheck. Текущий runtimef4f3f87 ниже остаётся действующим.
+
+Повторный bot helper теперь привязан именно к текущему app-purchase-menu-f4f3f875856f/98 override, переносит только2 presentation-файла и восстанавливает предыдущий override при откате; не запускать старый first-deploy helper повторно. Website-only helper прежний. Схемы/платежи/UUID/сеть не меняются. После успешногоCI: staged archive → backup+bot overlay → website-only prepare/activate → read-only protected/canonical/feed проверки → обновить handoff. Новая оплата не нужна. Stars по-прежнему выключены, внешняя покупка внутриTelegram запрещена, СБПsandbox disabled.
+
 ## Текущее решение: Stars удалены из UI, тестовые бот и сайт обновлены — 27 октября 2026 (Mac)
 
 PR29, runtime source `f4f3f875856fe978090b5bac50e26de67b9f0f4b`. Четыре основных Premium-действия реально установлены: «Купить VPN», «Моя подписка», «Подключиться через Happ», «Поддержка». Нижняя ReplyKeyboard прежняя; Smart в «Управление». Stars/XTR не отображаются; устаревшие paytest/paymentpreview callbacks не создают оплату. Telegram не принимает внешние платежи цифровых услуг: «Купить VPN» — только каталог199/499/1790, без checkout URL/invoice/web_app. Самостоятельный сайт — отдельный канал. [Подробный отчёт](card-sbp-bot-ui-20261027.md).
