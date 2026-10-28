@@ -2,6 +2,14 @@
 
 Адрес: https://r1276248.s2578.vm.mydomain.zone:20443/ — закрытый owner-only стенд, не продажи. Runtime **fe9cb519245d35cf297a195e5a0664132e5ef093**. [PR29](https://github.com/Denis-hud-dev/vpn-service/pull/29).
 
+## Итог: новая ручная sandbox оплата подтверждена
+
+Владелец завершил199 ₽ через новый checkout. API GET shop1503208 подтвердил test=true/succeeded/paid, сумму/валюту/metadata/identity/paid_at. В canonical DB ровно1 новый owner order и1 grant; history old expiry совпал со свежим baseline, срок продлён ровно на1 календарный месяц без потери остатка. До audit платёж уже был автоматически обработан. Повтор существующего processor/GET не изменил срок/тариф/paid_at/grant count; вручную подписка не продлевалась.
+
+Subscription ID/UUID digest/URL digest прежние, реальный feed200/1 узел10443 и тот же credential. Export и браузерный кабинет показывают обновлённый срок, активный доступ, новый подтверждённый order/Happ CTA; повторная ссылка на оплату скрыта, ошибок нет. Дополнительных платежей/refund/audit POST не было. Это отдельная новая приёмка28октября, не прежний199 ₽ тест.
+
+Доказательства600 в deployment backup: `before-owner-payment.json`, `owner-payment-verification.json`; секреты/PII в этот документ не внесены. Protected-only verify после оплаты successful, shared runtime/bridge/poller/бот/Monitor/Xray не менялись. Этап завершён — дальнейших оплат без задания не создавать. Live readiness/чеки/документы/реальный возврат/СБП не заявляются готовыми. Ниже сохранена история промежуточного ожидания оплаты.
+
 ## Обновление после подтверждения владельца
 
 Fresh OAuth завершён успешно. Реальный кабинет показывает active/сохранённый тариф/действующий срок; reload после завершения API hydration сохраняет session без нового входа. Проверены правильные confirmation amounts199/499/1790 и отмена выбора без создания заказа. `/connect` открылся с owner session, Happ/copy/QR присутствуют; bearer не печатался/не копировался. На390/375/1440px нет overflow, viewport reset. Full physical Android/iOS/import/новая оплата ещё не проверялись.

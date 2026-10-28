@@ -1,6 +1,18 @@
 # KudaVPN — текущая передача состояния
 
-## Живой вход и новый checkout проверены, ожидается ручная sandbox оплата — 28 октября 2026 UTC
+## Новый сайт: полный owner sandbox E2E завершён — 28 октября 2026 UTC
+
+Владелец после fresh OAuth сам завершил **новую тестовую оплату199 ₽** на обновлённом website-only runtimefe9cb51. Независимая проверка реального test shop1503208 GET: test=true, succeeded/paid=true, RUB19900, точные metadata/order/provider identity и paid_at совпадают. Найден ровно1 новый owner order после свежего baseline, локально succeeded, ровно1 новый payment history grant. Old expiry history совпал с приватным before-owner-payment, new expiry = прежний активный expiry + **1 календарный месяц**, остаток сохранён. Это новая приёмка, не старый успешный тест27октября.
+
+Повтор **уже обработанного** платежа через существующий PaymentNotificationProcessor с независимым API GET не изменил subscription ID/start/expiry/tariff, paid_at или число grants. Первый grant был выполнен системой до начала audit — вручную сроки не менялись. Subscription ID, digest существующего NodeAccess UUID и digest URL Happ совпали с новым private baseline. Реальный feedHTTPS200/1 VLESS/10443, URI credential совпадает с каноническим. Export snapshot содержит новый срок/историю. Audit не создавал новых платежей/заказов и не совершал refund.
+
+Живой браузерный UI после полной загрузки `/account`: active, expiry изменился, новый order «Оплата подтверждена», protected Happ CTA доступен, pay-link скрыт, ошибок/повторного OAuth нет. После reload нужно дождаться `#account-panel` и затем order-status: APIs загружаются последовательно, мгновенный AX snapshot до hydration не является отказом авторизации/оплаты. Вкладка10 markDeliverable на кабинете. Физический Android VPN/YouTube заново не проверялись, реальные списания не выполнялись.
+
+Private evidence600: `/var/backups/kudavpn-website-review/site-fe9cb519245d/before-owner-payment.json` и `owner-payment-verification.json`. Последний содержит только безопасные outcomes/counts. Одноразовый audit helper локально `/private/tmp/kuda-verify-owner-payment-20261028.py`, использует реальный legacy lifecycle из sharedfaca30b, не POST. **Не повторять этот E2E, не создавать ещё один платёж и не перезаписывать baseline.** Проверка инфраструктуры после оплаты `verify(...,source_unchanged=False)` прошла: ready/защищённые службы/Monitor/bridge/конфиги/listeners/Happ прежние. Изменение financial digest ожидаемо и проверено отдельно, не повод откатывать БД.
+
+Этап завершён. Runtimefe9cb51/backup/rollback прежние, миграций/нового worker/public webhook/Stars/СБП sandbox не включали. Код уже прошёл CI492/3; новые изменения только документация и проверки. Production/DO/основной бот/Xray не изменялись. Остановиться и ждать следующего задания. До реальных продаж остаются отдельно разрешённые live-карта/СБП/возврат, фактический процесс/доставка НПД-чека и согласованные документы/multi-user readiness; sandbox успех этого не заменяет.
+
+## История: живой вход проверен, ожидалась ручная sandbox оплата — 28 октября 2026 UTC
 
 Владелец подтвердил fresh Telegram OAuth; **полный вход в обновлённый fe9cb51 успешен**, кабинет active/тариф/срок/Happ доступны, ошибок нет. Reload сохраняет сессию. Важно дождаться AJAX `#account-panel` visible: в начальном HTML `auth-message` виден до загрузки API, это не потеря сессии и не повод запускать новый OAuth. Подпись/state/PKCE/owner guard прежние.
 
