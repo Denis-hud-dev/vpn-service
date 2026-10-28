@@ -6,6 +6,7 @@ import pytest
 from bot import screens
 from bot.services import PILOT_TARIFFS
 from bot.services.account import AccountSnapshot
+from bot.premium_emoji import decorate,EMOJI
 
 
 @pytest.mark.parametrize('plan',PILOT_TARIFFS.values())
@@ -31,6 +32,8 @@ def test_premium_happ_keeps_bearer_in_buttons_not_message(page):
         assert buttons[0].text=='🚀 Подключиться через Happ'
         assert buttons[0].url==page and buttons[0].style=='primary'
         assert 'Android и iPhone' in screen.text and 'QR' in screen.text
+        branded=decorate(screen)
+        assert branded.keyboard.inline_keyboard[0][0].icon_custom_emoji_id==EMOJI['connect'].id
     else:
         assert 'QR' not in screen.text  # No page capability, no invented QR.
 

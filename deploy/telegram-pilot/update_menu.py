@@ -19,7 +19,7 @@ BOT='kudavpn-telegram-pilot-bot.service'
 ROOT=Path('/opt/kudavpn-telegram-pilot')
 OLD=ROOT/'app-purchase-menu-f4f3f875856f'
 DROPIN=Path('/etc/systemd/system')/(BOT+'.d')/'98-purchase-menu.conf'
-FILES=('bot/keyboards/tariffs.py','bot/screens.py')
+FILES=('bot/keyboards/tariffs.py','bot/screens.py','bot/premium_emoji.py')
 
 
 def restore_dropin(backup):

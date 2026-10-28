@@ -11,9 +11,9 @@ def module():
     return result
 
 
-def test_overlay_is_limited_to_two_presentation_files(tmp_path):
+def test_overlay_is_limited_to_three_presentation_files(tmp_path):
     app=module()
-    assert set(app.FILES)=={'bot/keyboards/tariffs.py','bot/screens.py'}
+    assert set(app.FILES)=={'bot/keyboards/tariffs.py','bot/screens.py','bot/premium_emoji.py'}
     old,new=tmp_path/'old',tmp_path/'new'
     for base in (old,new):
         for name in app.FILES:

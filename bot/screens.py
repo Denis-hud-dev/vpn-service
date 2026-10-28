@@ -297,7 +297,7 @@ def connect(link: str | None = None, *, page_url: str | None = None,
             style="primary" if premium_account and not page_url else None)])
         if page_url:
             keyboard.inline_keyboard.insert(0, [InlineKeyboardButton(
-                text="🚀 Подключиться через Happ", url=page_url,
+                text="🚀 Подключиться через Happ" if premium_account else "✦ KudaVPN Premium · Подключить", url=page_url,
                 style="primary" if premium_account else None)])
         body = ("◆ Подключение через <b>Happ</b>\n"
                 "├ Откройте фирменную страницу или скопируйте личную HTTPS-ссылку:\n"
