@@ -22,6 +22,13 @@ DROPIN=Path('/etc/systemd/system')/(BOT+'.d')/'98-purchase-menu.conf'
 FILES=('bot/keyboards/main.py','bot/screens.py','bot/handlers/subscription.py')
 
 
+def bot_ready(run, port):
+    # /health is only liveness: {"status":"alive"}. /ready checks startup
+    # and the database, returning HTTP503 until the bot can serve updates.
+    return json.loads(run(['curl','--silent','--show-error','--fail','--max-time','5',
+                           'http://127.0.0.1:'+str(port)+'/ready']))=={'ready':True}
+
+
 def signatures(path):
     return {node.name:ast.dump(node.args) for node in ast.parse(path.read_text()).body
             if isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef))}
@@ -63,8 +70,7 @@ def main(revision):
     if int(env['PILOT_TRIAL_OWNER_ID'])!=owner:raise ValueError('Canonical owner mismatch')
     port=int(env.get('HEALTH_PORT','8080'))
     if not 1024<=port<=65535:raise ValueError('Dedicated pilot health port required')
-    health=lambda:json.loads(run(['curl','--silent','--show-error','--fail','--max-time','5',
-                                 'http://127.0.0.1:'+str(port)+'/health']))=={'ready':True}
+    health=lambda:bot_ready(run,port)
     guard.wait_ready(probe=health)
     validate_overlay(OLD,source)
     if DROPIN.exists():raise ValueError('UI update already exists; do not replay')

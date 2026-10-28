@@ -36,3 +36,16 @@ def test_overlay_rejects_signature_changes_and_symlinks(tmp_path):
     with pytest.raises(ValueError,match='signatures'):app.validate_overlay(old,new)
     path=new/app.FILES[0];path.unlink();path.symlink_to(old/app.FILES[0])
     with pytest.raises(ValueError,match='Exact UI'):app.validate_overlay(old,new)
+
+
+def test_bot_readiness_uses_database_checked_endpoint_not_liveness():
+    app=module()
+    calls=[]
+    def run(args):
+        calls.append(args)
+        return '{"ready": true}' if args[-1].endswith('/ready') else '{"status":"alive"}'
+    assert app.bot_ready(run,18081)
+    assert calls[0][-1]=='http://127.0.0.1:18081/ready'
+    assert '--fail' in calls[0]
+    assert not app.bot_ready(lambda args:'{"ready":false}',18081)
+    assert not app.bot_ready(lambda args:'{"status":"alive"}',18081)
