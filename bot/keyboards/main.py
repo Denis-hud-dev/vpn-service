@@ -20,16 +20,13 @@ def button(text: str, destination: str, *, primary: bool = False) -> InlineKeybo
 def main_menu(*, premium_account: bool = False,
               reply_navigation: bool = False) -> InlineKeyboardMarkup:
     if premium_account:
-        rows = ([
-            [button(BUY, "nav:tariffs")],
-        ] if reply_navigation else [
-            [button(CONNECT, "nav:connect", primary=True)],
-            [button(SUBSCRIPTION, "nav:account"), button(BUY, "nav:tariffs")],
-        ])
-        rows.extend([
-            [button("◈ Smart · скоро", "nav:smart"), button("📱 Устройства", "nav:devices")],
-            [button("🎁 Пригласить", "nav:invite"), button("🎧 Поддержка", "nav:help")],
-        ])
+        # Catalog only: no external-provider purchase is initiated in Telegram.
+        rows = [
+            [button("💎 Купить VPN", "nav:tariffs")],
+            [button("◈ Моя подписка", "nav:account")],
+            [button("🚀 Подключиться через Happ", "nav:connect", primary=True)],
+            [button("💬 Поддержка", "nav:help")],
+        ]
         return InlineKeyboardMarkup(inline_keyboard=rows)
     return InlineKeyboardMarkup(inline_keyboard=[
         [button(CONNECT, "nav:connect")],

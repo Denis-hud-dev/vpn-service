@@ -45,8 +45,8 @@ def test_first_start_preserves_banner_and_reply_navigation():
             menu_id = app.navigation.views[123].message_id
             menu_buttons = [button.callback_data for row in app.navigation.views[123].screen.keyboard.inline_keyboard
                             for button in row]
-            assert 'nav:connect' not in menu_buttons and 'nav:account' not in menu_buttons
-            assert {'nav:tariffs', 'nav:smart', 'nav:devices', 'nav:help'} <= set(menu_buttons)
+            assert 'nav:connect' in menu_buttons and 'nav:account' in menu_buttons
+            assert {'nav:tariffs', 'nav:account', 'nav:connect', 'nav:help'} <= set(menu_buttons)
             await app.text('ℹ️ Информация')
             info_id = app.navigation.views[123].message_id
             assert info_id != menu_id

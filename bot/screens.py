@@ -163,6 +163,7 @@ def account_management() -> Screen:
                  "◆ История и дополнительные возможности вашей подписки.\n"
                  "╰ Доступность каждого действия указана внутри раздела.",
                  back_keyboard(("◷ История подписки", "nav:history"),
+                               ("◈ Smart · скоро", "nav:smart"),
                                ("📊 Трафик", "nav:traffic"),
                                ("💳 Оплата и автопродление", "nav:billing"),
                                ("🎁 Подарить подписку", "nav:gift"),
@@ -238,7 +239,7 @@ def premium_devices(status: str) -> Screen:
 
 def help_center(username: str) -> Screen:
     body = ("◆ <b>Как подключиться?</b>\n├ Откройте страницу подключения, скопируйте личную ссылку и добавьте её в Happ.\n\n"
-            "◆ <b>Продление</b>\n├ В личном кабинете выберите тариф и завершите оплату. "
+            "◆ <b>Продление</b>\n├ После подтверждённой покупки срок обновляется автоматически. "
             "Оставшееся оплаченное время сохранится.\n\n"
             "◆ <b>Если сайты не открываются</b>\n╰ Проверьте срок подписки и выбранный профиль в Happ. "
             "Если проблема остаётся, обратитесь в поддержку.")
@@ -261,7 +262,7 @@ def tariffs(*, test_payment: bool = False, premium_account: bool = False) -> Scr
     keyboard = tariffs_keyboard(pilot=premium_account)
     if premium_account:
         body = ("◆ Тарифы KudaVPN Premium.\n"
-                "╰ Покупка в Telegram пока не включена: цифровые услуги оплачиваются Stars.\n\n" + body)
+                "╰ Здесь можно посмотреть тарифы. Оплата в этом боте не принимается.\n\n" + body)
     return panel("💎 Тарифы", body, keyboard)
 
 
@@ -271,8 +272,9 @@ def tariff_details(tariff_id: str, *, test_payment: bool = False, pilot: bool = 
         return panel("💎 Тарифы", "Тариф не найден. Выберите один из доступных вариантов.", back_keyboard(back="nav:tariffs"))
     if pilot:
         return panel("💎 Ваш выбор", f"◆ <b>{escape(tariff.label)}</b>\n"
-                     "╰ Покупка в Telegram пока не включена: цифровые услуги оплачиваются Stars.",
-                     back_keyboard(back="nav:tariffs"))
+                     "├ Личный профиль Happ сохраняется при продлении.\n"
+                     "╰ Оплата в этом боте не принимается. Заказ не создан.",
+                     back_keyboard(("◈ Моя подписка", "nav:account"),back="nav:tariffs"))
     return panel("💎 Ваш выбор", f"◆ <b>{escape(tariff.label)}</b>\n╰ Оплата ещё не подключена. Платёж не создан.", back_keyboard(back="nav:tariffs"))
 
 

@@ -1,7 +1,7 @@
 """Owner-only menu PREVIEW, not registered by bot.handlers or any live runner.
 
 Every callback is informational. No invoice, order, external payment URL or grant
-is produced. Wire a real Stars handler only after TEST credentials/ledger checks.
+is produced. This legacy preview does not expose retired purchase channels.
 """
 from aiogram import F,Router
 from aiogram.types import CallbackQuery
@@ -11,10 +11,8 @@ from bot.keyboards.main import back_keyboard
 from bot.navigation import Navigation
 from bot.services import PILOT_TARIFFS
 from bot.services.payment_channels import Channel,ChannelPolicy,Surface
-from bot.services.stars_sandbox import TEST_STARS_PRICES
 
-LABELS={Channel.STARS:'⭐ Telegram Stars · подготовка',
-        Channel.CARD:'💳 Карта · недоступно в Telegram',
+LABELS={Channel.CARD:'💳 Карта · недоступно в Telegram',
         Channel.SBP:'⚡ СБП · недоступно в Telegram'}
 
 
@@ -22,12 +20,10 @@ def methods_screen(tariff_id,policy=ChannelPolicy()):
     tariff=PILOT_TARIFFS.get(tariff_id)
     if tariff is None:raise ValueError('Unknown tariff')
     body=(f'◆ Срок: {tariff.months} мес.\n'
-          f'├ TEST Stars: {TEST_STARS_PRICES[tariff.months]} XTR\n'
           '╰ Предварительный экран. Покупки не включены.\n\n'
-          'Карта и СБП через ЮKassa не используются для покупки цифровой подписки в боте.\n'
-          'Stars потребует отдельный TEST-бот и единый учёт оплаченных заказов.')
+          'Карта и СБП через ЮKassa не используются для покупки цифровой подписки в боте.')
     return screens.panel('Способ оплаты · макет',body,back_keyboard(
-        *((LABELS[c],f'paymentinfo:{tariff_id}:{c.value}') for c in Channel),
+        *((label,f'paymentinfo:{tariff_id}:{channel.value}') for channel,label in LABELS.items()),
         back='nav:tariffs'))
 
 
@@ -57,10 +53,8 @@ def create_router(owner_id,policy=ChannelPolicy()):
             await callback.answer('Способ недоступен',show_alert=True)
             return
         decision=policy.decision(channel,Surface.TELEGRAM)
-        body=('◆ Для цифровой подписки в Telegram используется Stars.\n'
-              '╰ Внешний платёж и заказ не создаются.' if channel!=Channel.STARS else
-              '◆ Утверждены только тестовые цены 1 / 2 / 3 XTR.\n'
-              '╰ Счёт пока не отправляется: TEST-бот и канонический XTR-учёт ещё не подключены.')
+        body=('◆ Оплата в этом боте не принимается.\n'
+              '╰ Внешний платёж и заказ не создаются.')
         # Even an eligible policy is not a real payment implementation.
         if decision.allowed:body+='\nЭтот обработчик остаётся только макетом.'
         await navigation.callback(callback,screens.panel('Оплата · информация',body,

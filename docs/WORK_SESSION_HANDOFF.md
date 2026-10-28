@@ -1,5 +1,11 @@
 # KudaVPN — текущая передача состояния
 
+## Текущее решение: Stars исключены из UI, карта/СБП — 27 октября2026 (Mac)
+
+Новое задание выполняется в прежнем PR29. Четыре Premium-действия подготовлены, Stars/XTR удалены из всех renderable текстов и legacy preview; retired callback не создают оплату. «Купить VPN» — каталог, не внешняя касса; Telegram policy blocker сохраняется. На сайте Card и test-disabled СБП, окончательный выбор в hosted форме ЮKassa без изменения стабильного payment payload. Общая подписка/UUID/expiry/идемпотентность прежние. План/ограничения: [card-sbp-bot-ui-20261027.md](card-sbp-bot-ui-20261027.md).
+
+Профильный набор197 passed/1 Mac SO_PEERCRED skip, overlay tests2 passed. Серверные UI изменения ещё не объявлять установленными: ждём CI, затем website staging → bot-only3-file clone → website-only rollout. Не запускать полный source PR29 как bot (каноническая схема0008, auth0009); тестовый live bot cwd `/opt/kudavpn-telegram-pilot/app-checkout-08fbff6`/User kudavpn_trial_bot, действующий каталог199/499/1790 подтверждён read-only. Защищённые EROFS/навигационные fixes сохраняются. После внедрения обновить этот раздел точными paths/backup/checks. Успешный owner payment E2E ниже принят завершённым, **не повторять покупку** ради UI.
+
 ## Новый сайт: полный owner sandbox E2E завершён — 28 октября 2026 UTC
 
 Владелец после fresh OAuth сам завершил **новую тестовую оплату199 ₽** на обновлённом website-only runtimefe9cb51. Независимая проверка реального test shop1503208 GET: test=true, succeeded/paid=true, RUB19900, точные metadata/order/provider identity и paid_at совпадают. Найден ровно1 новый owner order после свежего baseline, локально succeeded, ровно1 новый payment history grant. Old expiry history совпал с приватным before-owner-payment, new expiry = прежний активный expiry + **1 календарный месяц**, остаток сохранён. Это новая приёмка, не старый успешный тест27октября.

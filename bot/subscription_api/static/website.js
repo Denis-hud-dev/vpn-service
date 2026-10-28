@@ -4,7 +4,7 @@
   const money = n => new Intl.NumberFormat('ru-RU').format(n / 100) + ' ₽';
   const date = value => value ? new Date(value).toLocaleString('ru-RU', {day:'numeric',month:'long',year:'numeric',timeZone:'UTC'})+' · UTC' : '—';
   let csrf = '', current = null, busy = false, timer = null, paymentUrl = null, readOnly = false, failures = 0, directCheckout = false;
-  let confirmation = false, selectedPlan = null, methods = [];
+  let confirmation = false, selectedPlan = null, methods = [], paymentOptions = [];
   const status = {selection_only:'Тариф выбран · без оплаты',pending:'Ожидаем оплату',succeeded:'Оплата подтверждена',canceled:'Платёж отменён',expired:'Окно оплаты истекло',refunded:'Возврат подтверждён',refund_review:'Возврат требует проверки'};
   const receipt = {test_not_required:'Тест · чек НПД не формируется',not_due:'Чек пока не требуется',pending:'Ожидает выдачи чека НПД',issued:'Чек НПД зарегистрирован · ожидает передачи',delivered:'Чек НПД передан покупателю',error:'Ошибка выдачи или доставки чека',void_pending:'Ожидает корректировки после возврата',voided:'Чек аннулирован / обязательство закрыто'};
   async function api(path, data) {
@@ -83,10 +83,14 @@
       el('confirm-summary').textContent=plan.months+(plan.months===1?' месяц':plan.months===3?' месяца':' месяцев')+' · '+money(plan.amount_kopecks);
       el('confirm-note').textContent='При продлении оставшееся время сохраняется. Автосписания выключены. СБП в тестовом магазине недоступна.';
       method.replaceChildren();
-      const available=methods.filter(m=>m==='bank_card'||m==='yoo_money');
+      const available=methods.filter(m=>m==='bank_card'||m==='sbp');
       if(available.length) {
         const option=document.createElement('option');option.value='yookassa';
-        option.textContent=available.map(m=>m==='bank_card'?'Карта':'ЮMoney').join(' / ');method.append(option);
+        option.textContent=available.map(m=>m==='bank_card'?'Банковская карта':'СБП').join(' / ');method.append(option);
+      }
+      if(paymentOptions.some(item=>item.id==='sbp' && item.available===false)){
+        const option=document.createElement('option');option.value='sbp_unavailable';option.disabled=true;
+        option.textContent='СБП · недоступна в тестовом магазине';method.append(option);
       }
       method.value=available.length?'yookassa':'';submit.disabled=!available.length;
       panel.hidden=false;panel.scrollIntoView({block:'center'});return;
@@ -119,6 +123,7 @@
       directCheckout=data.direct_checkout===true && !readOnly;
       confirmation=data.order_confirmation===true && !readOnly;
       methods=Array.isArray(data.methods)?data.methods:[];
+      paymentOptions=Array.isArray(data.payment_options)?data.payment_options:[];
       if(readOnly){el('review-caption').textContent=location.hostname==='127.0.0.1'?'Локальная имитация данных · не настоящий VPN':'Закрытый просмотр · существующая тестовая подписка';el('methods-note').textContent='Оплата и автосписания выключены. Выбор тарифа не создаёт заказ и не меняет подписку.';el('auth-message').firstChild.textContent='Для просмотра существующей подписки войдите в свой аккаунт. ';}
       for (const plan of data.plans) {
         const card=document.createElement('article');card.className='plan';

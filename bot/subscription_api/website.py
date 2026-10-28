@@ -141,9 +141,12 @@ def create_website(service, auth, ledger, origin, *, local_demo=False, closed_re
         return response
 
     async def plans(request):
+        from bot.services.payment_channels import ChannelFlags, ChannelPolicy, website_methods
         read_only = bool(getattr(service, 'read_only', False))
+        options=website_methods(ChannelPolicy(ChannelFlags(card=True,sbp=True)),read_only=read_only)
         return web.json_response({'plans': service.plans(), 'test': True, 'sbp_available': False,
-                                 'methods': [] if read_only else ['bank_card', 'yoo_money'],
+                                 'methods': [item['id'] for item in options if item['available']],
+                                 'payment_options':options,'method_selection':'yookassa_hosted',
                                  'order_confirmation': not read_only,
                                  'read_only': read_only, 'documents_approved': False,
                                  'direct_checkout': direct_checkout and not read_only})

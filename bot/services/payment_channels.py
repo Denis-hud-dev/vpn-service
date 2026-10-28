@@ -64,3 +64,18 @@ class ChannelPolicy:
         result=self.decision(channel,surface)
         if not result.allowed:
             raise PermissionError(result.reason)
+
+
+def website_methods(policy: ChannelPolicy, *, read_only=False):
+    """Display only card/SBP; final method is selected on YooKassa's hosted page.
+
+    This is availability, not a request to force a method or change the stable
+    order payload/idempotency key. It never enables a live gateway by itself.
+    """
+    result=[]
+    for channel, name, label in ((Channel.CARD,'bank_card','Банковская карта'),
+                                 (Channel.SBP,'sbp','СБП')):
+        decision=policy.decision(channel,Surface.WEBSITE)
+        result.append({'id':name,'label':label,'available':decision.allowed and not read_only,
+                       'reason':'read_only' if read_only else decision.reason})
+    return result

@@ -53,7 +53,7 @@ def test_old_tariff_buttons_cannot_create_old_price_order_in_premium():
             services.test_checkout.create_for_user.assert_not_awaited()
             await app.callback('paytest:pilot_month_199')
             services.test_checkout.create_for_user.assert_not_awaited()
-            assert 'Stars' in app.navigation.views[123].screen.text
+            assert 'Оплата в этом боте' in app.navigation.views[123].screen.text
             assert not any(b.url for row in app.navigation.views[123].screen.keyboard.inline_keyboard for b in row)
             await app.callback('nav:tariffs')
             assert 'Тарифы' in app.navigation.views[123].screen.text

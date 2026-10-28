@@ -26,8 +26,7 @@ def test_premium_menu_is_compact_with_one_primary_and_true_status():
     assert 'Свобода подключения. Простота управления.' in screen.text
     assert 'Подписка: <b>Активна</b>' in screen.text
     assert [[button.callback_data for button in row] for row in screen.keyboard.inline_keyboard] == [
-        ['nav:connect'], ['nav:account', 'nav:tariffs'],
-        ['nav:smart', 'nav:devices'], ['nav:invite', 'nav:help']]
+        ['nav:tariffs'], ['nav:account'], ['nav:connect'], ['nav:help']]
     assert [button.callback_data for button in buttons(screen) if button.style == 'primary'] == ['nav:connect']
     assert all(len(button.text) <= 30 and len(button.callback_data.encode()) <= 64
                for button in buttons(screen))

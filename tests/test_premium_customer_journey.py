@@ -61,9 +61,11 @@ def test_pilot_customer_can_traverse_sections_without_order_or_lost_receipt(stat
                 await tap('tariff:' + tariff)
                 assert not any((b.callback_data or '').startswith('paytest:')
                     for row in screen().keyboard.inline_keyboard for b in row)
-                assert 'Stars' in screen().text
+                assert 'Оплата в этом боте' in screen().text
                 await tap('nav:tariffs')
             await tap('nav:home')
+            await tap('nav:account')
+            await tap('nav:manage')
             await tap('nav:smart')
             await tap('nav:home')
             await app.text(INFO)

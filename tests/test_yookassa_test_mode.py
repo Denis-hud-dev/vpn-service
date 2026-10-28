@@ -221,7 +221,7 @@ def test_test_marker_mismatch_never_activates_and_bot_is_owner_only(tmp_path):
                 await app.callback('tariff:month', user_id=501)
                 assert 'Создать тестовый заказ' not in str(app.navigation.views[501].screen.keyboard)
                 await app.callback('paytest:month', user_id=501)
-                assert 'Stars' in app.navigation.views[501].screen.text
+                assert 'Оплата в этом боте' in app.navigation.views[501].screen.text
                 assert not fake.calls
             finally:
                 await app.close()

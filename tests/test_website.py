@@ -413,5 +413,5 @@ def test_direct_checkout_is_explicit_and_never_enabled_for_read_only(read_only,d
             assert reply.status==200
             data=await reply.json()
             assert data['direct_checkout'] is (direct and not read_only)
-            assert data['methods']==([] if read_only else ['bank_card','yoo_money'])
+            assert data['methods']==([] if read_only else ['bank_card'])
     asyncio.run(run())

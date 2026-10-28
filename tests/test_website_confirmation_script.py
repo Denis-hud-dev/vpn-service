@@ -27,7 +27,7 @@ const plan={id:'pilot_month_199',months:1,amount_kopecks:19900};
 const order={id:'fixture',state:'pending',label:'1 месяц — 199 ₽',test:true,currency:'RUB',amount_kopecks:19900,months:1,payment_url:'https://yoomoney.ru/fixture'};
 async function fetch(path,opts){
  let status=200,data;
- if(path==='/api/plans')data={plans:[plan],read_only:false,direct_checkout:scenario!=='confirmation_only',order_confirmation:true,methods:scenario==='no_methods'?[]:['bank_card','yoo_money']};
+ if(path==='/api/plans')data={plans:[plan],read_only:false,direct_checkout:scenario!=='confirmation_only',order_confirmation:true,methods:scenario==='no_methods'?[]:['bank_card'],payment_options:[{id:'sbp',available:false}]};
  else if(path==='/api/session'){data={csrf:'fixture'};if(scenario==='no_auth')status=401;}
  else if(path==='/api/account')data={status:refreshed?'active':'inactive',nodes:[],expires_at:refreshed?'2030-02-01T00:00:00Z':null};
  else if(path==='/api/payments')data={payments:[]};
@@ -48,7 +48,8 @@ const settle=()=>new Promise(setImmediate);
  assert(el('confirm-note').textContent.includes('СБП'));
  if(scenario==='cancel'){await el('cancel-confirm').click();assert(el('confirm-panel').hidden);return;}
  if(scenario==='no_methods'){assert(el('confirm-order').disabled);return;}
- assert(el('confirm-method').children[0].textContent==='Карта / ЮMoney');
+ assert(el('confirm-method').children[0].textContent==='Банковская карта');
+ assert(el('confirm-method').children[1].disabled && el('confirm-method').children[1].value==='sbp_unavailable');
  const first=el('confirm-order').click();
  if(scenario==='double_click')await el('confirm-order').click();
  await first;await settle();assert(posts.length===1 && posts[0].tariff_id===plan.id);

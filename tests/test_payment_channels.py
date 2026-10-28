@@ -42,15 +42,16 @@ def test_test_shop_sbp_is_not_enabled_by_switch_or_capability_claim():
 
 
 @pytest.mark.parametrize('tariff',list(PILOT_TARIFFS))
-def test_preview_contains_three_explicit_nonpayment_choices(tariff):
+def test_preview_contains_only_card_and_sbp_nonpayment_choices(tariff):
     screen=methods_screen(tariff)
     buttons=[b for row in screen.keyboard.inline_keyboard for b in row]
     choices=[b for b in buttons if (b.callback_data or '').startswith('paymentinfo:')]
-    assert len(choices)==3 and 'макет' in screen.text
+    assert len(choices)==2 and 'макет' in screen.text
     assert all(not b.url and not b.pay and not b.web_app for b in buttons)
     assert all(len(b.callback_data.encode())<=64 for b in buttons)
-    assert 'подготовка' in choices[0].text
-    assert all('недоступно' in b.text for b in choices[1:])
+    assert all('Stars' not in b.text for b in buttons)
+    assert 'Stars' not in screen.text and 'XTR' not in screen.text
+    assert all('недоступно' in b.text for b in choices)
 
 
 def test_all_preview_callbacks_are_informational_and_owner_only():
