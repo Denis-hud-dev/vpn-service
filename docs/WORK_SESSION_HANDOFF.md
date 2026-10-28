@@ -6,7 +6,7 @@ PR29 source: NPDLedger перенесён в npd_receipts.py; импорт websi
 
 Один job/key на платёж, source grant, lease, bounded retry, safe errors, lookup после crash/async pending, owner-only details/outbox. Verified refund optional hook пишет canonical receipt hold без изменения доступа. Общая refund/subscription транзакция всех сервисов ещё не заявляется готовой. Registered document identity неизменна, аннулирование требует явного подтверждения. Настоящие чеки/доходы не регистрировались, реальные уведомления не отправлялись.
 
-119 профильных passed/1 local disposablePG skip, дополнительно1 verified-refund→hold passed. Публикация/CI ожидаются. Никакого server rollout: runtime0d45896/canonical0008/auth0009/VPN/UUID/Happ/Monitor/DO прежние. Следующий шаг — письменное подтверждение cheque-only партнёра без смены ЮKassa, договора/поручения/доставки и isolated PG приёмка. Новые секреты и пароль «Моего налога» сейчас не нужны.
+119 профильных passed/1 local disposablePG skip, дополнительно1 verified-refund→hold passed. Source14e3974 опубликован в PR29; оба CI success:526 passed/3 TEST_XRAY_BINARY skips, включая disposable PostgreSQL миграции. Никакого server rollout: runtime0d45896/canonical0008/auth0009/VPN/UUID/Happ/Monitor/DO прежние. Следующий шаг — письменное подтверждение cheque-only партнёра без смены ЮKassa, договора/поручения/доставки и isolated PG приёмка. Новые секреты и пароль «Моего налога» сейчас не нужны.
 
 ## Текущая задача: подготовка к live-продажам — 28 октября 2026 (Mac)
 
