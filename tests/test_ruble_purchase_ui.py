@@ -18,12 +18,12 @@ from tests.fake_telegram import TelegramHarness
 from tests.test_yookassa_test_mode import setup
 
 
-def test_premium_four_actions_have_no_payment_url_or_stars():
+def test_premium_five_actions_have_no_payment_url_or_stars():
     for reply in (True,False):
         screen=home(premium_account=True,reply_navigation=reply)
         buttons=[b for row in screen.keyboard.inline_keyboard for b in row]
-        assert [b.callback_data for b in buttons]==['nav:tariffs','nav:account','nav:connect','nav:help']
-        assert [b.text for b in buttons]==['💎 Купить VPN','◈ Моя подписка','🚀 Подключиться через Happ','💬 Поддержка']
+        assert [b.callback_data for b in buttons]==['nav:tariffs','nav:account','nav:connect','nav:support','nav:info']
+        assert [b.text for b in buttons]==['💎 Купить VPN','👤 Моя подписка','🚀 Подключиться','💬 Поддержка','ℹ️ Информация']
         assert not any(b.url or b.pay or b.web_app for b in buttons)
     for screen in [tariffs(premium_account=True)]+[tariff_details(key,pilot=True) for key in PILOT_TARIFFS]:
         assert 'Stars' not in screen.text and 'XTR' not in screen.text
