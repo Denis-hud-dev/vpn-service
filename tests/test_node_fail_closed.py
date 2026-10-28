@@ -283,14 +283,23 @@ while True:
             await managed.restart()
             assert old.returncode is not None
             assert managed.process.pid != old.pid
-            assert await asyncio.wait_for(reader.read(1), timeout=2) == b''
+            # Killing this disposable listener closes a queued TCP connection
+            # with either FIN (EOF) or RST, depending on whether it was accepted.
+            # Both prove closure; a timeout or received data must still fail.
+            try:
+                assert await asyncio.wait_for(reader.read(1), timeout=2) == b''
+            except ConnectionResetError:
+                pass
             assert other.process.pid == other_pid and other.process.returncode is None
             with pytest.raises(TimeoutError):
                 await asyncio.wait_for(other_reader.read(1), timeout=.2)
             other_writer.close()
             await other_writer.wait_closed()
             writer.close()
-            await writer.wait_closed()
+            try:
+                await writer.wait_closed()
+            except ConnectionResetError:
+                pass  # The same already asserted RST can surface on cleanup.
         finally:
             await managed.stop()
             await other.stop()
