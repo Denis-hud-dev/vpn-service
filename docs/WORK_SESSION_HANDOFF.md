@@ -1,6 +1,18 @@
 # KudaVPN — текущая передача состояния
 
-## Сайт обновлён, ожидается подтверждение входа владельцем — 28 октября 2026 UTC
+## Живой вход и новый checkout проверены, ожидается ручная sandbox оплата — 28 октября 2026 UTC
+
+Владелец подтвердил fresh Telegram OAuth; **полный вход в обновлённый fe9cb51 успешен**, кабинет active/тариф/срок/Happ доступны, ошибок нет. Reload сохраняет сессию. Важно дождаться AJAX `#account-panel` visible: в начальном HTML `auth-message` виден до загрузки API, это не потеря сессии и не повод запускать новый OAuth. Подпись/state/PKCE/owner guard прежние.
+
+На настоящем HTTPS-сайте проверены три confirmation summary:1м199 ₽/3м499 ₽/12м1790 ₽, возврат к тарифам; выбор тарифа ещё не делает order POST. `/connect` с владельцем реально открылся, Happ/copy/QR присутствуют, новый профиль не выдавался. На390/375/1440px нет overflow; viewport reset. Вкладка10 markDeliverable, оставлено подтверждение **1 месяц ·199 ₽**. Screenshot `/private/tmp/kudavpn-live-order-confirmation-20261028.png` — реальный безопасный price/confirmation UI, без персональных ссылок. Видимый ниже старый блок «Оплата подтверждена» относится к предыдущей покупке, **не** новому тесту.
+
+Read-only postcheck после этих действий: ready/protected baseline/source digest/Happ hash unchanged, **новый заказ не создан**. Private baseline перед единственной будущей ручной оплатой сохранён root-only0600: `/var/backups/kudavpn-website-review/site-fe9cb519245d/before-owner-payment.json` (прежние срок/статус/тариф/число оплат и payment history, subscription ID, digest credential/feed). Не печатать и не перезаписывать этот файл; не использовать baseline предыдущих тестов27октября.
+
+**Сейчас ожидается только действие владельца:** нажать «Подтвердить и перейти к тестовой оплате ↗», завершить только sandbox картой, вернуться в кабинет и ответить «Готово — тестовая оплата прошла». Соответствующий async-вопрос уже задан. Не выполнять оплату самостоятельно и не запускать новый OAuth/rollout/повторный аудит. После ответа — independently GET проверить новый199 ₽ test=true/succeeded/paid/metadata, связать локальный order с owner; доказать ровно1 новый grant/1 календарный месяц от прежнего активного expiry, повтор verification без второго начисления, subscription/profile/feed digest прежние. После разрешённого нового заказа canonical digest **должен** измениться: не запускать deployment `verify` с `source_unchanged=True` и не откатывать сайт из-за ожидаемой оплаты. Для protected service check допустим `verify(...,source_unchanged=False)` плюс отдельная финансовая сверка. До оплаты никакого продления здесь не было.
+
+Изменения этой приёмки только docs, тесты/CI кода уже green492/3, runtimefe9cb51 не перезапускался. Production/DO/Monitor/бот/VPN не менялись. Дальнейшие live продажи запрещены; Stars/SBP sandbox/public webhook/durable worker по-прежнему off.
+
+## История: сайт обновлён, ожидалось подтверждение входа — 28 октября 2026 UTC
 
 **Развёрнут website-only runtimefe9cb519245d35cf297a195e5a0664132e5ef093** из PR29: `/opt/kudavpn-website-review/site-release-fe9cb519245d`. Изменён только website unit drop-in `90-review-release.conf` (WorkingDirectory). Общий `current` **остаётсяrelease-faca30b**, bridge/exporter/poller/bot/Monitor/VPN не обновлялись и не перезапускались. Новый UI199/499/1790/подтверждение заказа подготовлен к владельцу; live платежи/Stars/СБП sandbox/public webhook/durable worker не включались. Миграций нет: auth0009, canonical0008 прежние. Полный deploy отчёт: [website-update-20261028.md](website-update-20261028.md).
 
