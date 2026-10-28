@@ -24,3 +24,12 @@ Premium connect не содержит bearer URL в тексте. При сущ�
 
 
 CI заметка: один workflow на a5bcd16 прошёл510/3, второй получил RST вместо EOF в существующем disposable TCP-process тесте (не рабочий Xray). Read() после убийства listener может законно вернуть EOF или ConnectionResetError в зависимости от accept race. Проверка уточнена только в тесте: оба подтверждают разрыв, получение данных/timeout всё ещё ошибка, второй процесс/соединение по-прежнему обязаны оставаться живыми. Узкий тест passed; производственный node code не менялся. Временные локальные known_hosts/askpass отсутствовали; host key точно сверён с прежним подтверждённым Proxmox fingerprint, pinned trust и helper из существующего private passphrase восстановлены без вывода секрета и без изменения сервера.
+
+
+## Фактический результат
+
+Развёрнута source0d45896c9317e61ecb250c8c1ddcdf3bf5c8c6e9; обаCIsuccess510/3. Bot cwd `/opt/kudavpn-telegram-pilot/app-purchase-menu-0d45896c9317`, website cwd `/opt/kudavpn-website-review/site-release-0d45896c9317`. Проверенные backups/rollback0700: `/var/backups/kudavpn-telegram-pilot/menu-0d45896c9317/` и `/var/backups/kudavpn-website-review/site-0d45896c9317/`, восстанавливают прежнююf4f3f87 UI-версию. Shared runtime/bridge/exporter/DB schema не переключались.
+
+Установленные стили/карточки/redacted link/фирменный emoji проверены под реальным UID. Read-only postcheck: bot+site ready, canonical records/Happ URL unchanged, реальный HTTPSfeed200/1testnode10443, protected services/config/listeners/Monitor unchanged. Рабочие Xray не перезапускались, production/DO/платежи/подписки не менялись.
+
+Браузерная сессия сохранилась без новогоOAuth. Реальный кабинет active/expiry и прежний successful order доступны. Проверены /account CTA, confirmation3м499 сcard enabled/SBPdisabled, отсутствиеStars, copy/QR/Android+iPhone на /connect, 375/390/1440px безoverflow. Новых заказов/оплат не создавали. Viewport reset, вкладка оставлена в account. Безопасный screenshot: `/private/tmp/kudavpn-purchase-review-mobile-20261028.png`. Цвета и переносы в физических Telegram Mac/Android ещё проверяет владелец; автоматический импорт Happ не объявляется проверенным на устройстве.
