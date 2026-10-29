@@ -3,14 +3,16 @@ import asyncio
 import sqlite3
 from pathlib import Path
 from aiogram import F, Router
-from aiogram.exceptions import TelegramAPIError
+from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 from aiogram.filters import CommandStart, CommandObject
 from aiogram.types import CallbackQuery, Message, FSInputFile
 from sqlalchemy.exc import SQLAlchemyError
 from bot.navigation import Navigation
 from bot.screens import home
 from bot import screens
-from bot.keyboards.reply import CONNECT, ACCOUNT, INFO, premium_reply_keyboard
+from bot.keyboards.reply import (CONNECT, ACCOUNT, INFO, CONNECT_COMMANDS, ACCOUNT_COMMANDS,
+                                 INFO_COMMANDS, REPLY_COMMANDS, premium_reply_keyboard)
+from bot.premium_emoji import decorate_reply
 from bot.handlers.instructions import connect_for_user
 from bot.handlers.subscription import account_for_user
 from bot.config import Config
@@ -20,12 +22,19 @@ logger = logging.getLogger(__name__)
 BANNER = Path(__file__).resolve().parents[1] / "assets" / "welcome-premium.png"
 
 
-async def install_reply_keyboard(bot, user_id: int, services: Services) -> None:
+async def install_reply_keyboard(bot, user_id: int, services: Services, *, custom_emoji: bool = False) -> None:
     if not services.pilot_welcome_enabled or services.onboarding is None:
         return
     try:
-        sent = await bot.send_message(user_id, "◆ Навигация KudaVPN доступна внизу чата.",
-                                      reply_markup=premium_reply_keyboard())
+        plain = premium_reply_keyboard()
+        keyboard = decorate_reply(plain) if custom_emoji else plain
+        try:
+            sent = await bot.send_message(user_id, "◆ Навигация KudaVPN доступна внизу чата.", reply_markup=keyboard)
+        except TelegramBadRequest as exc:
+            if not custom_emoji or not Navigation._emoji_rejection(exc.message.lower()):
+                raise
+            # Server-side capability rejection: retain the original Unicode labels.
+            sent = await bot.send_message(user_id, "◆ Навигация KudaVPN доступна внизу чата.", reply_markup=plain)
         try:
             previous = await services.onboarding.record_keyboard_message(user_id, sent.message_id)
         except (OSError, sqlite3.Error) as exc:
@@ -70,12 +79,13 @@ async def start(message: Message, command: CommandObject, services: Services, na
             # Preserve /start even if the isolated onboarding ledger is unavailable.
             logger.warning("Pilot onboarding state unavailable: %s", type(exc).__name__)
             first = False
-        await install_reply_keyboard(message.bot, user_id, services)
+        await install_reply_keyboard(message.bot, user_id, services, custom_emoji=navigation.custom_emoji)
         if first:
             try:
                 # Preserve the original banner as history. The immediately following
                 # tracked text screen holds the live status and all main actions.
-                sent = await message.bot.send_photo(message.chat.id, FSInputFile(BANNER))
+                sent = await message.bot.send_photo(message.chat.id, FSInputFile(BANNER),
+                    caption=screens.first_welcome_text(), parse_mode="HTML")
                 await services.onboarding.record_welcome(user_id, sent.message_id)
             except (TelegramAPIError, OSError):
                 logger.warning("Pilot welcome unavailable; showing navigation")
@@ -101,7 +111,8 @@ async def back(callback: CallbackQuery, navigation: Navigation, services: Servic
 
 
 async def begin(callback: CallbackQuery, navigation: Navigation, services: Services):
-    await install_reply_keyboard(callback.bot, callback.from_user.id, services)
+    await install_reply_keyboard(callback.bot, callback.from_user.id, services,
+                                 custom_emoji=navigation.custom_emoji)
     await navigation.show(callback.bot, callback.from_user.id,
                           await home_for_user(services, callback.from_user.id))
 
@@ -116,7 +127,7 @@ async def remove_reply_command(message: Message, services: Services) -> None:
     sender = message.from_user
     if (not services.pilot_welcome_enabled or message.chat.type != "private"
             or sender is None or sender.is_bot or message.chat.id != sender.id
-            or message.text not in (CONNECT, ACCOUNT, INFO)
+            or message.text not in REPLY_COMMANDS
             or message.forward_origin is not None or message.sender_chat is not None
             or message.via_bot is not None):
         return
@@ -164,9 +175,9 @@ async def information(callback: CallbackQuery, navigation: Navigation, config: C
 def create_router() -> Router:
     router = Router(name="start")
     router.message.register(start, CommandStart())
-    router.message.register(reply_connect, F.text == CONNECT)
-    router.message.register(reply_account, F.text == ACCOUNT)
-    router.message.register(reply_info, F.text == INFO)
+    router.message.register(reply_connect, F.text.in_(CONNECT_COMMANDS))
+    router.message.register(reply_account, F.text.in_(ACCOUNT_COMMANDS))
+    router.message.register(reply_info, F.text.in_(INFO_COMMANDS))
     router.callback_query.register(information, F.data == "nav:info")
     router.callback_query.register(back, F.data.in_({"nav:home", "menu"}))
     router.callback_query.register(begin, F.data == "pilot:begin")

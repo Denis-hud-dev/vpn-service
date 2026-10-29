@@ -4,6 +4,11 @@ CONNECT = "🔑 Подключиться"
 ACCOUNT = "🏠 Личный кабинет"
 INFO = "ℹ️ Информация"
 
+CONNECT_COMMANDS = (CONNECT, 'Подключиться')
+ACCOUNT_COMMANDS = (ACCOUNT, 'Личный кабинет')
+INFO_COMMANDS = (INFO, 'Информация')
+REPLY_COMMANDS = CONNECT_COMMANDS + ACCOUNT_COMMANDS + INFO_COMMANDS
+
 
 def premium_reply_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(keyboard=[

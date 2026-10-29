@@ -25,7 +25,8 @@ def main():
             assert sha(path)==manifest['original_sha256'][old]
             assert entry['custom_emoji_id']==old_ids()[old]
         else:
-            assert entry['custom_emoji_id'] is None
+            proof=json.loads((OUT/'registration.json').read_text())['icons'][name]
+            assert entry['custom_emoji_id']==proof['custom_emoji_id'] and entry['sha256']==proof['sha256']
             svg=ET.parse(OUT/'source'/f'{name}.svg').getroot()
             assert svg.attrib['viewBox']=='0 0 100 100'
             assert legacy.frame(symbol(name),0).tobytes()==legacy.frame(symbol(name),48).tobytes()

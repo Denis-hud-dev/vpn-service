@@ -29,7 +29,7 @@ def test_first_start_preserves_banner_and_reply_navigation():
             await app.text('/start')
             banners = [call for call in app.calls if isinstance(call, SendPhoto)]
             assert len(banners) == 1
-            assert banners[0].caption is None and banners[0].reply_markup is None
+            assert 'Три простых шага' in banners[0].caption and banners[0].reply_markup is None
             banner_id = services.onboarding.rows[123]['message_id']
             assert app.navigation.views[123].message_id > banner_id
             assert 'Свобода начинается здесь' in app.navigation.views[123].screen.text

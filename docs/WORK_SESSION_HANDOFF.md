@@ -1,5 +1,13 @@
 # KudaVPN — текущая передача состояния
 
+## Регистрация новых иконок и первое приветствие — 29 октября2026
+
+Продолжение локальной emoji-ветки поверх PR29. Официальные getStickerSet/getFile подтвердили30 элементов, SHA256 всех16 новых WEBM совпали с локальными оригиналами; старые14 IDs сохранены. bot/premium_emoji.py расширен до30, регистрационное доказательство/manifest/CSV синхронизированы, фиктивных ID нет. [Отчёт](registered-emoji-welcome-20261029.md).
+
+Подготовлены custom icons основного меню/управления/продления/back/home, ReplyKeyboard с поддержкой старых и новых текстовых команд и Unicode fallback; платформы только зарезервированы. Первый новый DB-user получает оригинальный баннер с отдельной caption-приветствием и тремя шагами; затем компактное меню. Повторный start не повторяет caption/баннер, важная история сохраняется. Onboarding/подписки/платежи не сбрасывались.
+
+110 targeted checks passed (55+54+one alt regression). Пока runtime остаётсяe3bbf21: ожидаются commit/CI и guarded rollout6 UI-файлов. Не boot full PR29/schema0010 как пилот. Никаких новых графических файлов/платежей/серверных настроек. Итог будет дописан после активации.
+
 ## Дополнение фирменных эмодзи — ожидает утверждения, 28 октября2026
 
 Отдельная локальная ветка codex/premium-emoji-extension-20261028, рабочая папка /private/tmp/kudavpn-emoji-extension-20261028. PR29/бот/серверы не изменялись. Найден renderer b630c3b и оригинальные14 WEBM в /Users/gr/Downloads/KudaVPN-Premium-emoji-webm; все SHA256 сверены с Git. Подготовлено16 новых VP9 alpha WEBM и2 aliases:buy_vpn→premium,faq→support. Оригинальные14 и их ID неизменны. Новые16 ID пусты, manifest integration_enabled=false; runtime не импортирует эту конфигурацию.

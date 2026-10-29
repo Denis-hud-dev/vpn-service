@@ -73,6 +73,11 @@ def home(*, premium_account: bool = False, snapshot: AccountSnapshot | None = No
                   main_menu(premium_account=premium_account))
 
 
+def first_welcome_text() -> str:
+    """First-entry caption only; the live compact menu remains tracked separately."""
+    return '<b>Добро пожаловать в KudaVPN Premium</b>\n<i>Свобода начинается здесь.</i>\n\n◆ Личный доступ и удобное управление подпиской.\n┃ Один профиль Happ для ваших устройств.\n\n<b>Три простых шага</b>\n◆ Выберите тариф.\n├ Оформите подписку.\n╰ Подключитесь через Happ.\n\nВ этом боте доступны каталог, ваша подписка и поддержка. Оплата здесь пока не принимается.'
+
+
 def kuda_smart() -> Screen:
     """Informational pilot screen; no connection mode is activated here."""
     body = ("◆ <b>Умный выбор сервера — в разработке</b>\n"

@@ -17,10 +17,10 @@ from urllib.parse import urlsplit
 
 BOT='kudavpn-telegram-pilot-bot.service'
 ROOT=Path('/opt/kudavpn-telegram-pilot')
-OLD=ROOT/'app-purchase-menu-fa1541ca22d1'
+OLD=ROOT/'app-purchase-menu-e3bbf2136861'
 DROPIN=Path('/etc/systemd/system')/(BOT+'.d')/'98-purchase-menu.conf'
 FILES=('bot/keyboards/main.py','bot/screens.py','bot/premium_emoji.py',
-       'bot/handlers/start.py','bot/navigation.py')
+       'bot/handlers/start.py','bot/navigation.py','bot/keyboards/reply.py')
 
 
 def restore_dropin(backup):
@@ -44,8 +44,16 @@ def validate_overlay(old,new):
         if not (old/name).is_file() or not (new/name).is_file() or (new/name).is_symlink():
             raise ValueError('Exact UI source files required')
         previous, updated = signatures(old/name), signatures(new/name)
+        # Reviewed backwards-compatible optional switch, not an arbitrary API change.
+        if name == "bot/handlers/start.py":
+            node=next((n for n in ast.parse((new/name).read_text()).body if isinstance(n,ast.AsyncFunctionDef) and n.name=="install_reply_keyboard"),None)
+            args=node.args if node else ast.arguments(posonlyargs=[],args=[],kwonlyargs=[],kw_defaults=[],defaults=[])
+            if node and [a.arg for a in args.kwonlyargs]==["custom_emoji"] and len(args.kw_defaults)==1 and isinstance(args.kw_defaults[0],ast.Constant) and args.kw_defaults[0].value is False:
+                args.kwonlyargs=[];args.kw_defaults=[]
+                updated[node.name]=ast.dump(args)
         additions = set(updated) - set(previous)
-        allowed = {"information"} if name == "bot/handlers/start.py" else set()
+        allowed = {"bot/handlers/start.py": {"information"}, "bot/screens.py": {"first_welcome_text"},
+                   "bot/premium_emoji.py": {"decorate_reply"}}.get(name,set())
         if (any(updated.get(key) != value for key, value in previous.items())
                 or additions - allowed):
             raise ValueError('UI signatures differ from working runtime')
@@ -98,9 +106,10 @@ def main(revision):
     guard.write(backup/'protected.json',json.dumps(before))
     guard.write(backup/'extra.json',json.dumps(extra))
     guard.write(backup/'old-directory',str(OLD))
-    shutil.copy2(DROPIN,backup/'previous-dropin')
+    shutil.copy2(DROPIN,backup/'previous-dropin');(backup/'previous-dropin').chmod(0o600)
     unitfiles=[run(['systemctl','show','-P','FragmentPath',BOT]),*run(['systemctl','show','-P','DropInPaths',BOT]).split()]
-    for i,name in enumerate(unitfiles):shutil.copy2(name,backup/('unit-'+str(i)))
+    for i,name in enumerate(unitfiles):
+        target=backup/('unit-'+str(i));shutil.copy2(name,target);target.chmod(0o600)
     state=Path(env['PILOT_WELCOME_STATE_FILE'])
     if not state.is_file() or not str(state).startswith(str(ROOT/'private-welcome')+'/'):
         raise ValueError('Existing private onboarding state required')
@@ -119,7 +128,10 @@ def main(revision):
     if code_digest(OLD)!=code_digest(clone):raise ValueError('Non-UI code changed')
     probe=('import sys;sys.path.insert(0,'+repr(str(clone))+');'
            'from bot.screens import home,tariffs,connect;from bot.handlers.start import create_router;'
+           'from bot.premium_emoji import EMOJI,decorate,decorate_reply;from bot.keyboards.reply import premium_reply_keyboard;'
+           'assert len(EMOJI)==30;assert all(b.icon_custom_emoji_id for row in decorate_reply(premium_reply_keyboard()).keyboard for b in row);'
            'screen=home(premium_account=True);create_router();'
+           'assert all(b.icon_custom_emoji_id for row in decorate(screen).keyboard.inline_keyboard for b in row);'
            'assert [b.callback_data for row in screen.keyboard.inline_keyboard for b in row]'
            '==["nav:tariffs","nav:account","nav:connect","nav:support","nav:info"];'
            'assert [row[0].style for row in tariffs(premium_account=True).keyboard.inline_keyboard[:3]]'

@@ -14,7 +14,7 @@ def module():
 def test_overlay_is_limited_to_reviewed_welcome_and_navigation_files(tmp_path):
     app=module()
     assert set(app.FILES)=={'bot/keyboards/main.py','bot/screens.py','bot/premium_emoji.py',
-                           'bot/handlers/start.py','bot/navigation.py'}
+                           'bot/handlers/start.py','bot/navigation.py','bot/keyboards/reply.py'}
     old,new=tmp_path/'old',tmp_path/'new'
     for base in (old,new):
         for name in app.FILES:
@@ -77,3 +77,17 @@ def test_overlay_allows_only_new_information_route_and_preserves_existing_functi
     with pytest.raises(ValueError,match='signatures'):app.validate_overlay(old,new)
     handler.write_text('async def information(callback, navigation, config): pass\n')
     with pytest.raises(ValueError,match='signatures'):app.validate_overlay(old,new)
+
+
+def test_overlay_only_allows_optional_false_custom_emoji_keyword(tmp_path):
+    app=module();old,new=tmp_path/'old',tmp_path/'new'
+    for base in (old,new):
+        for name in app.FILES:
+            p=base/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text('def screen(user): pass\n')
+    (old/'bot/handlers/start.py').write_text('async def install_reply_keyboard(bot,user_id,services): pass\n')
+    target=new/'bot/handlers/start.py'
+    target.write_text('async def install_reply_keyboard(bot,user_id,services,*,custom_emoji=False): pass\n')
+    app.validate_overlay(old,new)
+    for bad in ('True','None'):
+        target.write_text('async def install_reply_keyboard(bot,user_id,services,*,custom_emoji='+bad+'): pass\n')
+        with pytest.raises(ValueError,match='signatures'):app.validate_overlay(old,new)

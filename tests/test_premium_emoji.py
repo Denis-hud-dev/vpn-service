@@ -11,9 +11,9 @@ from bot.services.account import AccountSnapshot
 from tests.fake_telegram import TelegramHarness
 
 
-def test_published_pack_has_fourteen_distinct_real_ids_and_semantic_fallbacks():
+def test_published_pack_has_thirty_distinct_real_ids_and_semantic_fallbacks():
     assert PACK_NAME == 'KudaVPNPremium'
-    assert len(EMOJI) == len({icon.id for icon in EMOJI.values()}) == 14
+    assert len(EMOJI) == len({icon.id for icon in EMOJI.values()}) == 30
     assert all(icon.id.isdecimal() and len(icon.id) >= 16 and icon.alt for icon in EMOJI.values())
 
 
@@ -42,8 +42,8 @@ def test_supported_html_and_button_icons_preserve_callbacks_and_private_link():
         (b.callback_data, b.url) for b in original_buttons]
     assert branded_buttons[0].icon_custom_emoji_id == EMOJI['premium'].id
     assert branded_buttons[1].icon_custom_emoji_id == EMOJI['subscription'].id
-    assert branded_buttons[-1].text == '⬅️ Назад'
-    assert branded_buttons[-1].icon_custom_emoji_id is None
+    assert branded_buttons[-1].text == 'Назад'
+    assert branded_buttons[-1].icon_custom_emoji_id == EMOJI['back'].id
     assert original_buttons[0].text.startswith('✦')
 
 

@@ -65,7 +65,7 @@
       "button": "Информация",
       "alt": "ℹ️",
       "reuse_existing": null,
-      "custom_emoji_id": null,
+      "custom_emoji_id": "5411325387533758442",
       "sha256": "59578b977fd7aa8b0b83c86880b77b2c58ffca7c0bddd9ea4d7799e4b883f07e"
     },
     {
@@ -74,7 +74,7 @@
       "button": "Управление",
       "alt": "⚙️",
       "reuse_existing": null,
-      "custom_emoji_id": null,
+      "custom_emoji_id": "5411542884677627480",
       "sha256": "6d66edd78a9c2df1424c80f78974dfead09b5464816c27574c7914f77f800dd4"
     },
     {
@@ -83,16 +83,16 @@
       "button": "Apple",
       "alt": "🍎",
       "reuse_existing": null,
-      "custom_emoji_id": null,
+      "custom_emoji_id": "5411293969847985936",
       "sha256": "2d4bce9992ffa7539efbb0c0c8dfb255f78bb70eca3df5a92f2f9b353c4d60e9"
     },
     {
       "filename": "windows.webm",
       "purpose": "Подключение на Windows",
       "button": "Windows",
-      "alt": "🪟",
+      "alt": "💻",
       "reuse_existing": null,
-      "custom_emoji_id": null,
+      "custom_emoji_id": "5411597757179799385",
       "sha256": "7df57a0b836d6719c24bbf08044a237b4cd8cd6c8c1c942e8dd480f0d25625b9"
     },
     {
@@ -101,7 +101,7 @@
       "button": "Android",
       "alt": "🤖",
       "reuse_existing": null,
-      "custom_emoji_id": null,
+      "custom_emoji_id": "5411223601103807863",
       "sha256": "2ba5ead03fd3c402a00a37832926bd3f60d8eeea4baecbf7f1cf42357e014bb2"
     },
     {
@@ -110,7 +110,7 @@
       "button": "Linux",
       "alt": "🐧",
       "reuse_existing": null,
-      "custom_emoji_id": null,
+      "custom_emoji_id": "5411076635912875726",
       "sha256": "250a9678c799dd5c682026baf709cd847de6f66d807319f9ecf5201d8215f773"
     },
     {
@@ -119,16 +119,16 @@
       "button": "iOS",
       "alt": "📱",
       "reuse_existing": null,
-      "custom_emoji_id": null,
+      "custom_emoji_id": "5411308005801107463",
       "sha256": "7d1aa9d3a13214cd4e677059651a33cdab88ae80023f69b018efa782e4f2a20f"
     },
     {
       "filename": "macos.webm",
       "purpose": "Подключение на Mac",
       "button": "macOS",
-      "alt": "💻",
+      "alt": "🖥️",
       "reuse_existing": null,
-      "custom_emoji_id": null,
+      "custom_emoji_id": "5411262165615159271",
       "sha256": "5084ac4fc161a614cf33ff68527a29f315cf8d3f36b0d7f069eb7e560d505e73"
     },
     {
@@ -137,25 +137,25 @@
       "button": "Smart TV",
       "alt": "📺",
       "reuse_existing": null,
-      "custom_emoji_id": null,
+      "custom_emoji_id": "5411237383653860391",
       "sha256": "9340a58de05091fc8041344a90f80cd445f19804c9787c359c05463f8b69abe6"
     },
     {
       "filename": "promo.webm",
       "purpose": "Применение промокода",
       "button": "Промокод",
-      "alt": "🏷️",
+      "alt": "🎟️",
       "reuse_existing": null,
-      "custom_emoji_id": null,
+      "custom_emoji_id": "5408976804927025450",
       "sha256": "c1cd510471b8d10f2f98e1b6a5dbe412c06d31ec1b3726c5f43374a90481bcf6"
     },
     {
       "filename": "referral.webm",
       "purpose": "Приглашение друга",
       "button": "Пригласить друга",
-      "alt": "🤝",
+      "alt": "👥",
       "reuse_existing": null,
-      "custom_emoji_id": null,
+      "custom_emoji_id": "5411207774149324459",
       "sha256": "70c1a5a1e35b6990888a5f6aaa4c2b9198c1c58458b69181387ee957b042625c"
     },
     {
@@ -164,16 +164,16 @@
       "button": "Канал KudaVPN",
       "alt": "📢",
       "reuse_existing": null,
-      "custom_emoji_id": null,
+      "custom_emoji_id": "5411603482371205636",
       "sha256": "a37cbbf125cb8024c25a0a58b79e6a1ee1e33a64451a68f91c6c6070a65e227a"
     },
     {
       "filename": "community.webm",
       "purpose": "Сообщество KudaVPN, когда создано",
       "button": "Сообщество",
-      "alt": "👥",
+      "alt": "💬",
       "reuse_existing": null,
-      "custom_emoji_id": null,
+      "custom_emoji_id": "5411454034689172905",
       "sha256": "d21c4f73594554e5feca5c5d11840d93413cda5589aa3c03dca659cfd472c4b2"
     },
     {
@@ -191,7 +191,7 @@
       "button": "Уведомления",
       "alt": "🔔",
       "reuse_existing": null,
-      "custom_emoji_id": null,
+      "custom_emoji_id": "5411311111062464648",
       "sha256": "b7cfc1eefe0edb37d564d1296b9a67f9fc585fc05c792065cb62aeb434e7e4c1"
     },
     {
@@ -200,7 +200,7 @@
       "button": "Назад",
       "alt": "⬅️",
       "reuse_existing": null,
-      "custom_emoji_id": null,
+      "custom_emoji_id": "5411262105485618987",
       "sha256": "b3c0bbda2c6f24434ba7d82a8c98f2f800e09928c5ba7778dd808de105420c91"
     },
     {
@@ -209,8 +209,10 @@
       "button": "Главное меню",
       "alt": "🏠",
       "reuse_existing": null,
-      "custom_emoji_id": null,
+      "custom_emoji_id": "5411359785926828968",
       "sha256": "9d9ed9ad1e66c3f30e43148a6746d24a17bf7f4b1f0c82d73aa59466fb61d377"
     }
-  ]
+  ],
+  "registration_status": "verified_sha256",
+  "registration_date": "2026-10-29"
 }

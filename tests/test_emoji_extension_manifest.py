@@ -8,19 +8,25 @@ ROOT=Path(__file__).resolve().parents[1]
 ASSETS=ROOT/'assets/telegram-emoji-extension'
 
 
-def test_manifest_preserves_existing_ids_and_leaves_new_ids_unassigned():
+def test_manifest_preserves_existing_ids_and_matches_registered_files():
     tree=ast.parse((ROOT/'bot/premium_emoji.py').read_text())
     node=next(n for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='EMOJI' for t in n.targets))
     actual={ast.literal_eval(k):ast.literal_eval(v.args[0]) for k,v in zip(node.value.keys,node.value.values)}
     manifest=json.loads((ASSETS/'manifest.json').read_text())
-    assert manifest['original_custom_emoji_ids']==actual and len(actual)==14
+    assert len(actual)==30
+    assert all(actual[k]==v for k,v in manifest['original_custom_emoji_ids'].items())
+    proof=json.loads((ASSETS/'registration.json').read_text())['icons']
     assert manifest['integration_enabled'] is False
     entries=manifest['icons'];assert len(entries)==18
     assert len({e['filename'] for e in entries})==18
     assert len([e for e in entries if e['reuse_existing']])==2
     for entry in entries:
         old=entry['reuse_existing']
-        assert entry['custom_emoji_id']==(actual[old] if old else None)
+        assert entry['custom_emoji_id']==actual[old or Path(entry['filename']).stem]
+        if not old:
+            registered=proof[Path(entry['filename']).stem]
+            assert registered['sha256']==entry['sha256']
+            assert registered['custom_emoji_id']==entry['custom_emoji_id']
         path=ASSETS/('reused-existing' if old else 'new-webm')/entry['filename']
         assert path.is_file() and path.stat().st_size<256000
         assert hashlib.sha256(path.read_bytes()).hexdigest()==entry['sha256']

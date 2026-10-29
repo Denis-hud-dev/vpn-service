@@ -6,7 +6,7 @@ labels remain meaningful if a Telegram client does not display button icons.
 """
 from dataclasses import dataclass
 
-from aiogram.types import InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardMarkup, ReplyKeyboardMarkup
 
 from bot.screens import Screen
 
@@ -33,6 +33,23 @@ EMOJI = {
     "status": Emoji("5386381201026100094", "🟢"),
     "speed": Emoji("5389113418701645443", "⚡"),
     "world": Emoji("5388847156499095904", "🌍"),
+    'info': Emoji('5411325387533758442', 'ℹ️'),
+    'settings': Emoji('5411542884677627480', '⚙️'),
+    'apple': Emoji('5411293969847985936', '🍎'),
+    'windows': Emoji('5411597757179799385', '💻'),
+    'android': Emoji('5411223601103807863', '🤖'),
+    'linux': Emoji('5411076635912875726', '🐧'),
+    'ios': Emoji('5411308005801107463', '📱'),
+    'macos': Emoji('5411262165615159271', '🖥️'),
+    'smart_tv': Emoji('5411237383653860391', '📺'),
+    'promo': Emoji('5408976804927025450', '🎟️'),
+    'referral': Emoji('5411207774149324459', '👥'),
+    'channel': Emoji('5411603482371205636', '📢'),
+    'community': Emoji('5411454034689172905', '💬'),
+    'notification': Emoji('5411311111062464648', '🔔'),
+    'back': Emoji('5411262105485618987', '⬅️'),
+    'home': Emoji('5411359785926828968', '🏠'),
+
 }
 
 # Only fixed copy is decorated. Never replace inside personal URLs or user data.
@@ -46,7 +63,7 @@ HEADINGS = {
     "✦ Стартовые тарифы": ("plans", "Стартовые тарифы"),
     "💳 Оплата и автопродление": ("payment", "Оплата и автопродление"),
     "🎁 Подарить подписку": ("gift", "Подарить подписку"),
-    "◈ Пригласить друга": ("world", "Пригласить друга"),
+    "◈ Пригласить друга": ("referral", "Пригласить друга"),
     "💎 Тарифы": ("plans", "Тарифы"),
     "💎 Ваш выбор": ("plans", "Ваш выбор"),
     "📱 Мои устройства": ("devices", "Мои устройства"),
@@ -60,6 +77,14 @@ HEADINGS = {
 }
 
 BUTTONS = {
+    '💎 Купить VPN': ('premium', 'Купить VPN'),
+    'ℹ️ Информация': ('info', 'Информация'),
+    '⚙️ Управление': ('settings', 'Управление'),
+    '⬅️ Назад': ('back', 'Назад'),
+    '⌂ Главное меню': ('home', 'Главное меню'),
+    '🏠 Главное меню': ('home', 'Главное меню'),
+    '🏠 Личный кабинет': ('subscription', 'Личный кабинет'),
+
     "👤 Моя подписка": ("subscription", "Моя подписка"),
     "🚀 Подключиться": ("connect", "Подключиться"),
     "🔵 Подключиться": ("connect", "Подключиться"),
@@ -80,7 +105,7 @@ BUTTONS = {
     "📊 Трафик": ("speed", "Трафик"),
     "💳 Оплата и автопродление": ("payment", "Оплата и автопродление"),
     "🎁 Подарить подписку": ("gift", "Подарить подписку"),
-    "◈ Пригласить друга": ("world", "Пригласить друга"),
+    "◈ Пригласить друга": ("referral", "Пригласить друга"),
     "❔ Инструкции и поддержка": ("support", "Инструкции и поддержка"),
     "👤 Проверить подписку": ("status", "Проверить подписку"),
     "💎 Тарифы": ("plans", "Тарифы"),
@@ -133,3 +158,17 @@ def decorate(screen: Screen) -> Screen:
                 new_row.append(button)
         rows.append(new_row)
     return Screen(text, InlineKeyboardMarkup(inline_keyboard=rows))
+
+
+PLATFORM_EMOJI = {name: EMOJI[name] for name in ("apple", "windows", "android", "linux", "ios", "macos", "smart_tv")}
+
+def decorate_reply(keyboard: ReplyKeyboardMarkup) -> ReplyKeyboardMarkup:
+    """Reply labels also become command text; handlers accept both label forms."""
+    rows=[]
+    for row in keyboard.keyboard:
+        buttons=[]
+        for button in row:
+            match=BUTTONS.get(button.text)
+            buttons.append(button.model_copy(update={"text":match[1], "icon_custom_emoji_id":EMOJI[match[0]].id}) if match else button)
+        rows.append(buttons)
+    return keyboard.model_copy(update={"keyboard":rows})

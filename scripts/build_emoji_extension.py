@@ -132,7 +132,7 @@ def old_ids():
     tree=ast.parse((ROOT/'bot/premium_emoji.py').read_text())
     for n in tree.body:
         if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='EMOJI' for t in n.targets):
-            return {ast.literal_eval(k):ast.literal_eval(v.args[0]) for k,v in zip(n.value.keys,n.value.values)}
+            return {ast.literal_eval(k):ast.literal_eval(v.args[0]) for k,v in zip(n.value.keys,n.value.values) if ast.literal_eval(k) in old_hashes()}
     raise ValueError('Published IDs missing')
 
 

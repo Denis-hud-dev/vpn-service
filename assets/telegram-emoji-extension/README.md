@@ -1,3 +1,7 @@
+# Registration update: 2026-10-29
+
+All16 new IDs verified via getStickerSet/getFile and exact SHA256. See registration.json, updated manifest.json and mapping.csv. Previous pending-ID instructions below describe creation history; do not upload the same files again. Runtime integration uses bot/premium_emoji.py, not auto-import of this asset directory.
+
 # KudaVPN Premium — дополнение Quiet Current
 
 Готовы 16 новых анимированных WEBM. buy_vpn повторно использует premium, faq — support: в reused-existing лежат побайтово идентичные копии под требуемыми именами. Эти два файла повторно загружать в Telegram не нужно.
