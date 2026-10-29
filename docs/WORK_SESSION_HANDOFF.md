@@ -1,5 +1,17 @@
 # KudaVPN — текущая передача состояния
 
+## Read-only аудит резервирования завершён — 29 октября 2026
+
+[Отчёт, стоимость и процедура DR](backup-disaster-recovery-20261029.md), [27 архивов: даты/размеры/права](backup-inventory-20261029.csv). Production и тестовые службы НЕ изменялись; новых dumps/restores/snapshots/timers не создавали, Monitor/DO/VPN/платежи не перенастраивали.
+
+DO active607047387: один available snapshot249152758 от10 октября13:30UTC,2.29GB; configured auto backups не обнаружены. Шесть local custom dumps того же дня в /opt/kudavpn/releases/ba2f0f6a3daf5400/backups; все decode/catalog/SHA-sidecar PASS. Два старых final-verification reports verified=true и совпадают SHA с дампами; повторного restore сейчас НЕ было. Самый новый dump10 октября15:23UTC. Фактический bot DSN → kudavpn_live_20261010152329, PostgreSQL16.15/5433 host-network, schema0002; 1 user,0 subscriptions/payments/devices/vpn_servers. Не выбирать начальный POSTGRES_DB вместо live DSN. Containers StartTimes до/после прежние.
+
+JustHost:21 existing dumps, все decode PASS, selected6 catalogs PASS. Последний canonical menu-707e130cec22 от29 октября09:05UTC,67440B; website/auth последняя копия site-0d45896c9317 от28 октября07:28UTC,87399B. Schemas0008 canonical/0009 website прежние. Backup roots0700/dumps0600; места DO72.32GiB, JH14.82GiB. Active PG backup schedule/offsite encryption не подтверждены; dpkg timer и website-export не являются backup PostgreSQL.
+
+Site env/OIDC/TLS точно совпадают с сохранёнными файлами; exact current DO env/Xray, JH Xray и bridge payments.json среди проверенных отдельных backup-файлов не найдены (архивы не распаковывались; это не доказательство отсутствия всех альтернативных копий). Mac backup-20261010T172246Z содержит только Happ/QR, не DB. Legacy controller9443 оставлен остановленным, unit failed — прежнее состояние.
+
+Рекомендуется после ОТДЕЛЬНОГО разрешения: daily encrypted dumps+roles+configs, offsite между существующими VPS с upload-only получателем, третья encrypted offline-копия владельца,14daily/8weekly/6monthly, restore rehearsal на отдельной машине, затем backup-health интеграция Monitor. Ключ расшифровки — у владельца/offline, не на source VPS. Никаких новых секретов сейчас не требуется. scripts/verify_backup.py не запускать вслепую: plaintext/local restore container, fixed0002/seven tables, pg_dump использует POSTGRES_DB вместо effective DSN. Новую backup-систему ещё НЕ установили. Следующий этап требует согласования внедрения/ключей/места, платные DO images отдельно. Остановиться после отчёта.
+
 ## Профиль до Start и новая навигация развёрнуты — 29 октября2026
 
 Source707e130cec22c72d342a39942a26a44aa67b742b, PR29, оба CI554 passed/3 TEST_XRAY_BINARY skips, локально129 профильных. [Итог/профиль/откат](bot-prestart-profile-20261029.md). TEST runtime /opt/kudavpn-telegram-pilot/app-purchase-menu-707e130cec22 (только6 UI-файлов поверх66a74f2). Source profile API update применён: Description211/About89(default+ru) и исходная JPEG-avatar1254 без генерации, readback verified. ДоStart сообщений не отправляли.
