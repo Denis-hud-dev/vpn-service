@@ -1,5 +1,17 @@
 # KudaVPN — текущая передача состояния
 
+## Профиль до Start и новая навигация развёрнуты — 29 октября2026
+
+Source707e130cec22c72d342a39942a26a44aa67b742b, PR29, оба CI554 passed/3 TEST_XRAY_BINARY skips, локально129 профильных. [Итог/профиль/откат](bot-prestart-profile-20261029.md). TEST runtime /opt/kudavpn-telegram-pilot/app-purchase-menu-707e130cec22 (только6 UI-файлов поверх66a74f2). Source profile API update применён: Description211/About89(default+ru) и исходная JPEG-avatar1254 без генерации, readback verified. ДоStart сообщений не отправляли.
+
+Нижняя ReplyKeyboard: Buy первой строкой, Connect второй, Account|Info третьей; old/new text aliases и fallback сохранены. Служебной фразы нет: первый баннер несёт компактную caption+ReplyKeyboard; repeated start —функциональное приветствие с реальным статусом/сроком+ReplyKeyboard, затем отдельный короткий inline-actions блок (два типа клавиатуры несовместимы в одном сообщении). Instruction→existingconnect ID, другие30 ID прежние. Покупка только инфокаталог199/499/1790, без заказов/Stars/external checkout. Баннер/уведомления/подписки не сбрасывались.
+
+UI backup /var/backups/kudavpn-telegram-pilot/menu-707e130cec22/rollback.sh→bot66a74f2. Metadata backup profile-707e130cec22 рядом; rollback через staged deploy/telegram-pilot/update_profile.py rollback707e130... (см.отчёт). Root0700/files0600/rollback0700 проверены, stale DB автоматически не восстанавливать. Не запускать полный PR29/schema0010 как бот.
+
+Описание доStart установлено, но Description Picture ещё НЕ установлена —вручную BotFather/mybots/testbot/Edit Bot/Edit Description Picture. CUA не видит inline selectors надёжно, production не выбирать вслепую. Оригинальный banner1200×628 и avatarJPG1254 + description/about.txt в Downloads/KudaVPN-Test-Bot-Profile-20261029; графика не менялась, avatar вручную ставить уже не нужно. Empty Android chat физически не проверен; не удалять историю владельца. First-entry flow проверен fixtures без reset owner.
+
+На Mac реальные /start,Buy→catalog,Info→brandedInstruction и сохранённая нижняя клавиатура/новаяavatar проверены. Postcheck bot ready,0 startup errors, site HTTPS ready/feed200/1VLESS10443; non-UI/protected services/config/listeners/site/Monitor и canonical financial/profile digest до/после rollout прежние. Website0d45896/bridge/Monitor/DO/production/Xray/UUID/Happ/подписки/платежи не менялись. Снимки локально /private/tmp/kudavpn-no-hint-menu-20261029.png и branded-instruction...png, не публиковать реальный expiry в Git. Этап завершён, остановиться.
+
 ## Подготовка профиля до Start и навигации — 29 октября2026
 
 Текущая задача в PR29. [Описание/ограничения/откат](bot-prestart-profile-20261029.md). Подготовлены setMyDescription211/default+ru, setMyShortDescription89 и копия оригинальногоJPEG1254avatar без изменения пикселей. update_profile.py толькоTEST getMe/DB gate, private old metadata/photo backup, readback и transactional rollback. Description Picture доступна через BotFather вручную; CUA не видит его inline selectors надёжно, не выбирать production вслепую.
