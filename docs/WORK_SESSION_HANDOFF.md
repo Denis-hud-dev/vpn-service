@@ -1,5 +1,15 @@
 # KudaVPN — текущая передача состояния
 
+## Автоматическое резервирование разрешено; ожидается owner recovery key — 29 октября2026
+
+[Этап/инструкция/точное продолжение](backup-key-setup-20261029.md). Предыдущий аудит не повторять. Владелец разрешил бесплатные dumps/timers/encryption/cross-VPS/restore-lab/backup monitoring, но **удаление старых копий, paid services и перезапуски рабочих служб запрещены**. Серверы пока не менялись; новые backups/timers/receivers/restore НЕ установлены.
+
+Блокер — recovery key с паролем только у владельца. Подготовлен /Users/gr/Documents/KudaVPN-private/backups/setup-backup-key.command0700; hidden input минимум16chars, encrypted identity Scrypt+Fernet/cryptography50.0.2, public native age recipient, ready metadata, persisted roundtrip/no-overwrite. age1.3.2 DarwinARM64 официальный archiveSHA проверен, tools pinned в private folder; private key ещё не создавался. Через request_user_input_async владельцу дана команда, просьба сохранить пароль и encrypted file независимо, ответитьГотово. Значения/файл в чат НЕ запрашивать. Реквизиты в Git отсутствуют.
+
+16 локальных synthetic tests PASS, включая реальный age roundtrip/corruption, wrong password, permissions/symlink/Git guards, no rotation и binary checksum; py_compile/sh-n PASS. CI официальный CLI case без KUDA_TEST_AGE_DIR будет отдельно skipped. После ownerГотово проверить только recipient/key-ready/digest/права; private key не читать/не передавать VPS. Для реального restore потребуется отдельный скрытый owner unlock на Mac, пароль агенту не сохранять.
+
+Next: dedicated backup module+bounded upload-only SSH receiver/root sealed vault/tests, daily locked jobs без pruning, fresh encrypted DO effective live DSN + JH canonical/auth/globals/configs/SQLite, offsite ACK, отдельная network-none/resource-capped PG16 lab. Не запускать старый scripts/verify_backup.py над production. Подробный checklist в новой документации. Monitor не редактировался; при необходимости менять существующий production-monitor code/config сначала согласовать. Новые порты/платные услуги не нужны.
+
 ## Read-only аудит резервирования завершён — 29 октября 2026
 
 [Отчёт, стоимость и процедура DR](backup-disaster-recovery-20261029.md), [27 архивов: даты/размеры/права](backup-inventory-20261029.csv). Production и тестовые службы НЕ изменялись; новых dumps/restores/snapshots/timers не создавали, Monitor/DO/VPN/платежи не перенастраивали.
