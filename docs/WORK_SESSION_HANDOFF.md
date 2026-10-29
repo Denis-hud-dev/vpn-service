@@ -1,5 +1,17 @@
 # KudaVPN — текущая передача состояния
 
+## Иконки и первое приветствие развёрнуты — 29 октября2026
+
+Source66a74f25944562b5551dad976626c1a820666942, PR29, оба CI546 passed/3 TEST_XRAY_BINARY skips. [Отчёт/все16 подтверждённых ID](registered-emoji-welcome-20261029.md). Набор30: старые14 сохранены, новые16 совпали с исходными WEBM побайтово по SHA256 getStickerSet/getFile. Никакой новой графики. Реестр bot/premium_emoji.py, registration.json/manifest/CSV и Downloads bundle синхронизированы. Asset integration_enabled=false означает отсутствие auto-import из asset каталога; runtime использует прежний opt-in Config flag и Python registry.
+
+TEST runtime /opt/kudavpn-telegram-pilot/app-purchase-menu-66a74f259445. Только6 UI-файлов поверхe3bbf21, другие bytes/main/backend/env/schema0008/баннер прежние. Полный PR29/0010 как бот не запускать. Backup /var/backups/kudavpn-telegram-pilot/menu-66a74f259445 root0700, DB/ledger/config0600, rollback.sh0700→только bot e3bbf21; БД автоматически не откатывать поверх новых событий.
+
+Все9 назначений кнопок готовы: premium/subscription/connect/support/info/settings/renew/back/home. ReplyKeyboard имеет custom icons и чистые подписи, принимает также прежние Unicode-команды; API denial→Unicode fallback. Платформы зарезервированы без новых кнопок. Первый новый User по существующим DB/onboarding данным получает баннер с отдельной caption: преимущества+3шага, затем меню; повторный start компактный без повторных caption/баннера. Owner state не сбрасывался.
+
+На реальном Telegram Mac подтверждены меню, нижняя клавиатура, переходы новых текстовых подписей Информация/Личный кабинет, реальные статус/тариф/срок/узел, значки управления/продления/back. Первое приветствие/все inline callbacks проверены автоматическими fixtures; физический первый пользователь и Android/iOS остаются вручную. CUA coordinate inline clicks ненадёжны, не заявлять их все физически пройденными. Снимки локально /private/tmp/kudavpn-registered-emoji-menu-20261029.png и ...-account-20261029.png, не коммитить реальный expiry.
+
+Постпроверки: bot ready,0 startup errors; site HTTPS ready, существующий feedHTTPS200/1VLESS/10443; canonical financial/profile digest до/после rollout и protected units/config/listeners/site/Monitor неизменны. Website0d45896/bridge/Monitor/DO/production/Xray/UUID/Happ/платежи прежние; новых оплат не было. Contact поддержки пока отсутствует, конфиг не менялся. Этап завершён, ждать задания.
+
 ## Регистрация новых иконок и первое приветствие — 29 октября2026
 
 Продолжение локальной emoji-ветки поверх PR29. Официальные getStickerSet/getFile подтвердили30 элементов, SHA256 всех16 новых WEBM совпали с локальными оригиналами; старые14 IDs сохранены. bot/premium_emoji.py расширен до30, регистрационное доказательство/manifest/CSV синхронизированы, фиктивных ID нет. [Отчёт](registered-emoji-welcome-20261029.md).

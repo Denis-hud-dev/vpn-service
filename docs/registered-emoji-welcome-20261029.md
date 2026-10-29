@@ -32,3 +32,18 @@
 | notification.webm | 5411311111062464648 | exact |
 | back.webm | 5411262105485618987 | exact |
 | home.webm | 5411359785926828968 | exact |
+
+
+## Фактически развёрнуто — 29 октября2026
+
+Source66a74f25944562b5551dad976626c1a820666942 опубликован в существующем Draft PR29. Оба CI success:546 passed/3 skipped (нет TEST_XRAY_BINARY). Локально111 различных профильных проверок (110 + исправленная legacy Smart Back expectation). Долгие наборы вручную повторно не запускались. Картинки/анимации не генерировались; все16 соответствий установлены точным SHA256 официальных getStickerSet/getFile файлов.
+
+TEST bot runtime /opt/kudavpn-telegram-pilot/app-purchase-menu-66a74f259445: clone предыдущегоe3bbf21 с overlay6 UI-файлов. Полный PR29 с schema0010 как бот не запускался. Все остальные bytes/backend/env/schema0008/баннер прежние. Website runtime0d45896/bridge/exporter/Monitor/DO/production/Xray/UUID/Happ/платежи не менялись. До/после activation canonical financial/profile digest одинаков; protected units/configs/listeners и site/Monitor PID прежние.
+
+Backup root0700 /var/backups/kudavpn-telegram-pilot/menu-66a74f259445, DB/ledger/unit copies0600. rollback.sh0700 возвращает только тестового бота на e3bbf21; pg_restore list/decode/sh-n проверены. Автоматически восстанавливать stale DB поверх новых событий запрещено. При ошибке activate предусмотрен auto rollback; не потребовался. validation.json содержит safe outcomes.
+
+В Telegram Desktop Mac реальный повторный start показал все5 фирменных inline icon и3 reply icon, первое место/отдельная строка покупки сохранены. Реальные текстовые команды новой ReplyKeyboard «Информация» и «Личный кабинет» отработали; экран кабинета показал существующую активную подписку/тариф/срок/узел и значки renew/settings/back. Важные уведомления не затрагивались. Первое приветствие проверено автоматически на новом User/onboarding fixture, состояние владельца не сбрасывалось. Физический новый пользователь и Android/iOS ещё вручную. Координатные клики inline CUA Mac ранее ненадёжны; маршруты всех основных кнопок покрыты автотестами, не заявляется физическая проверка каждого нажатия.
+
+После обновления: bot ready,0 startup ERROR/traceback, HTTPS site ready, существующий HTTPS feed200/1VLESS/test10443, protected state unchanged. Contact поддержки сейчас не настроен, в информации это честно указано; адрес/канал не выдумывались. На стороне владельца остаётся проверить анимацию и переходы Android/iOS и при необходимости сообщить будущий контакт поддержки. Не ослаблялись owner access gates или Telegram/payment проверки.
+
+Снимки только локально (не публиковать реальные сроки владельца в Git): /private/tmp/kudavpn-registered-emoji-menu-20261029.png и /private/tmp/kudavpn-registered-emoji-account-20261029.png. Таблица и ZIP в Downloads/KudaVPN-Premium-Emoji-Extension-20261028 обновлены новыми ID, WEBM bytes неизменны, ZIP CRC прошёл. Генерация не повторялась. Этап завершён.
