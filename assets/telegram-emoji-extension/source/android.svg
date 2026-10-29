@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100" role="img" aria-label="android">
+  <title>KudaVPN Premium — android</title>
+  <defs><filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="2.5"/></filter></defs>
+  <rect x="9" y="9" width="82" height="82" rx="23" fill="#111A22" stroke="#315165" stroke-width="2"/>
+  <path d="M 21.6 63.5 A 32 32 0 0 1 78.4 36.5" fill="none" stroke="#25475A" stroke-width="2"/>
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <polygon points="34.0,43.0 34.13688221801903,41.17263330891928 34.54518677937491,39.37653336856471 35.21792747981941,37.64243194688874 36.14359353944898,36.0 37.30634655534024,34.47733999387791 38.68629150101523,33.10050506338834 40.259817135860466,31.89305323592271 41.99999999999999,30.87564434701786 43.87706508215855,30.065686544841988 45.85889527835967,29.477038431953044 47.911580924479175,29.119771940766654 50.0,29.0 52.08841907552082,29.119771940766654 54.141104721640325,29.47703843195304 56.12293491784143,30.06568654484198 57.999999999999986,30.875644347017854 59.74018286413953,31.893053235922707 61.31370849898476,33.10050506338833 62.69365344465976,34.477339993877905 63.85640646055102,36.00000000000001 64.78207252018058,37.642431946888735 65.4548132206251,39.37653336856471 65.86311778198096,41.172633308919266 66.0,43.0 34.0,43.0" stroke="#D9F7FF" stroke-width="1.2" fill="#D9F7FF"/>
+    <polyline points="39,32 35,26" stroke="#55D6FF" stroke-width="2.5" fill="none"/>
+    <polyline points="61,32 65,26" stroke="#55D6FF" stroke-width="2.5" fill="none"/>
+    <circle cx="43" cy="37.5" r="1.4" stroke="#111A22" stroke-width="1" fill="#111A22"/>
+    <circle cx="57" cy="37.5" r="1.4" stroke="#111A22" stroke-width="1" fill="#111A22"/>
+    <rect x="34" y="47" width="32" height="17" rx="3" stroke="#D9F7FF" stroke-width="2" fill="#D9F7FF"/>
+    <polyline points="28,49 28,61" stroke="#D9F7FF" stroke-width="5" fill="none"/>
+    <polyline points="72,49 72,61" stroke="#D9F7FF" stroke-width="5" fill="none"/>
+    <polyline points="42,64 42,72" stroke="#55D6FF" stroke-width="5" fill="none"/>
+    <polyline points="58,64 58,72" stroke="#55D6FF" stroke-width="5" fill="none"/>
+  </g>
+  <circle cx="0" cy="0" r="5" fill="#55D6FF" opacity="0.35" filter="url(#glow)">
+    <animateMotion dur="2s" repeatCount="indefinite" path="M 50 16 A 34 34 0 1 1 49.99 16"/>
+  </circle>
+  <circle cx="0" cy="0" r="2.3" fill="#55D6FF">
+    <animateMotion dur="2s" repeatCount="indefinite" path="M 50 16 A 34 34 0 1 1 49.99 16"/>
+  </circle>
+</svg>

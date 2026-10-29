@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100" role="img" aria-label="smart_tv">
+  <title>KudaVPN Premium — smart_tv</title>
+  <defs><filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="2.5"/></filter></defs>
+  <rect x="9" y="9" width="82" height="82" rx="23" fill="#111A22" stroke="#315165" stroke-width="2"/>
+  <path d="M 21.6 63.5 A 32 32 0 0 1 78.4 36.5" fill="none" stroke="#25475A" stroke-width="2"/>
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <rect x="27" y="32" width="46" height="30" rx="4" stroke="#D9F7FF" stroke-width="3" fill="none"/>
+    <path d="M 38.532 43.904 A 14.0 11.5 0 0 1 61.468 43.904" stroke="#55D6FF" stroke-width="2.8" fill="none"/>
+    <path d="M 43.447 48.411 A 8.0 8.0 0 0 1 56.553 48.411" stroke="#D9F7FF" stroke-width="2.8" fill="none"/>
+    <circle cx="50" cy="55" r="1.7" stroke="#55D6FF" stroke-width="1.5" fill="#55D6FF"/>
+    <polyline points="39,63 35,70" stroke="#D9F7FF" stroke-width="3" fill="none"/>
+    <polyline points="61,63 65,70" stroke="#D9F7FF" stroke-width="3" fill="none"/>
+  </g>
+  <circle cx="0" cy="0" r="5" fill="#55D6FF" opacity="0.35" filter="url(#glow)">
+    <animateMotion dur="2s" repeatCount="indefinite" path="M 50 16 A 34 34 0 1 1 49.99 16"/>
+  </circle>
+  <circle cx="0" cy="0" r="2.3" fill="#55D6FF">
+    <animateMotion dur="2s" repeatCount="indefinite" path="M 50 16 A 34 34 0 1 1 49.99 16"/>
+  </circle>
+</svg>

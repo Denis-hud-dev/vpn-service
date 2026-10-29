@@ -1,5 +1,13 @@
 # KudaVPN — текущая передача состояния
 
+## Дополнение фирменных эмодзи — ожидает утверждения, 28 октября2026
+
+Отдельная локальная ветка codex/premium-emoji-extension-20261028, рабочая папка /private/tmp/kudavpn-emoji-extension-20261028. PR29/бот/серверы не изменялись. Найден renderer b630c3b и оригинальные14 WEBM в /Users/gr/Downloads/KudaVPN-Premium-emoji-webm; все SHA256 сверены с Git. Подготовлено16 новых VP9 alpha WEBM и2 aliases:buy_vpn→premium,faq→support. Оригинальные14 и их ID неизменны. Новые16 ID пусты, manifest integration_enabled=false; runtime не импортирует эту конфигурацию.
+
+Исходники/manifest/CSV/превью/verification лежат assets/telegram-emoji-extension; генераторы scripts/build_emoji_extension.py,emoji_legacy_renderer.py,verify_emoji_extension.py. Реально декодированы18/18:100×100,24fps,2s,48 уникальных кадров,alpha,без аудио,все менее7KB,цикл без скачка.9 профильных тестов прошли. Локальный браузер проверил WEBM в тёмной и светлой теме; физическая Telegram-проверка будет после загрузки владельцем.
+
+Комплект сохранён в /Users/gr/Downloads/KudaVPN-Premium-Emoji-Extension-20261028 и одноимённый ZIP. Читать README/mapping.csv: загружать только new-webm16,не повторять2reused. После утверждения и регистрации получить настоящие16 custom_emoji_id официальным getStickerSet и вручную подтвердить соответствие образцам, затем отдельное разрешение на интеграцию. Канал/чат не создавать. План отдельного первого приветствия сохранён в docs/emoji-extension-20261028.md. Остановиться после генерации, без интеграции/публикации/развёртывания.
+
 ## Стартовый экран и главное меню — 28 октября 2026 (Mac)
 
 Этап завершён в PR29. [Описание и проверки](premium-start-menu-20261028.md). Первый /start сохраняет оригинальный баннер и сразу показывает меню без begin-кнопки. Повторный start обновляет реальный статус/UTC expiry, восстанавливает ReplyKeyboard и заменяет только tracked navigation. Баннер, уведомления и сообщения start сохраняются. Меню: купить отдельно, подписка/подключение, поддержка/информация. Каталог199/499/1790 прежний; checkout/Stars в Telegram не создаются.

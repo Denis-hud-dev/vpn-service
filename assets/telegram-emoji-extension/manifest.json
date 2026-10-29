@@ -1,0 +1,216 @@
+{
+  "name": "KudaVPNPremium",
+  "integration_enabled": false,
+  "original_commit": "b630c3b",
+  "duration_seconds": 2,
+  "fps": 24,
+  "dimensions": [
+    100,
+    100
+  ],
+  "codec": "vp9",
+  "audio": false,
+  "palette": {
+    "graphite": "#111A22",
+    "cyan": "#55D6FF",
+    "ice": "#D9F7FF",
+    "edge": "#315165",
+    "muted": "#6594A6"
+  },
+  "original_sha256": {
+    "connect": "3b174dc01ccb38744d6c687997212ea9b649242942c70e06305270bf65f28a20",
+    "devices": "587735f5b8ad56115f442e259c46ff28265c6be03bd1017034ba76a486ee5809",
+    "gift": "17305cc4b8249338a95b0ea58e041279c632c15ded5d00b8eaa0b17fbef8ee68",
+    "payment": "81966acea2becbf84e23c1ab7302ebc07649ea0065fd20ad2e0f9bbb1a54a236",
+    "plans": "bc71daffcbb998015fa08fef88d6b3dddf4d2d43094e6c36accebfa4f5aab607",
+    "premium": "36e1804fba5edcf97ffd414625b086cf2a3623bb8c8f0160362c94fb9fa08674",
+    "protect": "f1f0247927f9cddc814bbf5e75b85547022e5b5ca2a013774fb8df6680556636",
+    "renew": "68f6137cb24ea5a35a70709e258cfc8455b2f94f8a92cfda84f35a32cb22518a",
+    "server": "c200fa69cabc688ed205f3bf60603b574951c6c4ae089b498697a968397a32aa",
+    "speed": "7960a5d0a9c70602e119fdb9091e6eced432dd40504b89f5d53cc988621a9472",
+    "status": "e8f96b353566aef51b5fcbb5ccd38892ba3a0a680dd72b597263eb5d893a863e",
+    "subscription": "bda41e689a921a20a9d69b152b2d6fff2759a31b5195d3f8b6ab73f3f76cf2ad",
+    "support": "d773afc6264639826f04b629b53f47ebe84011570ace713d9c59fa9867ec69c1",
+    "world": "d39cfab3b1715d614a95b145b0bbf81b13fa9201b7fd0b838c0eb102917fd999"
+  },
+  "original_custom_emoji_ids": {
+    "connect": "5389102861672032499",
+    "protect": "5388843759179966039",
+    "premium": "5389052035029051661",
+    "subscription": "5388799654160802152",
+    "plans": "5388557190372042096",
+    "devices": "5386482673923432320",
+    "payment": "5388594440623400247",
+    "renew": "5388740340662446382",
+    "support": "5386862739874425252",
+    "gift": "5389078930114262933",
+    "server": "5389009961529420076",
+    "status": "5386381201026100094",
+    "speed": "5389113418701645443",
+    "world": "5388847156499095904"
+  },
+  "icons": [
+    {
+      "filename": "buy_vpn.webm",
+      "purpose": "Покупка VPN — повторное использование Premium",
+      "button": "Купить VPN",
+      "alt": "💎",
+      "reuse_existing": "premium",
+      "custom_emoji_id": "5389052035029051661",
+      "sha256": "36e1804fba5edcf97ffd414625b086cf2a3623bb8c8f0160362c94fb9fa08674"
+    },
+    {
+      "filename": "info.webm",
+      "purpose": "Информация о сервисе",
+      "button": "Информация",
+      "alt": "ℹ️",
+      "reuse_existing": null,
+      "custom_emoji_id": null,
+      "sha256": "59578b977fd7aa8b0b83c86880b77b2c58ffca7c0bddd9ea4d7799e4b883f07e"
+    },
+    {
+      "filename": "settings.webm",
+      "purpose": "Настройки и управление подпиской",
+      "button": "Управление",
+      "alt": "⚙️",
+      "reuse_existing": null,
+      "custom_emoji_id": null,
+      "sha256": "6d66edd78a9c2df1424c80f78974dfead09b5464816c27574c7914f77f800dd4"
+    },
+    {
+      "filename": "apple.webm",
+      "purpose": "Платформы Apple",
+      "button": "Apple",
+      "alt": "🍎",
+      "reuse_existing": null,
+      "custom_emoji_id": null,
+      "sha256": "2d4bce9992ffa7539efbb0c0c8dfb255f78bb70eca3df5a92f2f9b353c4d60e9"
+    },
+    {
+      "filename": "windows.webm",
+      "purpose": "Подключение на Windows",
+      "button": "Windows",
+      "alt": "🪟",
+      "reuse_existing": null,
+      "custom_emoji_id": null,
+      "sha256": "7df57a0b836d6719c24bbf08044a237b4cd8cd6c8c1c942e8dd480f0d25625b9"
+    },
+    {
+      "filename": "android.webm",
+      "purpose": "Подключение на Android",
+      "button": "Android",
+      "alt": "🤖",
+      "reuse_existing": null,
+      "custom_emoji_id": null,
+      "sha256": "2ba5ead03fd3c402a00a37832926bd3f60d8eeea4baecbf7f1cf42357e014bb2"
+    },
+    {
+      "filename": "linux.webm",
+      "purpose": "Подключение на Linux",
+      "button": "Linux",
+      "alt": "🐧",
+      "reuse_existing": null,
+      "custom_emoji_id": null,
+      "sha256": "250a9678c799dd5c682026baf709cd847de6f66d807319f9ecf5201d8215f773"
+    },
+    {
+      "filename": "ios.webm",
+      "purpose": "Подключение на iPhone и iPad",
+      "button": "iOS",
+      "alt": "📱",
+      "reuse_existing": null,
+      "custom_emoji_id": null,
+      "sha256": "7d1aa9d3a13214cd4e677059651a33cdab88ae80023f69b018efa782e4f2a20f"
+    },
+    {
+      "filename": "macos.webm",
+      "purpose": "Подключение на Mac",
+      "button": "macOS",
+      "alt": "💻",
+      "reuse_existing": null,
+      "custom_emoji_id": null,
+      "sha256": "5084ac4fc161a614cf33ff68527a29f315cf8d3f36b0d7f069eb7e560d505e73"
+    },
+    {
+      "filename": "smart_tv.webm",
+      "purpose": "Подключение на Smart TV",
+      "button": "Smart TV",
+      "alt": "📺",
+      "reuse_existing": null,
+      "custom_emoji_id": null,
+      "sha256": "9340a58de05091fc8041344a90f80cd445f19804c9787c359c05463f8b69abe6"
+    },
+    {
+      "filename": "promo.webm",
+      "purpose": "Применение промокода",
+      "button": "Промокод",
+      "alt": "🏷️",
+      "reuse_existing": null,
+      "custom_emoji_id": null,
+      "sha256": "c1cd510471b8d10f2f98e1b6a5dbe412c06d31ec1b3726c5f43374a90481bcf6"
+    },
+    {
+      "filename": "referral.webm",
+      "purpose": "Приглашение друга",
+      "button": "Пригласить друга",
+      "alt": "🤝",
+      "reuse_existing": null,
+      "custom_emoji_id": null,
+      "sha256": "70c1a5a1e35b6990888a5f6aaa4c2b9198c1c58458b69181387ee957b042625c"
+    },
+    {
+      "filename": "channel.webm",
+      "purpose": "Официальный Telegram-канал, когда создан",
+      "button": "Канал KudaVPN",
+      "alt": "📢",
+      "reuse_existing": null,
+      "custom_emoji_id": null,
+      "sha256": "a37cbbf125cb8024c25a0a58b79e6a1ee1e33a64451a68f91c6c6070a65e227a"
+    },
+    {
+      "filename": "community.webm",
+      "purpose": "Сообщество KudaVPN, когда создано",
+      "button": "Сообщество",
+      "alt": "👥",
+      "reuse_existing": null,
+      "custom_emoji_id": null,
+      "sha256": "d21c4f73594554e5feca5c5d11840d93413cda5589aa3c03dca659cfd472c4b2"
+    },
+    {
+      "filename": "faq.webm",
+      "purpose": "Вопросы и помощь — повторное использование Support",
+      "button": "Вопросы и ответы",
+      "alt": "🎧",
+      "reuse_existing": "support",
+      "custom_emoji_id": "5386862739874425252",
+      "sha256": "d773afc6264639826f04b629b53f47ebe84011570ace713d9c59fa9867ec69c1"
+    },
+    {
+      "filename": "notification.webm",
+      "purpose": "Уведомления",
+      "button": "Уведомления",
+      "alt": "🔔",
+      "reuse_existing": null,
+      "custom_emoji_id": null,
+      "sha256": "b7cfc1eefe0edb37d564d1296b9a67f9fc585fc05c792065cb62aeb434e7e4c1"
+    },
+    {
+      "filename": "back.webm",
+      "purpose": "Возврат к предыдущему экрану",
+      "button": "Назад",
+      "alt": "⬅️",
+      "reuse_existing": null,
+      "custom_emoji_id": null,
+      "sha256": "b3c0bbda2c6f24434ba7d82a8c98f2f800e09928c5ba7778dd808de105420c91"
+    },
+    {
+      "filename": "home.webm",
+      "purpose": "Возврат в главное меню",
+      "button": "Главное меню",
+      "alt": "🏠",
+      "reuse_existing": null,
+      "custom_emoji_id": null,
+      "sha256": "9d9ed9ad1e66c3f30e43148a6746d24a17bf7f4b1f0c82d73aa59466fb61d377"
+    }
+  ]
+}
