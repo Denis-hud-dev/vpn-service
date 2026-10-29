@@ -38,3 +38,16 @@ def test_information_instruction_and_nested_buttons_have_real_brand_ids():
  for screen in [screens.account_management(),screens.kuda_smart(),screens.help_center(''),screens.happ()]:
   buttons=[b for row in decorate(screen).keyboard.inline_keyboard for b in row]
   assert all(b.icon_custom_emoji_id for b in buttons if b.text in ('Назад','Главное меню','Инструкция'))
+
+
+def test_short_actions_screen_is_safely_adopted_if_navigation_pointer_is_missing():
+ async def run():
+  app=TelegramHarness(services=pilot(AccountSnapshot()))
+  try:
+   await app.text('/start');mid=app.navigation.views[123].message_id
+   app.navigation.views.clear();app.navigation.store.screens.clear()
+   await app.callback('nav:tariffs',message_id=mid)
+   assert '199' in app.navigation.views[123].screen.text
+   assert app.navigation.views[123].message_id==mid
+  finally:await app.close()
+ asyncio.run(run())

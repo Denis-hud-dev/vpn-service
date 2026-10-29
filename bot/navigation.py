@@ -185,7 +185,7 @@ class Navigation:
         # release. Payment receipts, notifications and support conversations stay.
         text = (message.text or "").replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", "")
         lines = [line.strip() for line in text.splitlines() if line.strip()]
-        titles = {"Свобода начинается здесь.", "Ваше пространство подключения.", "Свобода подключения. Простота управления.",
+        titles = {"Выберите действие.", "Свобода начинается здесь.", "Ваше пространство подключения.", "Свобода подключения. Простота управления.",
                   "👤 Личный кабинет", "📱 Устройства", "💎 Тарифы",
                   "💎 Ваш выбор", "🚀 Подключить VPN", "📖 Настройка Happ", "📊 Мой трафик",
                   "🎁 Бонусы", "💬 Поддержка", "❔ Помощь", "📱 Мои устройства",
