@@ -223,7 +223,7 @@ def main():
         'original_sha256':hashes,'original_custom_emoji_ids':ids,'icons':entries}
     (OUT/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
     with (OUT/'mapping.csv').open('w',encoding='utf-8-sig',newline='') as f:
-        writer=csv.writer(f);writer.writerow(['filename','purpose','button','custom_emoji_id','reuse_existing'])
+        writer=csv.writer(f,lineterminator='\n');writer.writerow(['filename','purpose','button','custom_emoji_id','reuse_existing'])
         for e in entries:writer.writerow([e['filename'],e['purpose'],e['button'],e['custom_emoji_id'] or '',e['reuse_existing'] or ''])
     preview(decoded)
     print('16 new WEBM; 2 byte-identical reused aliases; original14 unchanged',flush=True)
