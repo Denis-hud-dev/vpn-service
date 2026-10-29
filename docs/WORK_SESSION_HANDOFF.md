@@ -2,9 +2,17 @@
 
 ## Стартовый экран и главное меню — 28 октября 2026 (Mac)
 
-Продолжен PR29, source b2ec06a не теряется. [Описание/проверки/план отката](premium-start-menu-20261028.md). Первый start сохраняет оригинальный баннер и сразу показывает меню без begin-кнопки. Повторный start обновляет реальный статус/UTC expiry и восстанавливает ReplyKeyboard, без нового баннера. Меню: купить отдельно, подписка/подключение, поддержка/информация. Каталог199/499/1790 прежний, checkout/Stars в Telegram не создаются. Legacy begin совместим; важные уведомления/ledger сохранены.
+Этап завершён в PR29. [Описание и проверки](premium-start-menu-20261028.md). Первый /start сохраняет оригинальный баннер и сразу показывает меню без begin-кнопки. Повторный start обновляет реальный статус/UTC expiry, восстанавливает ReplyKeyboard и заменяет только tracked navigation. Баннер, уведомления и сообщения start сохраняются. Меню: купить отдельно, подписка/подключение, поддержка/информация. Каталог199/499/1790 прежний; checkout/Stars в Telegram не создаются.
 
-111 различных профильных проверок пройдены (базовые86 + новые2 в наборе15 + связанные22 + одна message_id регрессия). Старые8 CI-ожиданий слогана/4кнопок/разделителей актуализированы, финансовые проверки сохранены. Без reset владельца, платежей, НПД или миграций. Первый guarded rollout fa1541c успешен: оба CI537/3, runtime app-purchase-menu-fa1541ca22d1, canonical/protected unchanged, siteHTTPS ready/feed200/1node10443. В реальном Telegram Mac подтверждены меню и ReplyKeyboard. Найден UI-нюанс повторного start сразу после меню: новый hint оказывался ниже отредактированного старого меню. Исправлен в pilot start через замену только tracked navigation; добавлена регрессия общей Telegram message_id последовательности. Ожидается финальный guarded rollout поверх fa1541c; итог будет дописан.
+Финальный source e3bbf2136861d759f54531c1188b9dcd0a5dccb5, оба CI success:538 passed/3 TEST_XRAY_BINARY skips. Локально111 различных профильных проверок. В реальном Telegram Mac найден и исправлен случай последовательных message_id: меню после повторного start оказывалось выше нового keyboard hint. Регрессия с общей последовательностью входящих/исходящих сообщений прошла в наборе34; фактический повторный start подтвердил новое меню ниже hint и сохранённую нижнюю клавиатуру.
+
+TEST bot runtime /opt/kudavpn-telegram-pilot/app-purchase-menu-e3bbf2136861: clone предыдущегоfa1541c, заменены только5 UI-файлов (screens, keyboards/main, premium_emoji, handlers/start, navigation). Остальные bytes/backend/env/schema0008/баннер/НПД прежние. Full PR29 со schema0010 как бот не запускать.
+
+Backup root0700 /var/backups/kudavpn-telegram-pilot/menu-e3bbf2136861: DB/ledger/config copies0600, rollback.sh0700 проверен. Откат только бота возвращает предыдущийfa1541c; первый backup menu-fa1541ca22d1 возвращает исходный0d45896. Не восстанавливать stale БД автоматически. validation.json содержит безопасные outcomes.
+
+Проверены getMe=testbot, ready,0 startup errors, unchanged protected units/configs/listeners/site/Monitor и canonical financial/profile digest до/после rollout. Site HTTPS ready; существующий feedHTTPS200/1VLESS/10443. Website runtime0d45896/UUID/Happ/платежи/НПД/Monitor/DO/production/Xray прежние. Новые оплаты не создавались.
+
+Снимок /private/tmp/kudavpn-premium-start-20261028.png только локально, не публиковать реальный expiry владельца в Git. Inline-маршруты/каталог/Happ проверены автоматически; координатные клики CUA Mac ненадёжны, физические кнопки Android/iOS/Mac проверить владельцу. Первый вход проверен fixtures без сброса аккаунта владельца. Ждать следующего задания.
 
 ## НПД: независимый реестр и sandbox-очередь — 28 октября 2026
 

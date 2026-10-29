@@ -29,3 +29,16 @@ Telegram сам определяет тему, размеры и вид кноп
 Предварительно read-only подтверждены active/ready тестового бота, его cwd0d45896, pilot welcome/premium флаги и отдельный UID. Сайт/bridge/feed active. `update_menu.py` жёстко ожидает текущий проверенный runtime fa1541c (первый UI-rollout уже выполнен) и сохраняет конфиги, drop-ins, canonical dump и отдельную SQLite ledger. Копирует текущий runtime и заменяет только5 reviewed UI-файлов: screens, keyboards/main, premium_emoji, handlers/start, navigation. Существующие публичные сигнатуры неизменны; допускается только новый information callback. Все остальные байты (включая backend/main/config/миграции/НПД) должны совпадать с прежним runtime.
 
 Откат возвращает предыдущий98-purchase-menu.conf и перезапускает только TEST-бота. Проверяются readiness, неизменность финансовых/profile данных и защищённых служб/конфигов/портов, включая сайт и Monitor. Состояние БД из дампа автоматически поверх новых событий не восстанавливается. Итог CI и реальный rollout записываются после выполнения.
+
+
+## Итог фактического развёртывания
+
+Финальный source e3bbf2136861d759f54531c1188b9dcd0a5dccb5; оба CI success:538 passed,3 skipped (нет TEST_XRAY_BINARY). Runtime /opt/kudavpn-telegram-pilot/app-purchase-menu-e3bbf2136861. Guarded overlay заменил только5 UI-файлов; другие bytes/main/backend/env/schema/баннер/НПД прежние. Полный PR29/schema0010 как бот не запускался.
+
+Backup /var/backups/kudavpn-telegram-pilot/menu-e3bbf2136861 root0700. canonical.dump/onboarding.sqlite и копии unit/drop-in0600; rollback.sh0700. pg_restore list/decode и sh-n прошли. Копии unit-файлов изначально сохраняли644 внутри закрытой700 папки; дополнительно ограничены0600 без изменения активных unit-файлов. validation.json не содержит персональных данных.
+
+Откат: sudo /var/backups/kudavpn-telegram-pilot/menu-e3bbf2136861/rollback.sh возвращает предыдущий здоровыйfa1541c. Ранний /var/backups/kudavpn-telegram-pilot/menu-fa1541ca22d1/rollback.sh возвращает исходный0d45896. Автоматически восстанавливать БД поверх новых событий запрещено.
+
+После реального повторного start в Telegram Desktop Mac подтверждены компактный статус/UTC expiry, покупка отдельной синей строкой, пары подписка/подключение и поддержка/информация, нижняя ReplyKeyboard. Новое меню ниже hint, предыдущая nav удалена, сообщения start сохранены. Скриншот /private/tmp/kudavpn-premium-start-20261028.png только локально (содержит реальный срок владельца, не в Git). Физические inline-клики не заявляются проверенными: CUA Mac не смог надёжно выполнить координатные клики. Маршруты/каталог/переходы/Happ покрыты автотестами. Android/iOS проверить владельцу. Первый вход проверен fixtures без сброса аккаунта.
+
+getMe подтвердил KudaVPN_Test_Bot. Финальные проверки: bot ready,0 ERROR/traceback нового процесса; protected services/configs/listeners/site/Monitor прежние; site HTTPS ready, существующий feedHTTPS200/1VLESS/10443. Canonical financial/profile digest до/после активации одинаков. UUID/Happ/Website runtime0d45896/bridge/exporter/платежи/Monitor/DO/production/Xray не менялись. Новых платежей не создавалось. Этап завершён.
