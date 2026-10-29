@@ -40,7 +40,7 @@ def test_branded_reply_labels_navigate_and_first_caption_is_not_repeated():
             assert all(word in photo.caption for word in ('\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0442\u0430\u0440\u0438\u0444','\u041e\u0444\u043e\u0440\u043c\u0438\u0442\u0435 \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0443','Happ'))
             assert 'https://' not in photo.caption and 'Stars' not in photo.caption
             banner=services.onboarding.rows[123]['message_id']
-            keyboard=next(c.reply_markup for c in app.calls if isinstance(c,SendMessage) and isinstance(c.reply_markup,ReplyKeyboardMarkup))
+            keyboard=next(c.reply_markup for c in app.calls if isinstance(c,(SendMessage,SendPhoto)) and isinstance(c.reply_markup,ReplyKeyboardMarkup))
             assert all(b.icon_custom_emoji_id for row in keyboard.keyboard for b in row)
             for command,marker in [('\u041b\u0438\u0447\u043d\u044b\u0439 \u043a\u0430\u0431\u0438\u043d\u0435\u0442','Kuda Status'),('\u0418\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u044f','KudaVPN'),('\u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u044c\u0441\u044f','Happ')]:
                 await app.text(command)
@@ -59,7 +59,7 @@ def test_reply_custom_emoji_api_denial_keeps_unicode_keyboard_and_navigation():
         app.navigation.custom_emoji=True;app.fail_custom_emoji=True
         try:
             await app.text('/start')
-            keyboards=[c.reply_markup for c in app.calls if isinstance(c,SendMessage) and isinstance(c.reply_markup,ReplyKeyboardMarkup)]
+            keyboards=[c.reply_markup for c in app.calls if isinstance(c,(SendMessage,SendPhoto)) and isinstance(c.reply_markup,ReplyKeyboardMarkup)]
             assert len(keyboards)==2
             assert any(b.icon_custom_emoji_id for row in keyboards[0].keyboard for b in row)
             assert not any(b.icon_custom_emoji_id for row in keyboards[1].keyboard for b in row)

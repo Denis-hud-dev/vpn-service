@@ -63,7 +63,7 @@ def home(*, premium_account: bool = False, snapshot: AccountSnapshot | None = No
         if status == "active":
             state += "\n📅 Действует до: " + expiry_label(snapshot.expires_at)
         return Screen(f"{BRAND}\n<i>Свобода начинается здесь.</i>\n\n"
-                      "🔒 Безопасное подключение\n⚡ Высокая скорость\n🌍 Доступные серверы\n\n"
+                      "⚡ Быстрое подключение\n🔒 Безопасное соединение\n🌍 Доступные серверы\n\n"
                       f"{state}",
                       main_menu(premium_account=True, reply_navigation=reply_navigation))
     intro = ("Ваш VPN и подписка всегда под рукой."
@@ -74,8 +74,12 @@ def home(*, premium_account: bool = False, snapshot: AccountSnapshot | None = No
 
 
 def first_welcome_text() -> str:
-    """First-entry caption only; the live compact menu remains tracked separately."""
-    return '<b>Добро пожаловать в KudaVPN Premium</b>\n<i>Свобода начинается здесь.</i>\n\n◆ Личный доступ и удобное управление подпиской.\n┃ Один профиль Happ для ваших устройств.\n\n<b>Три простых шага</b>\n◆ Выберите тариф.\n├ Оформите подписку.\n╰ Подключитесь через Happ.\n\nВ этом боте доступны каталог, ваша подписка и поддержка. Оплата здесь пока не принимается.'
+    return '<b>Добро пожаловать в KudaVPN Premium!</b>\n\n<i>Свобода начинается здесь.</i>\n\n⚡ Быстрое подключение\n🔒 Безопасное соединение\n🌍 Доступные серверы\n\n<b>Три простых шага:</b>\n1. Выберите тариф.\n2. Оформите подписку.\n3. Подключитесь через Happ.'
+
+
+def main_actions() -> Screen:
+    """Separate inline actions: Telegram permits only one keyboard type/message."""
+    return Screen(BRAND + "\n\nВыберите действие.", main_menu(premium_account=True))
 
 
 def kuda_smart() -> Screen:

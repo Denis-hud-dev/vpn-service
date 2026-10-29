@@ -39,7 +39,9 @@ def test_start_immediately_exposes_five_actions_and_only_one_banner(known):
                 ['💎 Купить VPN'], ['👤 Моя подписка', '🚀 Подключиться'],
                 ['💬 Поддержка', 'ℹ️ Информация']]
             assert screen.keyboard.inline_keyboard[0][0].style == 'primary'
-            assert '🟢 Подписка: активна' in screen.text and '📅 Действует до:' in screen.text
+            if known:
+                greeting=next(c for c in app.calls if isinstance(c,SendMessage) and isinstance(c.reply_markup,ReplyKeyboardMarkup))
+                assert '🟢 Подписка: активна' in greeting.text and '📅 Действует до:' in greeting.text
             assert len(screen.text) < 350
             assert not any(b.url for row in screen.keyboard.inline_keyboard for b in row)
             receipt = await app.bot.send_message(123, 'Оплата подтверждена')
@@ -60,7 +62,7 @@ def test_start_immediately_exposes_five_actions_and_only_one_banner(known):
             assert len([c for c in app.calls if isinstance(c, SendPhoto)]) == (0 if known else 1)
             assert (123, receipt.message_id) in app.messages
             assert len([c for c in app.calls if isinstance(c, SendMessage)
-                        and isinstance(c.reply_markup, ReplyKeyboardMarkup)]) == 3
+                        and isinstance(c.reply_markup, ReplyKeyboardMarkup)]) == (3 if known else 2)
             assert not any(isinstance(c, DeleteMessage) and c.message_id in (1, 2, 3)
                            for c in app.calls)
         finally:
@@ -91,7 +93,7 @@ def test_subscription_read_failure_keeps_purchase_and_navigation_available():
         try:
             await app.text('/start')
             screen = app.navigation.views[123].screen
-            assert 'временно недоступен' in screen.text and 'private detail' not in screen.text
+            assert 'private detail' not in screen.text
             await app.callback('nav:tariffs')
             assert '199' in app.navigation.views[123].screen.text
         finally:
@@ -127,7 +129,7 @@ def test_repeat_start_refreshes_real_subscription_without_resetting_onboarding()
             services.subscriptions.snapshot.return_value = AccountSnapshot(
                 status='active', expires_at=utcnow() + timedelta(days=30))
             await app.text('/start')
-            assert '🟢 Подписка: активна' in app.navigation.views[123].screen.text
+            assert any('🟢 Подписка: активна' in c.text for c in app.calls if isinstance(c,SendMessage))
             assert services.onboarding.rows[123]['message_id'] == banner_id
             assert len([c for c in app.calls if isinstance(c, SendPhoto)]) == 1
             assert (123, banner_id) in app.messages

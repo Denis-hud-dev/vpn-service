@@ -17,7 +17,7 @@ from urllib.parse import urlsplit
 
 BOT='kudavpn-telegram-pilot-bot.service'
 ROOT=Path('/opt/kudavpn-telegram-pilot')
-OLD=ROOT/'app-purchase-menu-e3bbf2136861'
+OLD=ROOT/'app-purchase-menu-66a74f259445'
 DROPIN=Path('/etc/systemd/system')/(BOT+'.d')/'98-purchase-menu.conf'
 FILES=('bot/keyboards/main.py','bot/screens.py','bot/premium_emoji.py',
        'bot/handlers/start.py','bot/navigation.py','bot/keyboards/reply.py')
@@ -45,14 +45,14 @@ def validate_overlay(old,new):
             raise ValueError('Exact UI source files required')
         previous, updated = signatures(old/name), signatures(new/name)
         # Reviewed backwards-compatible optional switch, not an arbitrary API change.
-        if name == "bot/handlers/start.py":
+        if name == "bot/handlers/start.py" and updated.get("install_reply_keyboard") != previous.get("install_reply_keyboard"):
             node=next((n for n in ast.parse((new/name).read_text()).body if isinstance(n,ast.AsyncFunctionDef) and n.name=="install_reply_keyboard"),None)
             args=node.args if node else ast.arguments(posonlyargs=[],args=[],kwonlyargs=[],kw_defaults=[],defaults=[])
             if node and [a.arg for a in args.kwonlyargs]==["custom_emoji"] and len(args.kw_defaults)==1 and isinstance(args.kw_defaults[0],ast.Constant) and args.kw_defaults[0].value is False:
                 args.kwonlyargs=[];args.kw_defaults=[]
                 updated[node.name]=ast.dump(args)
         additions = set(updated) - set(previous)
-        allowed = {"bot/handlers/start.py": {"information"}, "bot/screens.py": {"first_welcome_text"},
+        allowed = {"bot/handlers/start.py": {"information", "reply_buy"}, "bot/screens.py": {"first_welcome_text", "main_actions"},
                    "bot/premium_emoji.py": {"decorate_reply"}}.get(name,set())
         if (any(updated.get(key) != value for key, value in previous.items())
                 or additions - allowed):

@@ -1,5 +1,11 @@
 # KudaVPN — текущая передача состояния
 
+## Подготовка профиля до Start и навигации — 29 октября2026
+
+Текущая задача в PR29. [Описание/ограничения/откат](bot-prestart-profile-20261029.md). Подготовлены setMyDescription211/default+ru, setMyShortDescription89 и копия оригинальногоJPEG1254avatar без изменения пикселей. update_profile.py толькоTEST getMe/DB gate, private old metadata/photo backup, readback и transactional rollback. Description Picture доступна через BotFather вручную; CUA не видит его inline selectors надёжно, не выбирать production вслепую.
+
+Убрана отдельная служебная фраза: первый баннер несёт caption+ReplyKeyboard, repeated start —содержательный real-status greeting с ReplyKeyboard; короткий inline-actions блок отдельно из-за взаимоисключающих keyboard types. Новая первая строка нижней клавиатуры Купить VPN→информационный каталог199/499/1790. Инструкция→старыйconnect ID. Подписки/UUID/Happ/платежи/НПД/серверы не меняются.128 профильных passed; pending CI/guarded rollout поверх66a74f2 и API profile apply. Backup/avatar/source package в Downloads/KudaVPN-Test-Bot-Profile-20261029. Не отправлять сообщения до start, не чистить историю владельца; Android empty-chat проверит владелец. Итог дописать после фактических операций.
+
 ## Иконки и первое приветствие развёрнуты — 29 октября2026
 
 Source66a74f25944562b5551dad976626c1a820666942, PR29, оба CI546 passed/3 TEST_XRAY_BINARY skips. [Отчёт/все16 подтверждённых ID](registered-emoji-welcome-20261029.md). Набор30: старые14 сохранены, новые16 совпали с исходными WEBM побайтово по SHA256 getStickerSet/getFile. Никакой новой графики. Реестр bot/premium_emoji.py, registration.json/manifest/CSV и Downloads bundle синхронизированы. Asset integration_enabled=false означает отсутствие auto-import из asset каталога; runtime использует прежний opt-in Config flag и Python registry.

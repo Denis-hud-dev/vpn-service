@@ -34,11 +34,11 @@ class TelegramHarness:
 
     async def request(self, bot, method, **kwargs):
         self.calls.append(method)
-        if self.fail_custom_emoji and isinstance(method, (SendMessage, EditMessageText)):
+        if self.fail_custom_emoji and isinstance(method, (SendMessage, SendPhoto, EditMessageText)):
             buttons = (method.reply_markup.inline_keyboard if isinstance(method.reply_markup, InlineKeyboardMarkup) else [])
             if isinstance(method.reply_markup, ReplyKeyboardMarkup):
                 buttons = method.reply_markup.keyboard
-            if '<tg-emoji ' in method.text or any(button.icon_custom_emoji_id for row in buttons for button in row):
+            if '<tg-emoji ' in (getattr(method,'text',None) or getattr(method,'caption',None) or '') or any(button.icon_custom_emoji_id for row in buttons for button in row):
                 raise TelegramBadRequest(method=method, message='Bad Request: custom emoji not allowed')
         if self.fail_button_style and isinstance(method, (SendMessage, EditMessageText)):
             buttons = (method.reply_markup.inline_keyboard if isinstance(method.reply_markup, InlineKeyboardMarkup) else [])

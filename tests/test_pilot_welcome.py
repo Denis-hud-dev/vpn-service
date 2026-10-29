@@ -29,18 +29,17 @@ def test_first_start_preserves_banner_and_reply_navigation():
             await app.text('/start')
             banners = [call for call in app.calls if isinstance(call, SendPhoto)]
             assert len(banners) == 1
-            assert 'Три простых шага' in banners[0].caption and banners[0].reply_markup is None
+            assert 'Три простых шага' in banners[0].caption and isinstance(banners[0].reply_markup, ReplyKeyboardMarkup)
             banner_id = services.onboarding.rows[123]['message_id']
             assert app.navigation.views[123].message_id > banner_id
-            assert 'Свобода начинается здесь' in app.navigation.views[123].screen.text
-            assert '🔴 Подписка: не активна' in app.navigation.views[123].screen.text
-            keyboard = [call for call in app.calls if isinstance(call, SendMessage)
+            assert 'Выберите действие' in app.navigation.views[123].screen.text
+            assert 'nav:tariffs' in [b.callback_data for row in app.navigation.views[123].screen.keyboard.inline_keyboard for b in row]
+            keyboard = [call for call in app.calls if isinstance(call, (SendMessage, SendPhoto))
                         and isinstance(call.reply_markup, ReplyKeyboardMarkup)]
             assert len(keyboard) == 1
             assert [[button.text for button in row] for row in keyboard[0].reply_markup.keyboard] == [
-                ['🔑 Подключиться'], ['🏠 Личный кабинет', 'ℹ️ Информация']]
-            keyboard_id = next(mid for (chat, mid), msg in app.messages.items()
-                               if chat == 123 and msg.text == '◆ Навигация KudaVPN доступна внизу чата.')
+                ['💎 Купить VPN'], ['🔑 Подключиться'], ['🏠 Личный кабинет', 'ℹ️ Информация']]
+            keyboard_id = banner_id
             menu_id = app.navigation.views[123].message_id
             menu_buttons = [button.callback_data for row in app.navigation.views[123].screen.keyboard.inline_keyboard
                             for button in row]
@@ -59,13 +58,12 @@ def test_first_start_preserves_banner_and_reply_navigation():
             assert (123, keyboard_id) in app.messages
             await app.text('/start')
             assert len([call for call in app.calls if isinstance(call, SendPhoto)]) == 1
-            keyboard_calls = [call for call in app.calls if isinstance(call, SendMessage)
+            keyboard_calls = [call for call in app.calls if isinstance(call, (SendMessage, SendPhoto))
                               and isinstance(call.reply_markup, ReplyKeyboardMarkup)]
             assert len(keyboard_calls) == 2
             deleted = [call.message_id for call in app.calls if isinstance(call, DeleteMessage)]
             assert {menu_id, info_id, account_id} <= set(deleted)
-            assert len([msg for msg in app.messages.values() if msg.text ==
-                        '◆ Навигация KudaVPN доступна внизу чата.']) == 1
+            assert not any('Навигация KudaVPN' in (call.text or '') for call in app.calls if isinstance(call,SendMessage))
             assert (123, banner_id) in app.messages
             assert not any(isinstance(call, DeleteMessage) and call.message_id == banner_id for call in app.calls)
         finally:
@@ -108,7 +106,7 @@ def test_old_user_gets_keyboard_without_first_run_banner():
             await app.text('/start')
             await app.text('/start')
             assert not any(isinstance(call, SendPhoto) for call in app.calls)
-            assert len([call for call in app.calls if isinstance(call, SendMessage)
+            assert len([call for call in app.calls if isinstance(call, (SendMessage, SendPhoto))
                         and isinstance(call.reply_markup, ReplyKeyboardMarkup)]) == 2
             assert len([call for call in app.calls if isinstance(call, DeleteMessage)]) == 2
         finally:
@@ -262,7 +260,7 @@ def test_readonly_onboarding_state_does_not_break_start_or_keyboard():
         app = TelegramHarness(services=services)
         try:
             await app.text('/start')
-            keyboard = [call for call in app.calls if isinstance(call, SendMessage)
+            keyboard = [call for call in app.calls if isinstance(call, (SendMessage, SendPhoto))
                         and isinstance(call.reply_markup, ReplyKeyboardMarkup)]
             assert len(keyboard) == 1
             assert app.navigation.views[123].screen is not None
