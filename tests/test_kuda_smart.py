@@ -74,7 +74,12 @@ def test_smart_screen_mobile_payload_is_readable_and_has_no_mode_controls():
         buttons = [button for row in screen.keyboard.inline_keyboard for button in row]
         assert [button.callback_data for button in buttons] == ['nav:connect', 'nav:home']
         assert buttons[0].text in {'🚀 Подключить VPN', 'Подключить VPN'}
-        assert buttons[1].text == '⬅️ Назад'
+        if buttons[1].icon_custom_emoji_id:
+            from bot.premium_emoji import EMOJI
+            assert buttons[1].text == 'Назад'
+            assert buttons[1].icon_custom_emoji_id == EMOJI['back'].id
+        else:
+            assert buttons[1].text == '⬅️ Назад'
         assert all(button.url is None and len(button.text) <= 32
                    and len(button.callback_data.encode()) <= 64 for button in buttons)
 
