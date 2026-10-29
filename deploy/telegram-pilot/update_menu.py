@@ -17,7 +17,7 @@ from urllib.parse import urlsplit
 
 BOT='kudavpn-telegram-pilot-bot.service'
 ROOT=Path('/opt/kudavpn-telegram-pilot')
-OLD=ROOT/'app-purchase-menu-0d45896c9317'
+OLD=ROOT/'app-purchase-menu-fa1541ca22d1'
 DROPIN=Path('/etc/systemd/system')/(BOT+'.d')/'98-purchase-menu.conf'
 FILES=('bot/keyboards/main.py','bot/screens.py','bot/premium_emoji.py',
        'bot/handlers/start.py','bot/navigation.py')

@@ -79,10 +79,16 @@ async def start(message: Message, command: CommandObject, services: Services, na
                 await services.onboarding.record_welcome(user_id, sent.message_id)
             except (TelegramAPIError, OSError):
                 logger.warning("Pilot welcome unavailable; showing navigation")
-    # Always ask Telegram: a cached home screen may have been manually deleted.
-    await navigation.message(message, await home_for_user(
-        services, message.from_user.id if message.from_user else message.chat.id), verify=True,
-        bring_forward=services.premium_account_enabled)
+    screen = await home_for_user(services, user_id)
+    if pilot:
+        # Installing ReplyKeyboard sends a new hint. Keep the live menu below
+        # that hint even when /start immediately followed the previous menu.
+        await navigation.show(message.bot, message.chat.id, screen,
+                              verify=True, bring_forward=True)
+    else:
+        # A cached home screen may have been manually deleted.
+        await navigation.message(message, screen, verify=True,
+                                 bring_forward=services.premium_account_enabled)
     if not services.premium_account_enabled:
         try:
             await message.delete()

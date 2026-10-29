@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from aiogram.methods import DeleteMessage, SendMessage, SendPhoto
-from aiogram.types import ReplyKeyboardMarkup
+from aiogram.types import ReplyKeyboardMarkup, Update
 from sqlalchemy.exc import SQLAlchemyError
 
 from bot.screens import home
@@ -131,6 +131,34 @@ def test_repeat_start_refreshes_real_subscription_without_resetting_onboarding()
             assert services.onboarding.rows[123]['message_id'] == banner_id
             assert len([c for c in app.calls if isinstance(c, SendPhoto)]) == 1
             assert (123, banner_id) in app.messages
+        finally:
+            await app.close()
+    asyncio.run(run())
+
+
+def test_repeat_start_menu_is_below_keyboard_hint_with_real_telegram_message_ids():
+    async def run():
+        services = pilot(AccountSnapshot())
+        services.onboarding.known.add(123)
+        app = TelegramHarness(services=services)
+        try:
+            await app.text('/start')
+            old_menu = app.navigation.views[123].message_id
+            # Real Telegram shares one monotonically increasing chat sequence
+            # across incoming commands and outgoing bot messages.
+            incoming_id = old_menu + 1
+            app.sequence = incoming_id
+            app.update_id += 1
+            update = Update.model_validate({'update_id': app.update_id, 'message': {
+                'message_id': incoming_id, 'date': 1,
+                'chat': {'id': 123, 'type': 'private'},
+                'from': {'id': 123, 'is_bot': False, 'first_name': 'Tester'},
+                'text': '/start', 'entities': [{'type': 'bot_command', 'offset': 0, 'length': 6}]}})
+            await app.dispatcher.feed_update(app.bot, update)
+            hint = services.onboarding.rows[123]['keyboard_message_id']
+            assert app.navigation.views[123].message_id > hint > incoming_id
+            assert (123, old_menu) not in app.messages
+            assert not any(isinstance(c, DeleteMessage) and c.message_id == incoming_id for c in app.calls)
         finally:
             await app.close()
     asyncio.run(run())

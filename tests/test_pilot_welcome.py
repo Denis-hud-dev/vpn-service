@@ -110,7 +110,7 @@ def test_old_user_gets_keyboard_without_first_run_banner():
             assert not any(isinstance(call, SendPhoto) for call in app.calls)
             assert len([call for call in app.calls if isinstance(call, SendMessage)
                         and isinstance(call.reply_markup, ReplyKeyboardMarkup)]) == 2
-            assert len([call for call in app.calls if isinstance(call, DeleteMessage)]) == 1
+            assert len([call for call in app.calls if isinstance(call, DeleteMessage)]) == 2
         finally:
             await app.close()
     asyncio.run(run())
