@@ -1,0 +1,21 @@
+{
+  "feature_revision": "ab72c76b9e4cda3d9015d8e4aa9d89e426a442eb",
+  "installed_utc": "2026-10-30T18:25:57Z",
+  "service": "kudavpn-telegram-pilot-bot.service",
+  "pid": 554830,
+  "ready": true,
+  "runtime": "/opt/kudavpn-telegram-pilot/app-menu-links-ab72c76b9e4c",
+  "changed_files": 9,
+  "protected_services_unchanged": true,
+  "canonical_digest_equal_during_deploy": true,
+  "configuration_unchanged": true,
+  "banner_unchanged": true,
+  "encrypted_backup_bytes": 5551624,
+  "backup_ciphertext_hash_verified": true,
+  "real_start_repeat_account_connect_agent_verified": true,
+  "all_three_buttons_and_back_owner_confirmed": true,
+  "new_error_records": 0,
+  "other_service_restarts": 0,
+  "production_changes": false,
+  "owner_confirmation": "все работает"
+}

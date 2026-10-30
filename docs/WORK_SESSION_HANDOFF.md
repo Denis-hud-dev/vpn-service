@@ -1,6 +1,17 @@
 # KudaVPN — текущая передача состояния
 
 
+## Три кнопки ab72c76 развёрнуты в TEST и приняты владельцем — 30 октября2026
+
+[Итог, файлы, backup/rollback](public-menu-rollout-20261030.md). Не повторять обновление. Только TEST-бот: новыйruntime /opt/kudavpn-telegram-pilot/app-menu-links-ab72c76b9e4c, PID554830, служба kudavpn-telegram-pilot-bot.service, прежний user/health18081. Точный feature diff ab72c76 поверх рабочего707e130,9файлов. Весь PR29 и миграции не запускались. Установлено11:25:57PDT/18:25:57UTC. Один restart только TEST-бота; новая99-public-menu-links.conf лишь WorkingDirectory, старые drop-in и environment прежние.
+
+Backup /var/backups/kudavpn-telegram-pilot/menu-ab72c76b9e4c: encrypted age5551624bytes/0600,root0700, SHA проверен; старыйruntime/configs/unit/effectiveenvironment/onboarding. Секретный env только в encrypted потоке, без plaintext-копии на диске. Быстрый откат rollback.sh0700 удаляет только своё99 и restart толькобота; не восстанавливать БД/состояния пользователей. Установщик/guard/payload в /var/lib/kudavpn-ui-rollouts/menu-ab72c76b9e4c сохранить вместе со старымruntime. Offline rollback проверен в том числе MainPID0 и чужойoverride; нарочных сбоев живого бота не было.
+
+getMe/ready/настоящиеstart+repeatstart/кабинет/подключение проверены агентом в Telegram Mac. Новые3кнопки видны, баннер и нижняя клавиатура прежние, навигация очищается. CUA не нажимает inline в этом nativeклиенте: владелец сам проверил канал→Назад, сообщество→Назад,сайтHTTPS и ответил «все работает». owner-ui-acceptance.json сохранён вbackup. Новых error0. Protected snapshot остальныхслужб/конфигов/PG/listeners совпал; финансы/подписки/UUID/Happ прежние. Послеnormal/start users.updated_at/navstate естественно меняются; subscription/payment/token/history изменений0. DO/production/Monitor/backupсистема не тронуты.
+
+CIab72c76 success/run41104697034. Прежние77 targetedpassed; в этой сессии30 deployment/menu tests passed0skipped,1.88s; полного локального прогона не было. Исходники новогоустановщика и5tests сохранить втойжеветке PR29 вместе сdocs. Реальные screenshots только внеGit /Users/gr/Documents/KudaVPN-private/menu-rollout-20261030,0600. Канал/группа не созданы; дополнительных действий владельца не требуется. Остановиться, не начинать новые задачи.
+
+
 ## Три ссылки главного меню готовы в коде; НЕ развёрнуты — 30 октября2026
 
 [Отчёт и конфигурация](public-menu-links-20261030.md). В той же ветке PR29 подготовлены три отдельные inline-строки: Наш сайт → прямой URL закрытой главной20443, Наш канал/Наше сообщество → точные временные тексты и Назад. После заполнения PILOT_MENU_CHANNEL_URL/PILOT_MENU_COMMUNITY_URL кнопки становятся прямыми URL; сейчас адресов нет и канал/группа не создавались. PILOT_MENU_WEBSITE_URL имеет утверждённый default, только при существующем Premium TEST gate. Стандартный бот без этого gate не меняется. Иконки world/channel/community — существующие реальные ID, Unicode fallback сохранён.
