@@ -15,6 +15,8 @@ from urllib.parse import urlsplit
 
 BASE=Path('/var/backups/kudavpn-branding/ca0d10ece2f3')
 STAGE_NAMES=('website','feed','checkout','bot')
+READ_GUARD=Path('/opt/kudavpn-website-review/site-release-0d45896c9317/deploy/website-review/update_site.py')
+READ_GUARD_SHA='53218ba2ef70c85af5a6c39536e6cd6a963e1bfce0bb62a10f0297b013e509d1'
 UNITS=('xray.service','kudavpn-xray-alt8443.service','kudavpn-pilot-node.service',
  'kudavpn-pilot-two-node.service','kudavpn-telegram-pilot-bot.service',
  'kudavpn-telegram-pilot-feed.service','kudavpn-test-checkout.service',
@@ -75,7 +77,8 @@ def compare(before,after,allowed=None):
     if before!=after:raise ValueError('protected_state_changed')
 
 def data_digest():
-    path=Path('/opt/kudavpn-website-review/current/deploy/website-review/update_site.py')
+    path=READ_GUARD
+    if sha(path)!=READ_GUARD_SHA:raise ValueError('readonly_guard_changed')
     spec=importlib.util.spec_from_file_location('existing_readonly_guard',path)
     guard=importlib.util.module_from_spec(spec);spec.loader.exec_module(guard)
     return guard.digest()
@@ -241,7 +244,7 @@ if __name__=='__main__':
         manifest=json.loads((args.payload/'manifest.json').read_text())
         if manifest['approved']!='ca0d10ece2f3026a69c08c36f5759ed3fa0d1220':raise ValueError('source_revision_mismatch')
         if args.mode=='preflight':
-            validate_files(manifest['stages'][args.stage],args.payload/args.stage);test_bot_identity(manifest['stages'][args.stage]);snapshot();config_for_age();wait_ready(manifest['stages'][args.stage]['unit']);print(args.stage+'=preflight_passed')
+            validate_files(manifest['stages'][args.stage],args.payload/args.stage);test_bot_identity(manifest['stages'][args.stage]);snapshot();data_digest();config_for_age();wait_ready(manifest['stages'][args.stage]['unit']);print(args.stage+'=preflight_passed')
         else:
             with open('/run/kudavpn-branding.lock','w') as lock:
                 fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)

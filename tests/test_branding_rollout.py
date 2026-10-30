@@ -97,3 +97,11 @@ def test_failed_inplace_banner_update_restores_original(tmp_path,monkeypatch):
  monkeypatch.setattr(m,'wait_ready',ready)
  with pytest.raises(ValueError,match='simulated_failure'):m.apply('bot',{'stages':{'bot':stage}},payload)
  assert (old/'banner').read_bytes()==b'old'
+
+
+def test_readonly_guard_is_verified_before_import(tmp_path,monkeypatch):
+ m=load('rollout');guard=tmp_path/'guard.py';guard.write_text("def digest():return 'fixture-only'\n")
+ monkeypatch.setattr(m,'READ_GUARD',guard);monkeypatch.setattr(m,'READ_GUARD_SHA',m.sha(guard))
+ assert m.data_digest()=='fixture-only'
+ guard.write_text("raise RuntimeError('must-not-execute')\n")
+ with pytest.raises(ValueError,match='readonly_guard_changed'):m.data_digest()
