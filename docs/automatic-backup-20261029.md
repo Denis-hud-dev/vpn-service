@@ -105,8 +105,8 @@ Upload SSH private identities отдельные для каждого напр�
 
 **Реальная первая попытка30 октября05:17–05:18 UTC:**
 - live восстановлен и проверен PASS;
-- pilot также восстановился, revision и все table counts/hashes совпали;
-- отказ на строгом сравнении текстового CHECK premium_notice_kind. Lab удалён, рабочие containers неизменны. Все12 encrypted files Mac имели правильные SHA/размеры, OOM/аварии Docker не было.
+- pilot был импортирован; старый helper не сохранил отдельные результаты всех его дальнейших сравнений. Подтверждённый полный PASS первого отчёта относится только к live;
+- на схеме pilot доказан дефект строгого текстового сравнения CHECK premium_notice_kind, достаточный для отказа прежней проверки. Полный результат проверки строк pilot будет подтверждён повтором. Lab удалён, рабочие containers неизменны. Все12 encrypted files Mac имели правильные SHA/размеры, OOM/аварии Docker не было.
 - На schema-only копии без user rows воспроизведено1 различие для pilot и8 для website: только deparser representation CHECK clauses после dump/restore.
 - Исправление: никакого удаления casts/regex-normalization. В writable транзакции **только восстановленной lab** PostgreSQL повторно разбирает исходный CHECK во временное ограничение и сравнивает полную canonical clause. Транзакция откатывается. Имена/validation flags, столбцы/defaults/indexes и все не-CHECK constraints остаются строгими.
 - Обе реальные схемы теперь проходят backend canonical comparison. Намеренно другое CHECK(false) отвергнуто даже на пустых таблицах; нельзя подменить проверку семантики фактом прохождения существующих строк.
