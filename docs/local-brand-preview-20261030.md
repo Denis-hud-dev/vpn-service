@@ -50,6 +50,8 @@
 
 **54 passed /0 skipped**: `test_local_website_preview.py`, `test_brand_assets.py`, `test_connection_page.py`, `test_pilot_welcome.py`, `test_start_without_hint.py`, `test_start_premium_menu.py`, `test_registered_emoji_navigation.py`. В том числе4 новых HTTP-сценария: HTML/CSS/JS/image URLs, полный hero, тарифы199/499/1790, отсутствие созданных платежей/подписок, сохранение авторизации персональных маршрутов. Нормальный полный local suite не повторялся. Предыдущие158 тестов и CI7d92691 сохранены как исторический результат, не суммировать их с54.
 
+GitHub CI для кодового коммита `d443d27`: [run41056941088](https://github.com/Denis-hud-dev/vpn-service/actions/runs/41056941088), job test завершён успешно, включая hygiene/syntax/smoke/одноразовый PostgreSQL. Последующая правка обновляет только скриншоты после завершения анимации; размеры PNG/JPEG сверены с запрошенными viewport.
+
 `build_brand_assets.py --check`, `pip check`, `sh -n`, `git diff --check` прошли. HTTP `/`, `/__demo__/connect`, `/assets/logo.png` →200. Все запрошенные HTML-ресурсы в новых HTTP-тестах →200 с nosniff/private headers.
 
 Главная и страница подключения проверены на1440/390/375/320px:0 сломанных изображений, scrollWidth равен viewport, полный hero без обрезки. Вход/кабинет375px:0 переполнения. QR открывается, один локальный SVG. DOM-измерения: [подключение](local-brand-preview/responsive.json), [главная](local-brand-preview/site-responsive.json).
