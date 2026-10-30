@@ -1,0 +1,26 @@
+[
+  {
+    "broken": 0,
+    "hero": "/assets/logo.png",
+    "scrollWidth": 1440,
+    "width": 1440
+  },
+  {
+    "broken": 0,
+    "hero": "/assets/logo.png",
+    "scrollWidth": 390,
+    "width": 390
+  },
+  {
+    "broken": 0,
+    "hero": "/assets/logo.png",
+    "scrollWidth": 375,
+    "width": 375
+  },
+  {
+    "broken": 0,
+    "hero": "/assets/logo.png",
+    "scrollWidth": 320,
+    "width": 320
+  }
+]

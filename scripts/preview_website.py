@@ -1,6 +1,7 @@
 """Loopback-only visual demo; no secrets, real payments, nodes or server access."""
 import argparse
 import asyncio
+from datetime import timedelta
 import json
 from pathlib import Path
 import tempfile
@@ -22,6 +23,30 @@ from bot.subscription_api.connect_page import render_connection_page
 from bot.subscription_api.website import DEMO_COOKIE, create_website
 from tests.test_yookassa_test_mode import FakeYooKassa
 from bot.services.yookassa_api import YooKassaTestClient
+
+
+PREVIEW_NAV = ('<div class="review-bar" role="status">ЛОКАЛЬНЫЙ ПРЕДПРОСМОТР · '
+    'ВЫМЫШЛЕННЫЕ ДАННЫЕ · НЕ ИМПОРТИРУЙТЕ В HAPP · '
+    '<a href="/">Сайт</a> · <a href="/__demo__/connect">Страница подключения</a> · '
+    '<a href="/__demo__/login-screen">Экран входа</a></div>')
+
+
+PREVIEW_CSS = ('.local-preview-nav{padding:10px 18px;background:#0b1b31;color:#a8c9e8;'
+    'border-bottom:1px solid #203858;font:11px/1.7 system-ui,sans-serif;text-align:center;'
+    'overflow-wrap:anywhere}.local-preview-nav a{color:#79daff;white-space:nowrap}')
+
+
+def decorate_preview(html):
+    html = html.replace('</head>', '<link rel="stylesheet" href="/__demo__/preview.css"></head>')
+    nav = PREVIEW_NAV.replace('class="review-bar"', 'class="local-preview-nav"')
+    return html.replace('<body>', '<body>'+nav).replace(
+        '<body class="account-view">', '<body class="account-view">'+nav)
+
+
+def connection_preview(origin):
+    """Same real template, with an explicit fictional feed and no entitlement writes."""
+    return decorate_preview(render_connection_page(origin+'/__demo__/feed',
+        int((utcnow()+timedelta(days=25)).timestamp())))
 
 
 async def build(port, directory):
@@ -53,7 +78,7 @@ async def build(port, directory):
         if request.path in ('/', '/account') and response.status == 200:
             html = response.body.decode().replace('Оплаты тестовые · реальные продажи выключены',
                 'Локальная имитация аккаунта, оплаты и VPN · реальных списаний нет')
-            response.body = html.encode()
+            response.body = decorate_preview(html).encode()
         if request.path == '/api/orders' and response.status == 200:
             data = json.loads(response.body)
             if 'payment_url' in data:
@@ -111,6 +136,19 @@ async def build(port, directory):
         await auth.owner(request.cookies.get(DEMO_COOKIE,''))
         return web.Response(text='Демонстрация. Настоящих UUID/подписки нет. Не импортируйте в Happ.',content_type='text/plain')
 
+    async def visual_connection(request):
+        return web.Response(text=connection_preview(origin),content_type='text/html')
+
+    async def visual_login(request):
+        from bot.subscription_api.website import ASSETS
+        return web.Response(text=decorate_preview((ASSETS/'website-login.html').read_text()),content_type='text/html')
+
+    async def visual_css(request):
+        return web.Response(text=PREVIEW_CSS,content_type='text/css')
+
+    app.router.add_get('/__demo__/preview.css',visual_css)
+    app.router.add_get('/__demo__/connect',visual_connection)
+    app.router.add_get('/__demo__/login-screen',visual_login)
     app.router.add_get('/__demo__/login',login)
     app.router.add_get('/__demo__/pay/{order}',pay_page)
     app.router.add_post('/__demo__/pay/{order}',outcome)

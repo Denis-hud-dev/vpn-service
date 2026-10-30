@@ -1,5 +1,14 @@
 # KudaVPN — текущая передача состояния
 
+## Локальный предпросмотр восстановлен в постоянной папке — 30 октября 2026
+
+[Текущий отчёт/запуск/ограничения](local-brand-preview-20261030.md). Ветка PR29 восстановлена из7d92691 в `/Users/gr/Documents/KudaVPN-preview`: прежней /private/tmp/worktree нет, listener18118 отсутствовал. Не повторять реализацию логотипа: полный hero подключения уже был исправлен в7d92691, общий реестр подтверждён HTTP и браузером. Повторное вложение PNG точно совпало SHA256ea8160…; эталон не меняли. Старый вид на VPS локальным коммитом не обновляется, SSH/rollout запрещены в этой задаче.
+
+Теперь есть `.preview-venv` (ignored), `scripts/start_local_preview.command`, демо-ссылки `/__demo__/connect` и `/__demo__/login-screen` без покупки. Только loopback127.0.0.1:18118/fixture/tempSQLite/FakeYooKassa; ни реальных данных, ни приватных ключей. Процесс foreground; после закрытия Terminal/Codex/перезагрузки запустить command повторно. Не добавляли постоянные службы. HTTP200 подтверждён, Safari/Chrome реально открылись.54 профильных passed/0skipped; build --check/pip check/sh-n/diff-check PASS. Главная/подключение1440/390/375/320 без overflow/broken images, вход/кабинет375, QR работает. Скриншоты/метрики в docs/local-brand-preview; before — честно обозначенный архив, не liveVPS.
+
+Никаких изменённых рабочих шаблонов/платежей/auth/VPN/UUID/подписок/БД/Monitor/backups или BotAPI. Только локальные инструменты/tests/docs. Ждать утверждения дизайна и отдельного разрешения на TEST rollout (visual-only overlay, backup/rollback; не весь PR29 как бот и не update_menu.py вслепую). Нативный Telegram/физические телефоны не тестировали.
+
+
 ## Утверждённый прозрачный PNG: интеграция завершена локально — 30 октября 2026
 
 [Текущий отчёт](brand-png-correction-20261030.md), [сайт до/после](brand-png-preview/site-before-after.png), [Telegram-ресурс до/после](brand-png-preview/telegram-before-after.png), [набор/K](brand-png-preview/asset-preview.png). Изменения только в ветке PR #29 и loopback preview; серверы и Bot API не обновлялись. Старый отчёт JPEG в brand-unification-20261030.md теперь помечен историческим, не использовать его как цель rollout.
