@@ -105,3 +105,18 @@ def test_readonly_guard_is_verified_before_import(tmp_path,monkeypatch):
  assert m.data_digest()=='fixture-only'
  guard.write_text("raise RuntimeError('must-not-execute')\n")
  with pytest.raises(ValueError,match='readonly_guard_changed'):m.data_digest()
+
+
+def test_new_public_asset_parents_are_readable(tmp_path):
+ m=load('rollout');old=tmp_path/'old';old.mkdir();clone=tmp_path/'clone';(clone/'bot/assets/brand').mkdir(parents=True)
+ (clone/'bot/assets').chmod(0o700);(clone/'bot/assets/brand').chmod(0o700)
+ m.public_asset_directories(old,clone)
+ assert (clone/'bot/assets').stat().st_mode&0o777==0o755
+ assert (clone/'bot/assets/brand').stat().st_mode&0o777==0o755
+
+
+def test_existing_private_asset_parent_is_never_relaxed(tmp_path):
+ m=load('rollout');old=tmp_path/'old';(old/'bot/assets').mkdir(parents=True);clone=tmp_path/'clone';(clone/'bot/assets/brand').mkdir(parents=True)
+ (clone/'bot/assets').chmod(0o700)
+ with pytest.raises(ValueError,match='existing_asset_parent_private'):m.public_asset_directories(old,clone)
+ assert (clone/'bot/assets').stat().st_mode&0o777==0o700

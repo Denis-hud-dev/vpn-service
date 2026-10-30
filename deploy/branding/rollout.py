@@ -14,7 +14,7 @@ import urllib.request
 from urllib.parse import urlsplit
 
 BASE=Path('/var/backups/kudavpn-branding/ca0d10ece2f3')
-STAGE_NAMES=('website','feed','checkout','bot')
+STAGE_NAMES=('website','feed','feed_retry','checkout','bot')
 READ_GUARD=Path('/opt/kudavpn-website-review/site-release-0d45896c9317/deploy/website-review/update_site.py')
 READ_GUARD_SHA='53218ba2ef70c85af5a6c39536e6cd6a963e1bfce0bb62a10f0297b013e509d1'
 UNITS=('xray.service','kudavpn-xray-alt8443.service','kudavpn-pilot-node.service',
@@ -129,6 +129,27 @@ def validate_files(stage,payload):
             if target.exists():raise ValueError('unexpected_existing_file')
         elif not target.is_file() or sha(target)!=hashes['before']:raise ValueError('runtime_drift')
 
+def public_asset_directories(old,clone):
+    # Only directories introduced for public artwork may gain read/traverse access.
+    # Never relax an existing private directory copied from a working runtime.
+    for relative in ('bot/assets','bot/assets/brand'):
+        path=clone/relative
+        if (old/relative).exists():
+            if path.stat().st_mode & 0o005 != 0o005:raise ValueError('existing_asset_parent_private')
+        else:path.chmod(0o755)
+
+
+def verify_feed_artwork(deployed):
+    snapshot=json.loads(Path('/var/lib/kudavpn-website-export/snapshot.json').read_text())
+    origin=snapshot['account']['feed_url'].split('/s/')[0]
+    spec=importlib.util.spec_from_file_location('approved_brand_manifest',deployed/'bot/branding.py')
+    brand=importlib.util.module_from_spec(spec);spec.loader.exec_module(brand)
+    for name,(filename,mime) in brand.BRAND_IMAGES.items():
+        with urllib.request.urlopen(origin+'/assets/'+name,timeout=8) as response:
+            if response.status!=200 or hashlib.sha256(response.read()).hexdigest()!=sha(deployed/'bot/assets/brand'/filename):
+                raise ValueError('feed_artwork_unavailable')
+
+
 def atomic_copy(source,target):
     target=Path(target);temporary=target.with_name(target.name+'.kuda-brand-tmp')
     if temporary.exists():raise ValueError('temporary_collision')
@@ -204,7 +225,7 @@ def apply(name,manifest,payload):
         shutil.copytree(old,clone,ignore=shutil.ignore_patterns('__pycache__','.git'))
         for file in stage['files']:
             target=clone/file;target.parent.mkdir(parents=True,exist_ok=True);atomic_copy(payload/name/file,target)
-        (clone/'bot/assets/brand').chmod(0o755)
+        public_asset_directories(old,clone)
         previous=code_hashes(old);updated=code_hashes(clone)
         if {p:h for p,h in previous.items() if p not in stage['files']}!={p:h for p,h in updated.items() if p not in stage['files']}:raise ValueError('nonvisual_code_changed')
         # Import the actual old entrypoint under its existing service identity, no application startup.
@@ -227,6 +248,7 @@ def apply(name,manifest,payload):
         installed=unit(stage['unit'])
         if installed['User']!=row['User'] or installed['WorkingDirectory']!=str(clone if stage['restart'] else old):raise ValueError('service_identity_changed')
         deployed=clone if stage['restart'] else old
+        if name in ('feed','feed_retry'):verify_feed_artwork(deployed)
         for file,entry in stage['files'].items():
             if sha(deployed/file)!=entry['after']:raise ValueError('installed_file_mismatch')
         save(folder/'accepted.json',{'ready':True,'only_visual_files':True,'canonical_data_unchanged':True,
