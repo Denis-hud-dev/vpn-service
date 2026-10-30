@@ -1,0 +1,231 @@
+{
+  "connect": [
+    {
+      "images": [
+        {
+          "fit": "contain",
+          "height": 52,
+          "loaded": true,
+          "src": "/assets/logo-small.png",
+          "width": 52
+        },
+        {
+          "fit": "contain",
+          "height": 157.578125,
+          "loaded": true,
+          "src": "/assets/logo.png",
+          "width": 187.1953125
+        }
+      ],
+      "page": "connect",
+      "qr": 1,
+      "scrollWidth": 320,
+      "width": 320
+    },
+    {
+      "images": [
+        {
+          "fit": "contain",
+          "height": 52,
+          "loaded": true,
+          "src": "/assets/logo-small.png",
+          "width": 52
+        },
+        {
+          "fit": "contain",
+          "height": 184.6640625,
+          "loaded": true,
+          "src": "/assets/logo.png",
+          "width": 219.375
+        }
+      ],
+      "page": "connect",
+      "qr": 1,
+      "scrollWidth": 375,
+      "width": 375
+    },
+    {
+      "images": [
+        {
+          "fit": "contain",
+          "height": 52,
+          "loaded": true,
+          "src": "/assets/logo-small.png",
+          "width": 52
+        },
+        {
+          "fit": "contain",
+          "height": 192.046875,
+          "loaded": true,
+          "src": "/assets/logo.png",
+          "width": 228.1484375
+        }
+      ],
+      "page": "connect",
+      "qr": 1,
+      "scrollWidth": 390,
+      "width": 390
+    },
+    {
+      "images": [
+        {
+          "fit": "contain",
+          "height": 52,
+          "loaded": true,
+          "src": "/assets/logo-small.png",
+          "width": 52
+        },
+        {
+          "fit": "contain",
+          "height": 202.03125,
+          "loaded": true,
+          "src": "/assets/logo.png",
+          "width": 240
+        }
+      ],
+      "page": "connect",
+      "qr": 1,
+      "scrollWidth": 480,
+      "width": 480
+    },
+    {
+      "images": [
+        {
+          "fit": "contain",
+          "height": 64,
+          "loaded": true,
+          "src": "/assets/logo-small.png",
+          "width": 64
+        },
+        {
+          "fit": "contain",
+          "height": 319.8828125,
+          "loaded": true,
+          "src": "/assets/logo.png",
+          "width": 380
+        }
+      ],
+      "page": "connect",
+      "qr": 1,
+      "scrollWidth": 1440,
+      "width": 1440
+    }
+  ],
+  "home": [
+    {
+      "brokenImages": 0,
+      "logos": [
+        {
+          "fit": "contain",
+          "height": 56,
+          "width": 56
+        },
+        {
+          "fit": "contain",
+          "height": 179.296875,
+          "width": 213
+        }
+      ],
+      "page": "home",
+      "prices": [
+        "Выбрать",
+        "Выбрать",
+        "Выбрать"
+      ],
+      "scrollWidth": 320,
+      "width": 320
+    },
+    {
+      "brokenImages": 0,
+      "logos": [
+        {
+          "fit": "contain",
+          "height": 56,
+          "width": 56
+        },
+        {
+          "fit": "contain",
+          "height": 208.34375,
+          "width": 247.5
+        }
+      ],
+      "page": "home",
+      "prices": [
+        "Выбрать",
+        "Выбрать",
+        "Выбрать"
+      ],
+      "scrollWidth": 375,
+      "width": 375
+    },
+    {
+      "brokenImages": 0,
+      "logos": [
+        {
+          "fit": "contain",
+          "height": 56,
+          "width": 56
+        },
+        {
+          "fit": "contain",
+          "height": 208.34375,
+          "width": 247.5
+        }
+      ],
+      "page": "home",
+      "prices": [
+        "Выбрать",
+        "Выбрать",
+        "Выбрать"
+      ],
+      "scrollWidth": 390,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "logos": [
+        {
+          "fit": "contain",
+          "height": 56,
+          "width": 56
+        },
+        {
+          "fit": "contain",
+          "height": 208.34375,
+          "width": 247.5
+        }
+      ],
+      "page": "home",
+      "prices": [
+        "Выбрать",
+        "Выбрать",
+        "Выбрать"
+      ],
+      "scrollWidth": 480,
+      "width": 480
+    },
+    {
+      "brokenImages": 0,
+      "logos": [
+        {
+          "fit": "contain",
+          "height": 72,
+          "width": 72
+        },
+        {
+          "fit": "contain",
+          "height": 403.6875,
+          "width": 479.5625
+        }
+      ],
+      "page": "home",
+      "prices": [
+        "Выбрать",
+        "Выбрать",
+        "Выбрать"
+      ],
+      "scrollWidth": 1440,
+      "width": 1440
+    }
+  ]
+}
