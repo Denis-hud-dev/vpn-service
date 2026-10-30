@@ -1,115 +1,215 @@
 {
-  "source": "original.jpeg",
-  "source_sha256": "084ba43d6f5cd0ae8e51c6896db141dd9c78f0d80807917ef8917becaeda2337",
+  "source": "original.png",
+  "source_sha256": "ea8160b3667452aceac8b3939308046dcf2585c57fd4f78d98f47bf84d5547d4",
   "source_size": [
-    1254,
-    1254
+    1367,
+    1151
   ],
-  "transform": "contain; centered; black letterbox; no crop",
+  "source_mode": "RGBA",
+  "source_alpha_range": [
+    0,
+    254
+  ],
+  "transform": "full composition: contain with native alpha; K only: authorized pixel selection",
+  "symbol_selection": {
+    "polygon": [
+      [
+        690,
+        174
+      ],
+      [
+        945,
+        288
+      ],
+      [
+        945,
+        330
+      ],
+      [
+        997,
+        333
+      ],
+      [
+        740,
+        528
+      ],
+      [
+        942,
+        716
+      ],
+      [
+        697,
+        851
+      ],
+      [
+        424,
+        698
+      ],
+      [
+        423,
+        297
+      ]
+    ],
+    "crop": [
+      405,
+      155,
+      1016,
+      870
+    ],
+    "margin": 8
+  },
   "products": {
+    "k-symbol.png": {
+      "size": [
+        611,
+        715
+      ],
+      "source": "symbol",
+      "sha256": "6964bcec94403b6ccad5ad53a328d089c6b750571637d92f063113a119f2786e"
+    },
     "logo-512.png": {
       "size": [
         512,
-        512
+        431
       ],
+      "source": "full",
+      "padding": 0,
+      "flattened": false,
       "source_bounds": [
         0,
         0,
         512,
-        512
+        431
       ],
-      "sha256": "9ca1fef2fdf9b6257d7da39048275c663eeef78aa3445ee649d3bfecec5ff50d"
+      "sha256": "f04db487c284fa3b0d25ed82ea389859747d1b92ce0f6ddae251c60a0e86e439"
+    },
+    "logo-1024.png": {
+      "size": [
+        1024,
+        862
+      ],
+      "source": "full",
+      "padding": 0,
+      "flattened": false,
+      "source_bounds": [
+        0,
+        0,
+        1024,
+        862
+      ],
+      "sha256": "533e3f9d396cd53fcf97bd21b11992a072de9fa05b0bc4edc564d02140601f82"
     },
     "logo-192.png": {
       "size": [
         192,
         192
       ],
+      "source": "symbol",
+      "padding": 8,
+      "flattened": false,
       "source_bounds": [
-        0,
-        0,
-        192,
-        192
+        21,
+        8,
+        150,
+        176
       ],
-      "sha256": "ec6372542adb39f97b714bc9901868e49c9b4a8b98947a79d0c648108fda216a"
+      "sha256": "4b31dc18b780ca5a0c7b8615d2f20c64fa89302bcd6c2ef58c64d4988a26f7a9"
     },
     "telegram-welcome.png": {
       "size": [
         1280,
         720
       ],
+      "source": "full",
+      "padding": 0,
+      "flattened": true,
       "source_bounds": [
-        280,
+        212,
         0,
-        720,
+        855,
         720
       ],
-      "sha256": "5dd3d93a3583c15e2f753c51506a4738ab3f678129ec70630f3f105b8311f9b9"
+      "sha256": "090612b41a2e8728fecc5809a332a83169b66a90ff4093e84c361286665b725b"
     },
     "description-640x360.png": {
       "size": [
         640,
         360
       ],
+      "source": "full",
+      "padding": 0,
+      "flattened": true,
       "source_bounds": [
-        140,
+        106,
         0,
-        360,
+        428,
         360
       ],
-      "sha256": "ae60518bc80e763a6e4d55f6d5c014ba7124498f8d7e22622e5cc511b68de682"
+      "sha256": "cd87bde993202d4dff40ce03586436cd9d68936514b2ca16d1c0dfb140c1d543"
     },
     "avatar-1024.png": {
       "size": [
         1024,
         1024
       ],
+      "source": "symbol",
+      "padding": 128,
+      "flattened": true,
       "source_bounds": [
-        0,
-        0,
-        1024,
-        1024
+        184,
+        128,
+        656,
+        768
       ],
-      "sha256": "ce02dee96644c63e3aef872cc86d3bd759724f5a4231084c1dda6aaaa88e833b"
+      "sha256": "276ae8d5fb44c97b7b74cc0ac8fe945398fff89748369112badabfb2c140af70"
     },
     "favicon-32.png": {
       "size": [
         32,
         32
       ],
+      "source": "symbol",
+      "padding": 2,
+      "flattened": false,
       "source_bounds": [
+        4,
         2,
-        2,
-        28,
+        24,
         28
       ],
-      "sha256": "d925fda017481602487eb09c95410a13f2135d9339ef3e284055d03db8dabe64"
+      "sha256": "a088a51933ea3d7142fea493095ce64a874dabb235f0ad99079d2d4a44ce9259"
     },
     "favicon-64.png": {
       "size": [
         64,
         64
       ],
+      "source": "symbol",
+      "padding": 4,
+      "flattened": false,
       "source_bounds": [
+        8,
         4,
-        4,
-        56,
+        48,
         56
       ],
-      "sha256": "71a9a9fd39a831a12d17090d78374693cde9bfaa82add867b6d79f094d0a85ad"
+      "sha256": "0fa3325cb8216ba0fd071ad7059f1ed29f57a0a9ead2b47e41c6c4b9de20f909"
     },
     "favicon-128.png": {
       "size": [
         128,
         128
       ],
+      "source": "symbol",
+      "padding": 8,
+      "flattened": false,
       "source_bounds": [
+        16,
         8,
-        8,
-        112,
+        96,
         112
       ],
-      "sha256": "767c8c36b0a3d7ab87cb99cc2a0e3aacf3c360bbde29fff9f0b89bbaacc2d4fa"
+      "sha256": "341b45bbf2700869d26d02362bbe87107abba4007fcabcdc2eb0ab4493e3a766"
     },
     "favicon.ico": {
       "sizes": [
@@ -126,7 +226,23 @@
           128
         ]
       ],
-      "sha256": "3a41e8e9412e7f2ddba66fec11b077a47517e5bf6265bc218c62913581123651"
+      "sha256": "dfcbe714d79f4bce182c01247400cbe99b27edb116a9fa2176649df06bd16aec"
+    },
+    "avatar-1024.jpg": {
+      "size": [
+        1024,
+        1024
+      ],
+      "flattened": true,
+      "sha256": "ed807f1f0f76790eeb11776e4d48eb76c32b809d1bc06f3e525a664062c23012"
+    },
+    "legacy-logo.jpg": {
+      "size": [
+        1367,
+        1151
+      ],
+      "flattened": true,
+      "sha256": "c4524693897fc5c9e96b2652631dac9b880e56482544335fb5c65e03c5b138b7"
     }
   }
 }

@@ -209,7 +209,12 @@ def create_website(service, auth, ledger, origin, *, local_demo=False, closed_re
         if request.match_info['name'] == 'login.css':
             return web.Response(body=(ASSETS/'website-login.css').read_bytes(),content_type='text/css')
         if request.match_info['name'] == 'logo.png':
-            path, mime = brand_image('logo.png')
+            # Static artwork variants share the existing public image path.
+            # Authentication, identity checks and the public-path list stay intact.
+            variant = request.query.get('variant', 'full')
+            if variant not in ('full', 'icon'):
+                raise web.HTTPNotFound()
+            path, mime = brand_image('logo-small.png' if variant == 'icon' else 'logo.png')
             return web.Response(body=path.read_bytes(),content_type=mime)
         raise web.HTTPNotFound()
     app.router.add_get('/auth/assets/{name}', login_asset)

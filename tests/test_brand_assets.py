@@ -5,25 +5,30 @@ from io import BytesIO
 import json
 from pathlib import Path
 
-from PIL import Image, ImageChops, ImageOps
+from PIL import Image, ImageOps
 import pytest
 
 from bot.branding import BRAND_DIR, BRAND_IMAGES, ORIGINAL_LOGO, WELCOME_BANNER, brand_image
 from bot.handlers.start import BANNER
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE_HASH = '084ba43d6f5cd0ae8e51c6896db141dd9c78f0d80807917ef8917becaeda2337'
+SOURCE_HASH = 'ea8160b3667452aceac8b3939308046dcf2585c57fd4f78d98f47bf84d5547d4'
 
 
 def test_one_original_matches_owner_attachment_without_reencoding():
     assert hashlib.sha256(ORIGINAL_LOGO.read_bytes()).hexdigest() == SOURCE_HASH
-    assert Image.open(ORIGINAL_LOGO).size == (1254, 1254)
+    source = Image.open(ORIGINAL_LOGO)
+    assert source.size == (1367, 1151) and source.mode == 'RGBA'
+    alpha = source.getchannel('A')
+    assert alpha.getextrema() == (0, 254)
+    assert alpha.histogram()[0] == 649621
+    assert not (BRAND_DIR/'original.jpeg').exists()
     assert list(ROOT.rglob('kudavpn-orbit-emblem.png')) == []
     assert not (ROOT/'bot/assets/telegram-avatar-original.jpg').exists()
     assert not (ROOT/'scripts/render_welcome_banner.swift').exists()
 
 
-@pytest.mark.parametrize('name', ['logo-512.png', 'logo-192.png', 'telegram-welcome.png',
+@pytest.mark.parametrize('name', ['logo-512.png', 'logo-1024.png', 'logo-192.png', 'telegram-welcome.png',
     'description-640x360.png', 'avatar-1024.png', 'favicon-32.png', 'favicon-64.png', 'favicon-128.png'])
 def test_every_png_contains_entire_source_with_proportions_and_original_colors(name):
     manifest = json.loads((BRAND_DIR/'manifest.json').read_text())
@@ -33,13 +38,21 @@ def test_every_png_contains_entire_source_with_proportions_and_original_colors(n
     image = Image.open(BytesIO(raw))
     assert image.format == 'PNG' and image.size == tuple(entry['size'])
     x, y, width, height = entry['source_bounds']
-    assert width == height  # The square owner artwork is never stretched.
     assert x == (image.width-width)//2 and y == (image.height-height)//2
-    source = Image.open(ORIGINAL_LOGO).convert('RGB')
+    source = Image.open(ORIGINAL_LOGO if entry['source'] == 'full' else BRAND_DIR/'k-symbol.png').convert('RGBA')
+    assert abs(width/height-source.width/source.height) < 1/height  # Only integer-pixel rounding.
     contained = ImageOps.contain(source, (width, height), Image.Resampling.LANCZOS)
-    expected = Image.new('RGB', image.size, (0, 0, 0))
+    expected = Image.new('RGBA', image.size, (0, 0, 0, 0))
     expected.paste(contained, (x, y))
-    assert ImageChops.difference(image.convert('RGB'), expected).getbbox() is None
+    if entry['flattened']:
+        base = Image.new('RGBA', image.size, (4, 10, 23, 255))
+        base.alpha_composite(expected)
+        expected = base.convert('RGB')
+        assert image.mode == 'RGB'
+    else:
+        assert image.mode == 'RGBA'
+        assert image.getpixel((0,0))[3] == 0
+    assert image.mode == expected.mode and image.tobytes() == expected.tobytes()
 
 
 def test_telegram_and_botfather_sizes_and_single_source_are_real():
@@ -47,7 +60,8 @@ def test_telegram_and_botfather_sizes_and_single_source_are_real():
     assert Image.open(BANNER).size == (1280, 720)
     assert Image.open(BRAND_DIR/'description-640x360.png').size == (640, 360)
     config = json.loads((ROOT/'deploy/telegram-pilot/profile.json').read_text())
-    assert ROOT/config['avatar'] == ORIGINAL_LOGO
+    assert ROOT/config['avatar'] == BRAND_DIR/'avatar-1024.jpg'
+    assert Image.open(ROOT/config['avatar']).format == 'JPEG'
 
 
 def test_favicon_frames_and_registry_reject_unregistered_paths():
@@ -55,11 +69,38 @@ def test_favicon_frames_and_registry_reject_unregistered_paths():
     assert image.format == 'ICO'
     assert image.ico.sizes() == {(32, 32), (64, 64), (128, 128)}
     assert brand_image('kudavpn-orbit-emblem.png') == brand_image('logo.png')
-    assert brand_image('kudavpn-original-logo.jpeg')[0] == ORIGINAL_LOGO
+    assert brand_image('kudavpn-original-logo.png')[0] == ORIGINAL_LOGO
+    assert brand_image('kudavpn-original-logo.jpeg')[0] == BRAND_DIR/'legacy-logo.jpg'
     for name in BRAND_IMAGES:
         assert brand_image(name)[0].is_file()
     for name in ('../original.jpeg', 'manifest.json', 'unknown.svg'):
         with pytest.raises(KeyError): brand_image(name)
+
+
+def test_compact_k_is_selected_original_pixels_without_repainting():
+    manifest = json.loads((BRAND_DIR/'manifest.json').read_text())
+    crop = manifest['symbol_selection']['crop']
+    source = Image.open(ORIGINAL_LOGO).crop(crop)
+    symbol = Image.open(BRAND_DIR/'k-symbol.png')
+    assert symbol.size == source.size == (611,715)
+    assert symbol.mode == 'RGBA'
+    for band in 'RGB':
+        assert symbol.getchannel(band).tobytes() == source.getchannel(band).tobytes()
+    assert all(b == 0 or b == a for a,b in zip(source.getchannel('A').tobytes(),symbol.getchannel('A').tobytes()))
+    assert symbol.getchannel('A').histogram()[0] > source.getchannel('A').histogram()[0]
+    assert symbol.getpixel((300,300)) == source.getpixel((300,300))
+
+
+def test_only_technical_jpegs_are_flattened_and_source_is_still_png():
+    for name in ('avatar-1024.jpg','legacy-logo.jpg'):
+        image = Image.open(BRAND_DIR/name)
+        assert image.format == 'JPEG'
+        assert max(abs(a-b) for a,b in zip(image.getpixel((0,0)),(4,10,23))) <= 3
+    static = ROOT/'bot/subscription_api/static'
+    for name in ('website.html','website-login.html'):
+        assert '.jpeg' not in (static/name).read_text()
+    icon = Image.open(BRAND_DIR/'favicon.ico').ico.getimage((32,32))
+    assert icon.mode == 'RGBA' and icon.getpixel((0,0))[3] == 0
 
 
 def test_templates_never_request_cropped_emblem_or_recolor_logo():
@@ -106,4 +147,8 @@ def test_all_surfaces_serve_same_real_images_and_legacy_aliases(surface):
                 response = await client.get('/auth/assets/logo.png')
                 assert response.status == 200
                 assert await response.read() == brand_image('logo.png')[0].read_bytes()
+                icon = await client.get('/auth/assets/logo.png?variant=icon')
+                assert icon.status == 200
+                assert await icon.read() == brand_image('logo-small.png')[0].read_bytes()
+                assert (await client.get('/auth/assets/logo.png?variant=../manifest.json')).status == 404
     asyncio.run(run())

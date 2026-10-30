@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import hashlib
 from pathlib import Path
 import pytest
 ROOT=Path(__file__).resolve().parents[1]
@@ -35,7 +36,9 @@ def test_description_avatar_and_empty_chat_copy_are_valid():
  assert 0<len(c['description'])<=512 and 0<len(c['short_description'])<=120
  assert '199' in c['description'] and 'Happ' in c['description']
  assert '<' not in c['description'] and 'https://' not in c['description']
- assert (ROOT/c['avatar']).read_bytes()==(ROOT/'bot/assets/brand/original.jpeg').read_bytes()
+ manifest=json.loads((ROOT/'bot/assets/brand/manifest.json').read_text())
+ assert c['avatar']=='bot/assets/brand/avatar-1024.jpg'
+ assert hashlib.sha256((ROOT/c['avatar']).read_bytes()).hexdigest()==manifest['products']['avatar-1024.jpg']['sha256']
 
 
 def test_profile_update_changes_only_test_bot_metadata_and_has_backup(tmp_path):

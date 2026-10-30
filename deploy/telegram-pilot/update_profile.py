@@ -1,5 +1,6 @@
 """TEST-bot public profile only. No messages, users, payments or server settings."""
 import json
+import hashlib
 import os
 from pathlib import Path
 import secrets
@@ -118,7 +119,9 @@ def main(mode,revision):
     if mode!='apply':raise SafeFailure('invalid_mode')
     config=json.loads((source/'deploy/telegram-pilot/profile.json').read_text())
     avatar=(source/config['avatar']).read_bytes()
-    assert avatar==(source/'bot/assets/brand/original.jpeg').read_bytes()
+    manifest=json.loads((source/'bot/assets/brand/manifest.json').read_text())
+    assert config['avatar']=='bot/assets/brand/avatar-1024.jpg'
+    assert hashlib.sha256(avatar).hexdigest()==manifest['products']['avatar-1024.jpg']['sha256']
     print(json.dumps(apply(api,api.download,backup,config,avatar)))
 
 

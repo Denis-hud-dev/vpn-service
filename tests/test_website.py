@@ -303,6 +303,9 @@ def test_closed_review_denies_anonymous_and_foreign_identity_before_writes(tmp_p
                 assert '199' not in await response.text()
             assert (await p.http.get('/auth/assets/login.css')).status==200
             assert (await p.http.get('/auth/assets/logo.png')).status==200
+            compact = await p.http.get('/auth/assets/logo.png?variant=icon')
+            assert compact.status==200 and (await compact.read()).startswith(b'\x89PNG\r\n\x1a\n')
+            assert (await p.http.get('/auth/assets/logo.png?variant=../owner.json')).status==404
             for foreign in (502,503):
                 with pytest.raises(PermissionError):await login(p,foreign)
             async with p.db() as session:
