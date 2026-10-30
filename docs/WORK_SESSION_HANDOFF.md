@@ -12,7 +12,7 @@ Fresh real Telegram OAuth passed; owner session survives navigation. Anonymous r
 
 Banner delivered once as preview message206, do not resend. Native Telegram Mac shows new banner, repeatedstart has no banner repeat, keyboard/catalog/info/connect/account work. First new real account not tested/reset; fixtures passed. No Bot API profile/avatar changes.
 
-46 targeted passed/0skipped,4.51s. CI21651b0 success; check final published HEAD in GitHub after pushing36b3e32 and acceptance docs. Shallow CI may skip overlay construction without old Git objects; full-history local test passed. Public screenshots/metrics in docs/branding-rollout-20261030. Actual account/private expiry screenshots only outside Git at /Users/gr/Documents/KudaVPN-private/branding-review-20261030,0600. IAB tab7 left on/account, ordinary session TTL1h; request normal owner login if expired, never alter auth.
+46 targeted passed/0skipped,4.51s. Final CI initially stopped on a JPEG DHT table matching the token heuristic in the native screenshot; converted to real PNG with identical pixel hash. Hygiene remains enabled. CI21651b0 success; check final published HEAD in GitHub after pushing36b3e32 and acceptance docs. Shallow CI may skip overlay construction without old Git objects; full-history local test passed. Public screenshots/metrics in docs/branding-rollout-20261030. Actual account/private expiry screenshots only outside Git at /Users/gr/Documents/KudaVPN-private/branding-review-20261030,0600. IAB tab7 left on/account, ordinary session TTL1h; request normal owner login if expired, never alter auth.
 
 Stop for owner's Android/iPhone/Mac/Happ acceptance. Physical VPN connection and first new real user remain manual. No production, payment, profile or new-feature work.
 
