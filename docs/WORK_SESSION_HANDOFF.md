@@ -1,5 +1,16 @@
 # KudaVPN — текущая передача состояния
 
+## Утверждённый TEST rollout: preflight PASS, применение ещё не начато — 30 октября2026
+
+Владелец разрешил только утверждённое оформление JustHost/TEST-бота. Все4 preflight прошли: website0d45896, feedecf526d, checkout08fbff6, bot707e130; все заменяемые старые файлы совпали с Git-хешами. Никаких неожиданных drift/незакоммиченных изменений не найдено. DigitalOcean не подключали.
+
+Подготовлены deploy/branding/build_overlay.py и rollout.py +7 offline regression tests; всего43 профильных passed. Пакет approved ca0d10e, visual-only transplants asset/login_asset с AST equality вне них; старый website/payment DOM и JS остаются прежними. Полную ветку не загружать как runtime. Staging `/var/tmp/kuda-brand-ca0d10ece2f3`, payload/manifest.json; в Mac `/private/tmp/kuda-brand-payload`; SSH wrapper `/private/tmp/kuda-brand-ssh` с существующим pinned host key/askpass, без вывода секретов. После последнего изменения rollout.py с getMe identity check повторно загрузить только этот файл и выполнить preflight bot.
+
+План: по одному apply website,feed,checkout,bot через `python3 /var/tmp/kuda-brand-ca0d10ece2f3/rollout.py apply <stage> /var/tmp/kuda-brand-ca0d10ece2f3/payload`. Website/feed clone текущегоruntime +разрешённые visual files, новый99-approved-branding.conf, restart только соответствующего TEST HTTPS unit. Checkout и bot только атомарная замена графики/HTMLfavicon по существующим путям, без restart и без бизнес-кода. До каждого применения шифрованная копия runtime+configs в `/var/backups/kudavpn-branding/ca0d10ece2f3/<stage>` (age public recipient из существующего config читается без изменения backup-системы), protected PID/config/listener+canonical-data SHA, rollback.sh. Не расшифровывать без владельца; быстрый откат не требует ключа: старые runtime/override остаются, новые drop-in удаляются; public visual originals закрыто сохранены. Автоматический откат при ошибке. PostgreSQL толькоSELECT digest; ни миграций, ни восстановления данных, ни ключей/UUID/feed links.
+
+Послеapply: endpoints/owner-only/auth/точныеassets SHA/mobile320/375/390/480/1440/JS, реальные /start+кнопки TEST; first-start только fixture без сброса owner onboarding, отдельная отправка тестового баннера только владельцу при необходимости. Для браузерного OAuth может понадобиться подтверждение владельца. Профиль/аватарку Bot API НЕ менять. После результата обновить эту запись factual receipt и остановиться для Android/Mac приёмки.
+
+
 ## Мобильный логотип уменьшен; только локально/PR29 — 30 октября2026
 
 [Отчёт и сравнения](mobile-logo-20261030.md). Поверх d4a98ca добавлены только max-width480 CSS overrides connect.css/website.css/website-login.css. Полный логотип ровно75% прежнего размера; меньше вертикальных отступов. После480 прежние размеры: проверены481/768/1440. Исходные изображения/hash/alpha не менялись. Никаких ботов, auth/payment logic, серверов или данных.
