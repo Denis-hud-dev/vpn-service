@@ -1,5 +1,13 @@
 # KudaVPN — текущая передача состояния
 
+## Исправление ложных ошибок Monitor подготовлено — 30 октября2026
+
+[Отчёт, алгоритм, проверки и план применения](monitor-event-accounting-20261030.md). PR29, только код/тесты/документация; серверы НЕ обновлены, Monitor НЕ перезапускался. Требуется отдельное подтверждение владельца до любых server changes. Не выполнять старый initial installer изPR28.
+
+Существующий runtime Monitor перенесён изветки PR28 (вPR29 его не было). Типизированные polling-события и JSON/journald IDs вместо regex error: fixture выявленных сбоев18→6 (5TelegramServerError+1TelegramNetworkError), last30.10 01:20:18UTC. Неоднозначный/обрезанный журнал→Количество не определено. История→warning, текущие критические отказы→red. Legacycontrol retired только при disabled/inactive/no restart/no PID/no reverse dependencies/no enabled9443access, иначеunknown/error. Xray9443+TCP9443 остаютсяcritical. 84 профильных тестаpassed, без внешних обращений/уведомлений. Full4h, owner-only, persistentdedup/watchdog сохранены.
+
+Дляприменения нужен restart только kudavpn-monitor.service наJustHost(primary) иDigitalOcean(watchdog), последовательно; collector oneshot kudavpn-monitor-collect.service обновить послеобоихworkers, timerне менять. Обязательно удержатьcollector настаромrelease дообновленияworkers, preserveSQLiteoffset/receipts/fullslot, backupMonitorconfig/state, rollbackcollectorпервым. Никаких productionbot/Postgres/Xray/backup/payment changes. Последний завершённыйbackupэтапниже не повторять.
+
 ## Автоматическое резервирование принято; реальный restore PASS — 30 октября2026
 
 [Операционный отчёт и аварийная процедура](automatic-backup-20261029.md), [безопасный acceptance receipt](backup-acceptance-20261030.json). Задача завершена, не повторять dump/restore и не возвращаться к YooKassa/Stars/миграцииDO без нового задания.
