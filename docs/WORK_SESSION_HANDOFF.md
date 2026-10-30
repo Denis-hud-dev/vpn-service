@@ -1,12 +1,12 @@
 # KudaVPN — текущая передача состояния
 
-## Исправление ложных ошибок Monitor подготовлено — 30 октября2026
+## Исправление ложных ошибок Monitor подготовлено — 30 октября 2026
 
-[Отчёт, алгоритм, проверки и план применения](monitor-event-accounting-20261030.md). PR29, только код/тесты/документация; серверы НЕ обновлены, Monitor НЕ перезапускался. Требуется отдельное подтверждение владельца до любых server changes. Не выполнять старый initial installer изPR28.
+[Отчёт, алгоритм, тесты и план применения](monitor-event-accounting-20261030.md). PR #29: только код, тесты и документация. Серверы не обновлены, Monitor не перезапускался. До любых серверных изменений требуется отдельное подтверждение владельца. Не использовать старый первоначальный установщик из PR #28.
 
-Существующий runtime Monitor перенесён изветки PR28 (вPR29 его не было). Типизированные polling-события и JSON/journald IDs вместо regex error: fixture выявленных сбоев18→6 (5TelegramServerError+1TelegramNetworkError), last30.10 01:20:18UTC. Неоднозначный/обрезанный журнал→Количество не определено. История→warning, текущие критические отказы→red. Legacycontrol retired только при disabled/inactive/no restart/no PID/no reverse dependencies/no enabled9443access, иначеunknown/error. Xray9443+TCP9443 остаютсяcritical. 84 профильных тестаpassed, без внешних обращений/уведомлений. Full4h, owner-only, persistentdedup/watchdog сохранены.
+Существующий Monitor перенесён из ветки PR #28, поскольку в PR #29 его не было. Типизированные polling-события и JSON/journald IDs заменяют поиск слова error: пример выявленных сбоев даёт 6 вместо 18 (5 TelegramServerError + 1 TelegramNetworkError), последний сбой 30.10 в 01:20:18 UTC. Неоднозначный или обрезанный журнал → «Количество не определено». История ошибок → предупреждение; текущие критические отказы остаются красными. Старый контроллер получает retired только после проверки disabled/inactive, Restart=no, MainPID=0, отсутствия обратных зависимостей и включённого доступа 9443; иначе нет данных или ошибка. Xray 9443 и TCP/9443 остаются критическими проверками. 86 профильных тестов прошли без внешних обращений и уведомлений. Полные отчёты каждые 4 часа, доставка владельцу, сохранение состояния и watchdog не изменены.
 
-Дляприменения нужен restart только kudavpn-monitor.service наJustHost(primary) иDigitalOcean(watchdog), последовательно; collector oneshot kudavpn-monitor-collect.service обновить послеобоихworkers, timerне менять. Обязательно удержатьcollector настаромrelease дообновленияworkers, preserveSQLiteoffset/receipts/fullslot, backupMonitorconfig/state, rollbackcollectorпервым. Никаких productionbot/Postgres/Xray/backup/payment changes. Последний завершённыйbackupэтапниже не повторять.
+Для применения нужен последовательный перезапуск только kudavpn-monitor.service на JustHost (primary) и DigitalOcean (watchdog). Коллектор kudavpn-monitor-collect.service обновить после обоих workers; таймер не менять. До обновления workers удерживать collector на старом release. Сохранить конфигурацию и согласованную копию SQLite Monitor, включая offsets, receipts и full_slot; при откате сначала вернуть collector. Production-бот, PostgreSQL, Xray, резервирование и платежи не менялись. Завершённый этап резервирования ниже не повторять.
 
 ## Автоматическое резервирование принято; реальный restore PASS — 30 октября2026
 

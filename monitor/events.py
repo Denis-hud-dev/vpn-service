@@ -45,6 +45,7 @@ def error_events(output, start, end, *, available=True):
     pending = None
     framed = False
     seen = {}
+    unidentified = set()
     previous = None
     for line in lines[:MAX_LINES]:
         try:
@@ -81,8 +82,8 @@ def error_events(output, start, end, *, available=True):
                 kind = ''
             if level not in ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'):
                 raise ValueError('Unknown level')
-            framed = True
             poll = POLL.fullmatch(message) if logger == 'bot.observability' else None
+            framed = level in ('ERROR', 'CRITICAL') or bool(poll)
             if poll:
                 kind = poll.group(1)
             wrapper = (pending is not None and 0 <= stamp-pending <= 1
@@ -104,6 +105,13 @@ def error_events(output, start, end, *, available=True):
                         complete = False
                     continue
                 seen[identity] = signature
+            else:
+                signature = (stamp, level, logger, message)
+                if signature in unidentified:
+                    # Without a stable ID, an exact repeat could be either a
+                    # second event or duplicate delivery/handler output.
+                    complete = False
+                unidentified.add(signature)
             counts[group] += 1
             last = stamp if last is None else max(last, stamp)
             if poll:

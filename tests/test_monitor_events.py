@@ -95,6 +95,8 @@ def test_current_confirmed_failures_are_still_red_and_critical(key):
     '2026-10-30T01:19:01 '+json.dumps(dict(level='ERROR', logger='bot.handler')),
     '2026-10-30T05:19:01Z '+json.dumps(dict(level='ERROR', logger='bot.handler')),
     structured('same')+'\n'+structured('same', exception_type='TelegramNetworkError'),
+    line(1, 'ERROR', 'bot.handler', 'same')+'\n'+line(1, 'ERROR', 'bot.handler', 'same'),
+    line(1, 'INFO', 'bot.handler', 'ok')+'\n2026-10-30T01:19:01Z Traceback (most recent call last):',
 ])
 def test_unreliable_format_never_claims_an_exact_count(logs):
     stats = error_events(logs, START, END)
