@@ -47,3 +47,9 @@ html{scroll-behavior:smooth}
 .orbit-stage{position:relative;justify-self:center;width:min(100%,380px);aspect-ratio:1367/1151;display:grid;place-items:center}
 .orbit-emblem{display:block;width:100%;height:auto;object-fit:contain}
 @media(max-width:700px){.brand-mark{width:52px;height:52px}.orbit-stage{order:1;width:min(78vw,320px);margin:0 auto 14px}.hero-copy{order:2}}
+
+/* Compact phones only: 75% of the existing full-logo footprint. */
+@media(max-width:480px){
+  .orbit-stage{width:min(58.5vw,240px);margin-bottom:8px}
+  .hero{padding:12px 0 20px}
+}

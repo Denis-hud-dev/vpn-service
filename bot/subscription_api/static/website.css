@@ -3,3 +3,9 @@ html{scroll-behavior:smooth;scroll-padding-top:24px}.review-bar{padding:10px 24p
 .account-view .site-hero,.account-view .feature-grid,.account-view .how{display:none}.shell h1{overflow-wrap:anywhere}
 
 .payment-method{display:block;width:100%;max-width:32rem;margin:12px 0;padding:14px;border:1px solid #284b70;border-radius:12px;background:#0b1930;color:#edf7ff;font:inherit}.payment-method:focus-visible{outline:2px solid #42c8ff;outline-offset:3px}
+
+/* Compact phones only; tablet and desktop composition stays unchanged. */
+@media(max-width:480px){
+  .site-hero .orbit-art{width:min(247.5px,75%)}
+  .site-hero{padding:18px 0 20px}
+}
