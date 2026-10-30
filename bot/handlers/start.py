@@ -60,7 +60,7 @@ async def home_for_user(services: Services, user_id: int):
         # Navigation stays available without presenting an unverified status.
         snapshot = None
     return home(premium_account=True, snapshot=snapshot,
-                reply_navigation=services.pilot_welcome_enabled)
+                reply_navigation=services.pilot_welcome_enabled, menu_links=services.menu_links)
 
 
 async def start(message: Message, command: CommandObject, services: Services, navigation: Navigation):
@@ -101,7 +101,8 @@ async def start(message: Message, command: CommandObject, services: Services, na
                 logger.warning("Pilot welcome unavailable; showing navigation")
         if not welcomed:
             await install_reply_keyboard(message.bot, user_id, services, custom_emoji=navigation.custom_emoji)
-    screen = screens.main_actions() if pilot else await home_for_user(services, user_id)
+    screen = (screens.main_actions(menu_links=services.menu_links) if pilot
+              else await home_for_user(services, user_id))
     if pilot:
         # A meaningful greeting carries ReplyKeyboard; this message carries inline actions.
         await navigation.show(message.bot, message.chat.id, screen,
@@ -193,6 +194,14 @@ async def information(callback: CallbackQuery, navigation: Navigation, config: C
     await navigation.callback(callback, screens.information(config.support_username))
 
 
+async def public_destination(callback: CallbackQuery, navigation: Navigation, services: Services):
+    if not services.premium_account_enabled or services.menu_links is None:
+        await navigation.callback(callback, await home_for_user(services, callback.from_user.id))
+        return
+    await navigation.callback(callback, screens.public_destination(
+        callback.data.removeprefix("nav:"), services.menu_links))
+
+
 def create_router() -> Router:
     router = Router(name="start")
     router.message.register(start, CommandStart())
@@ -201,6 +210,7 @@ def create_router() -> Router:
     router.message.register(reply_account, F.text.in_(ACCOUNT_COMMANDS))
     router.message.register(reply_info, F.text.in_(INFO_COMMANDS))
     router.callback_query.register(information, F.data == "nav:info")
+    router.callback_query.register(public_destination, F.data.in_({"nav:channel", "nav:community"}))
     router.callback_query.register(back, F.data.in_({"nav:home", "menu"}))
     router.callback_query.register(begin, F.data == "pilot:begin")
     return router

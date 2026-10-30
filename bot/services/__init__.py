@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 from typing import Protocol
 from bot.services.account import AccountSnapshot
+from bot.menu_links import MenuLinks
 
 
 @dataclass(frozen=True)
@@ -114,6 +115,7 @@ class Services:
     premium_account_enabled: bool = False
     pilot_welcome_enabled: bool = False
     onboarding: object | None = None
+    menu_links: MenuLinks | None = None
 
     @classmethod
     def demo(cls) -> "Services":

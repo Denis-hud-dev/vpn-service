@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from math import ceil
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from bot.keyboards.main import back_keyboard, main_menu
+from bot.menu_links import MenuLinks
 from bot.keyboards.tariffs import tariffs_keyboard
 from bot.services import TARIFFS, PILOT_TARIFFS
 from bot.services.account import AccountSnapshot, SubscriptionEvent
@@ -48,7 +49,7 @@ def panel(title: str, body: str, keyboard: InlineKeyboardMarkup | None = None) -
 
 
 def home(*, premium_account: bool = False, snapshot: AccountSnapshot | None = None,
-         reply_navigation: bool = False) -> Screen:
+         reply_navigation: bool = False, menu_links: MenuLinks | None = None) -> Screen:
     if premium_account:
         status = snapshot.status if snapshot else None
         if status == "active" and snapshot.expires_at is not None:
@@ -65,7 +66,8 @@ def home(*, premium_account: bool = False, snapshot: AccountSnapshot | None = No
         return Screen(f"{BRAND}\n<i>Свобода начинается здесь.</i>\n\n"
                       "⚡ Быстрое подключение\n🔒 Безопасное соединение\n🌍 Доступные серверы\n\n"
                       f"{state}",
-                      main_menu(premium_account=True, reply_navigation=reply_navigation))
+                      main_menu(premium_account=True, reply_navigation=reply_navigation,
+                                menu_links=menu_links))
     intro = ("Ваш VPN и подписка всегда под рукой."
              if premium_account else "VPN, подписка и устройства — в одном месте.")
     return Screen(f"{BRAND}\n<i>Ваше пространство подключения.</i>\n\n"
@@ -77,9 +79,32 @@ def first_welcome_text() -> str:
     return '<b>Добро пожаловать в KudaVPN Premium!</b>\n\n<i>Свобода начинается здесь.</i>\n\n⚡ Быстрое подключение\n🔒 Безопасное соединение\n🌍 Доступные серверы\n\n<b>Три простых шага:</b>\n1. Выберите тариф.\n2. Оформите подписку.\n3. Подключитесь через Happ.'
 
 
-def main_actions() -> Screen:
+def main_actions(*, menu_links: MenuLinks | None = None) -> Screen:
     """Separate inline actions: Telegram permits only one keyboard type/message."""
-    return Screen(BRAND + "\n\nВыберите действие.", main_menu(premium_account=True))
+    return Screen(BRAND + "\n\nВыберите действие.",
+                  main_menu(premium_account=True, menu_links=menu_links))
+
+
+def public_destination(kind: str, links: MenuLinks) -> Screen:
+    """Temporary destinations use the existing tracked navigation screen."""
+    if kind == "channel":
+        title = "📢 Наш канал"
+        text = ("Официальный канал KudaVPN." if links.channel else
+                "📢 Официальный канал KudaVPN скоро появится. Здесь будут новости, обновления и важные объявления")
+        url = links.channel
+    elif kind == "community":
+        title = "💬 Наше сообщество"
+        text = ("Сообщество KudaVPN." if links.community else
+                "💬 Сообщество KudaVPN скоро откроется. Здесь можно будет общаться, задавать вопросы и делиться опытом")
+        url = links.community
+    else:
+        raise ValueError("Unknown public destination")
+    keyboard = back_keyboard()
+    if url:
+        # Old callbacks remain useful if configuration changed after rendering.
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=title, url=url)], *keyboard.inline_keyboard])
+    return panel(title, text, keyboard)
 
 
 def kuda_smart() -> Screen:

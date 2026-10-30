@@ -26,6 +26,7 @@ async def run(config: Config) -> None:
         premium_account_enabled=config.pilot_premium_account_enabled,
         pilot_welcome_enabled=config.pilot_welcome_enabled,
         onboarding_state_file=config.pilot_welcome_state_file) if database else Services.demo())
+    services.menu_links = config.pilot_menu_links
     payment_poller = None
     if config.pilot_test_payments_enabled:
         from bot.services.yookassa_api import YooKassaTestClient
