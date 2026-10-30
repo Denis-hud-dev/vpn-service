@@ -17,13 +17,13 @@ def render_connection_page(feed_url: str, expires: int) -> str:
     return f'''<!doctype html>
 <html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark"><title>KudaVPN Premium — подключение</title>
-<link rel="stylesheet" href="/assets/connect.css"><script src="/assets/connect.js" defer></script></head>
+<link rel="stylesheet" href="/assets/connect.css"><script src="/assets/connect.js" defer></script><link rel="icon" type="image/vnd.microsoft.icon" href="/assets/favicon.ico"></head>
 <body><div class="ambient" aria-hidden="true"></div><main class="shell">
-  <header class="brand"><span class="brand-mark"><img src="/assets/kudavpn-orbit-emblem.png" alt="" aria-hidden="true"></span><span class="brand-title">KudaVPN <em>Premium</em></span><span class="brand-dot" aria-hidden="true"></span></header>
+  <header class="brand"><span class="brand-mark"><img class="brand-logo" src="/assets/logo-small.png" alt="" aria-hidden="true" width="64" height="64"></span><span class="brand-title">KudaVPN <em>Premium</em></span><span class="brand-dot" aria-hidden="true"></span></header>
   <section class="hero"><div class="hero-copy"><div class="eyebrow"><span class="spark"></span> ЛИЧНОЕ ПРОСТРАНСТВО ПОДКЛЮЧЕНИЯ</div>
   <h1>Свобода быть<br><span>на связи.</span></h1>
   <p class="lead">Ваш личный доступ к KudaVPN. Выберите устройство, добавьте подписку в Happ и включите защищённое подключение.</p>
-  <a class="hero-connect" href="#choose-platform">Подключить VPN <span aria-hidden="true">↗</span></a></div><div class="orbit-stage"><img class="orbit-emblem" src="/assets/kudavpn-orbit-emblem.png" alt="Знак KudaVPN в центре голубой орбиты" width="720" height="720" loading="eager" decoding="async"><svg class="orbit-motion" viewBox="0 0 720 720" aria-hidden="true" focusable="false"><g class="orbit-beacon"><circle class="orbit-beacon-halo" r="9"/><circle class="orbit-beacon-core" r="2.5"/><animateMotion dur="18s" repeatCount="indefinite" calcMode="paced" path="M 693 267 A 350 100 -18 1 1 27 483 A 350 100 -18 1 1 693 267"/></g></svg></div></section>
+  <a class="hero-connect" href="#choose-platform">Подключить VPN <span aria-hidden="true">↗</span></a></div><div class="orbit-stage"><img class="orbit-emblem brand-logo" src="/assets/logo.png" srcset="/assets/logo.png 512w, /assets/kudavpn-original-logo.jpeg 1254w" sizes="(max-width:700px) 78vw, 380px" alt="Оригинальный логотип KudaVPN" width="512" height="512" loading="eager" decoding="async"></div></section>
   <section class="status" aria-label="Состояние подписки"><div><span class="status-label">ПОДПИСКА</span><strong><i class="live-dot"></i> Активна</strong></div><div><span class="status-label">ДЕЙСТВУЕТ ДО</span><strong>{escape(expiry)}</strong></div><div><span class="status-label">ПРОФИЛЬ</span><strong>Личный доступ</strong></div></section>
   <section class="connect-card" id="choose-platform" tabindex="-1"><div class="card-top"><span class="step-index">01 / 02</span><span class="card-caption">ВЫБЕРИТЕ ПЛАТФОРМУ</span></div>
    <div class="platforms" role="tablist" aria-label="Устройство">

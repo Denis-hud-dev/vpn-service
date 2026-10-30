@@ -1,7 +1,6 @@
 import logging
 import asyncio
 import sqlite3
-from pathlib import Path
 from aiogram import F, Router
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 from aiogram.filters import CommandStart, CommandObject
@@ -17,9 +16,10 @@ from bot.handlers.instructions import connect_for_user
 from bot.handlers.subscription import account_for_user
 from bot.config import Config
 from bot.services import Services, parse_referrer
+from bot.branding import WELCOME_BANNER
 
 logger = logging.getLogger(__name__)
-BANNER = Path(__file__).resolve().parents[1] / "assets" / "welcome-premium.png"
+BANNER = WELCOME_BANNER
 
 
 async def install_reply_keyboard(bot, user_id: int, services: Services, *, custom_emoji: bool = False) -> None:

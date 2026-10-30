@@ -35,7 +35,7 @@ def test_description_avatar_and_empty_chat_copy_are_valid():
  assert 0<len(c['description'])<=512 and 0<len(c['short_description'])<=120
  assert '199' in c['description'] and 'Happ' in c['description']
  assert '<' not in c['description'] and 'https://' not in c['description']
- assert (ROOT/c['avatar']).read_bytes()==(ROOT/'bot/subscription_api/static/kudavpn-original-logo.jpeg').read_bytes()
+ assert (ROOT/c['avatar']).read_bytes()==(ROOT/'bot/assets/brand/original.jpeg').read_bytes()
 
 
 def test_profile_update_changes_only_test_bot_metadata_and_has_backup(tmp_path):

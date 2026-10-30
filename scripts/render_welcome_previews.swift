@@ -26,7 +26,12 @@ for mode in ["welcome", "keyboard"] {
     line("Предпросмотр интерфейса · без личных данных", 28, 1074, 16, cyan)
     if mode == "welcome" {
         rounded(NSRect(x: 24, y: 294, width: 652, height: 738), color: blue)
-        banner.draw(in: NSRect(x: 40, y: 675, width: 620, height: 325), from: .zero, operation: .sourceOver, fraction: 1)
+        let box = NSRect(x: 40, y: 675, width: 620, height: 325)
+        let scale = min(box.width / banner.size.width, box.height / banner.size.height)
+        let fit = NSRect(x: box.midX - banner.size.width * scale / 2,
+                         y: box.midY - banner.size.height * scale / 2,
+                         width: banner.size.width * scale, height: banner.size.height * scale)
+        banner.draw(in: fit, from: .zero, operation: .sourceOver, fraction: 1)
         line("Добро пожаловать в KudaVPN.", 47, 635, 25, white, .bold)
         line("Свобода быть на связи.", 47, 593, 22, cyan, .semibold)
         line("Твоё пространство в интернете — без лишних", 47, 552, 19)

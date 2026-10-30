@@ -9,6 +9,7 @@ from aiohttp import web
 
 from bot.services.web_checkout import OrderUnavailable
 from bot.services.yookassa_api import PaymentProviderUnavailable
+from bot.branding import BRAND_IMAGES, brand_image
 
 ASSETS = Path(__file__).with_name('static')
 COOKIE, FLOW_COOKIE = '__Host-kuda_web', '__Host-kuda_login'
@@ -90,10 +91,11 @@ def create_website(service, auth, ledger, origin, *, local_demo=False, closed_re
 
     async def asset(request):
         name = request.match_info['name']
+        if name in BRAND_IMAGES:
+            path, mime = brand_image(name)
+            return web.Response(body=path.read_bytes(), content_type=mime)
         files = {'site.css': ('website.css', 'text/css'), 'base.css': ('checkout.css', 'text/css'), 'site.js': ('website.js', 'application/javascript'),
-                 'logo.png': ('kudavpn-orbit-emblem.png', 'image/png'),
-                 'connect.css': ('connect.css', 'text/css'), 'connect.js': ('connect.js', 'application/javascript'),
-                 'kudavpn-orbit-emblem.png': ('kudavpn-orbit-emblem.png', 'image/png')}
+                 'connect.css': ('connect.css', 'text/css'), 'connect.js': ('connect.js', 'application/javascript')}
         if name not in files:
             raise web.HTTPNotFound()
         filename, mime = files[name]
@@ -207,7 +209,8 @@ def create_website(service, auth, ledger, origin, *, local_demo=False, closed_re
         if request.match_info['name'] == 'login.css':
             return web.Response(body=(ASSETS/'website-login.css').read_bytes(),content_type='text/css')
         if request.match_info['name'] == 'logo.png':
-            return web.Response(body=(ASSETS/'kudavpn-orbit-emblem.png').read_bytes(),content_type='image/png')
+            path, mime = brand_image('logo.png')
+            return web.Response(body=path.read_bytes(),content_type=mime)
         raise web.HTTPNotFound()
     app.router.add_get('/auth/assets/{name}', login_asset)
     app.router.add_get('/api/session', session)

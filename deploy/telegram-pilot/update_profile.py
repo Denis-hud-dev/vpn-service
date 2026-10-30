@@ -118,7 +118,7 @@ def main(mode,revision):
     if mode!='apply':raise SafeFailure('invalid_mode')
     config=json.loads((source/'deploy/telegram-pilot/profile.json').read_text())
     avatar=(source/config['avatar']).read_bytes()
-    assert avatar==(source/'bot/subscription_api/static/kudavpn-original-logo.jpeg').read_bytes()
+    assert avatar==(source/'bot/assets/brand/original.jpeg').read_bytes()
     print(json.dumps(apply(api,api.download,backup,config,avatar)))
 
 

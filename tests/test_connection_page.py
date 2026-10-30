@@ -46,12 +46,14 @@ def test_page_reuses_feed_entitlement_and_keeps_private_headers():
             assert 'официального сайта Happ' in body
             assert 'rel="noreferrer noopener"' in body
             assert 'happ://' not in body  # No unverified subscription deep link.
-            assert body.count('/assets/kudavpn-orbit-emblem.png') == 2
+            assert body.count('src="/assets/logo.png"') == 1
+            assert body.count('/assets/logo-small.png') == 1
+            assert '/assets/kudavpn-orbit-emblem.png' not in body
             assert 'orbit-ring' not in body
             assert 'class="hero-connect" href="#choose-platform"' in body
             assert 'id="choose-platform"' in body
-            assert 'class="orbit-motion"' in body
-            assert '<animateMotion dur="18s"' in body
+            assert 'class="orbit-motion"' not in body
+            assert '<animateMotion' not in body  # No painted-over replacement orbit.
             for name in ('connect.css', 'connect.js'):
                 asset = await client.get('/assets/' + name)
                 assert asset.status == 200 and (await asset.read())
@@ -60,7 +62,8 @@ def test_page_reuses_feed_entitlement_and_keeps_private_headers():
                 if name == 'connect.css':
                     css = await asset.text()
                     assert '.hero-connect:focus-visible' in css
-                    assert '@media(prefers-reduced-motion:reduce){.orbit-motion{display:none}' in css
+                    assert 'prefers-reduced-motion:reduce' in css
+                    assert 'mix-blend-mode' not in css
             logo = await client.get('/assets/kudavpn-original-logo.jpeg')
             assert logo.status == 200
             assert logo.headers['Content-Type'].startswith('image/jpeg')
@@ -70,6 +73,9 @@ def test_page_reuses_feed_entitlement_and_keeps_private_headers():
             assert emblem.status == 200
             assert emblem.headers['Content-Type'].startswith('image/png')
             assert (await emblem.read()).startswith(b'\x89PNG\r\n\x1a\n')
+            current = await client.get('/assets/logo.png')
+            assert (await current.read()) == (await emblem.read())  # Safe legacy URL alias.
+            assert (await client.get('/assets/favicon.ico')).status == 200
             assert (await client.get('/assets/unknown.js')).status == 404
             response = await client.get('/s/' + TOKEN)
             assert response.status == 200 and 'vless://' in await response.text()

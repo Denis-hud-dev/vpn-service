@@ -1,0 +1,65 @@
+{
+  "environment": "loopback fixture preview only; no real user data, payments or Telegram API calls",
+  "desktop": {
+    "viewport": [
+      1440,
+      1000
+    ],
+    "header_image": [
+      72,
+      72
+    ],
+    "hero_image": [
+      479.5625,
+      479.5625
+    ],
+    "all_images_loaded": true
+  },
+  "android_size": {
+    "viewport": [
+      390,
+      844
+    ],
+    "scroll_width": 390,
+    "header_image": [
+      56,
+      56
+    ],
+    "hero_image": [
+      330,
+      330
+    ],
+    "all_images_loaded": true
+  },
+  "iphone_size": {
+    "viewport": [
+      375,
+      812
+    ],
+    "account_scroll_width": 375,
+    "connect_scroll_width": 375,
+    "connect_logo": [
+      292.5,
+      292.5
+    ],
+    "header_image": [
+      52,
+      52
+    ],
+    "qr_panel_opened": true,
+    "all_images_loaded": true
+  },
+  "narrow": {
+    "viewport": [
+      320,
+      740
+    ],
+    "scroll_width": 320,
+    "broken_images": 0
+  },
+  "native_devices_tested": false,
+  "telegram_live_test_performed": false,
+  "automated_unique_tests_passed": 155,
+  "source_matches_owner_bytes": true,
+  "deployed": false
+}
