@@ -1,6 +1,23 @@
 # KudaVPN: бесплатное автоматическое резервирование и restore-lab
 
-Установлено29 октября2026; состояние уточнено30 октября05:24 UTC. Ветка PR29. Продолжение [аудита](backup-disaster-recovery-20261029.md) и [церемонии ключа](backup-key-setup-20261029.md).
+Установлено29 октября2026; приёмка завершена30 октября05:45 UTC. Ветка PR29. Продолжение [аудита](backup-disaster-recovery-20261029.md) и [церемонии ключа](backup-key-setup-20261029.md).
+
+## Итоговая приёмка — 30 октября2026, 05:45 UTC
+
+**Реальное восстановление завершилось успешно30 октября в05:42:07 UTC.** Локальный отчёт владельца и отдельный server-side receipt совпали:
+- live / revision0002:7 таблиц PASS;
+- pilot / revision0008:13 таблиц PASS;
+- website / revision0009:19 таблиц PASS;
+- совпали counts и row hashes всех таблиц, defaults/columns/indexes, CHECK/validation flags, FK/owner references и уникальность provider payment IDs;
+- role/run artifacts расшифрованы; конфигурации DO125/JH1104 файлов authenticated и required files present;
+- label lab2cb35850813e удалён, иных restore labs нет; production containers/PIDs/configs/TCP listeners неизменны.
+
+Проверялись именно закреплённые29-октябрьские runs из Mac index. Более новые ночные30-октябрьские версии прошли автоматические ciphertext/offsite проверки, но не объявляются отдельно расшифрованными/восстановленными. [Безопасный acceptance JSON](backup-acceptance-20261030.json) не содержит строк, user IDs, row hashes, ключей или subscription URLs.
+
+Последний nightly: DO03:19:07–03:20:07 UTC (66 639 384B), JH03:49:35–03:50:59 UTC (21 830 088B), обаstate=ok. Integrity наобоих05:37 ok/12files; health05:39 errors={}. Next31 октября03:15:54 UTC и03:49:22 UTC, daily jitter может пересчитаться. Наэтом задача завершена; дальнейшие реальные restore/dumps для доказательства уже полученного результата не нужны.
+
+Текущее место local+vault: DO332 035 112B (~317MiB), JH353 638 769B (~337MiB). Свободно71.95/14.46GiB. Стоимость дополнительных облачных услуг0; old versions не удалялись. Основной оставшийся организационный шаг — заранее разрешить retention или пересмотр quotas доих достижения примерно через4недели.
+
 
 ## Что установлено
 
@@ -106,12 +123,12 @@ Upload SSH private identities отдельные для каждого напр�
 **Реальная первая попытка30 октября05:17–05:18 UTC:**
 - live восстановлен и проверен PASS;
 - pilot был импортирован; старый helper не сохранил отдельные результаты всех его дальнейших сравнений. Подтверждённый полный PASS первого отчёта относится только к live;
-- на схеме pilot доказан дефект строгого текстового сравнения CHECK premium_notice_kind, достаточный для отказа прежней проверки. Полный результат проверки строк pilot будет подтверждён повтором. Lab удалён, рабочие containers неизменны. Все12 encrypted files Mac имели правильные SHA/размеры, OOM/аварии Docker не было.
+- на схеме pilot доказан дефект строгого текстового сравнения CHECK premium_notice_kind, достаточный для отказа прежней проверки. Полный результат строк pilot затем подтверждён успешным повтором, см. приёмку выше. Lab удалён, рабочие containers неизменны. Все12 encrypted files Mac имели правильные SHA/размеры, OOM/аварии Docker не было.
 - На schema-only копии без user rows воспроизведено1 различие для pilot и8 для website: только deparser representation CHECK clauses после dump/restore.
 - Исправление: никакого удаления casts/regex-normalization. В writable транзакции **только восстановленной lab** PostgreSQL повторно разбирает исходный CHECK во временное ограничение и сравнивает полную canonical clause. Транзакция откатывается. Имена/validation flags, столбцы/defaults/indexes и все не-CHECK constraints остаются строгими.
 - Обе реальные схемы теперь проходят backend canonical comparison. Намеренно другое CHECK(false) отвергнуто даже на пустых таблицах; нельзя подменить проверку семантики фактом прохождения существующих строк.
 - Добавлены безопасные stage/error codes и сохранение старых локальных отчётов.
-- **Повтор полного реального decrypt/restore ещё ожидается от владельца. Нельзя объявлять полную проверку завершённой до restore-result.json passed=true и remote receipt.** Пароль/ключ не запрашивать в чате.
+- Повтор полного реального decrypt/restore впоследствии завершился PASS30 октября05:42:07UTC; см. итоговую приёмку выше. Пароль/ключ в чат не передавались.
 
 Для настоящей аварии эта команда — только rehearsal, не автоматический cutover. Использовать [DR-процедуру](backup-disaster-recovery-20261029.md): восстановить globals/роли в новом чистом PG16-кластере с уникальным временным bootstrap admin (чтобы CREATE ROLE не конфликтовал с уже существующим исходным admin), затем новую БД, exact deployed app/env/UUID/feed secrets, проверить offline и лишь после согласования переключать единственный bot/сеть/DNS. Не запускать старый controller9443 и не откатывать боевые платежи stale dump. Если DO потерян, текущий lab-script, использующий его existing image, сам по себе не является emergency installer нового VPS.
 

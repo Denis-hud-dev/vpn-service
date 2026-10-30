@@ -1,0 +1,141 @@
+{
+  "accepted_utc": "2026-10-30T05:45:00+00:00",
+  "restoration": {
+    "completed_utc": "2026-10-30T05:42:07.655806+00:00",
+    "source_runs": {
+      "digitalocean": "20261029T204347Z-3ceff808",
+      "justhost": "20261029T204348Z-cd3d3e00"
+    },
+    "results": {
+      "live": {
+        "passed": true,
+        "revision": "0002_active_screens",
+        "tables": 7,
+        "canonical_checks": 0
+      },
+      "pilot": {
+        "passed": true,
+        "revision": "0008_premium_notices",
+        "tables": 13,
+        "canonical_checks": 1
+      },
+      "website": {
+        "passed": true,
+        "revision": "0009_website",
+        "tables": 19,
+        "canonical_checks": 8
+      }
+    },
+    "lab_removed": true,
+    "working_unchanged": true,
+    "remaining_labs": "",
+    "configuration_authentication": {
+      "digitalocean": {
+        "authenticated": true,
+        "required_files_present": true,
+        "files": 125
+      },
+      "justhost": {
+        "authenticated": true,
+        "required_files_present": true,
+        "files": 1104
+      }
+    }
+  },
+  "hosts": [
+    {
+      "host": "digitalocean",
+      "backup": {
+        "state": "ok",
+        "run": "20261030T031907Z-c3ca4879",
+        "last_success": "2026-10-30T03:19:07.179188+00:00",
+        "completed_utc": "2026-10-30T03:20:07.263072+00:00",
+        "encryption": true,
+        "offsite": true,
+        "ciphertext_checksums": true
+      },
+      "artifacts": 5,
+      "latest_bytes": 66639384,
+      "integrity": {
+        "host": "digitalocean",
+        "checked_utc": "2026-10-30T05:37:50.289876+00:00",
+        "state": "ok",
+        "files": 12,
+        "free_bytes": 77255282688
+      },
+      "ssh_restricted": {
+        "restrict": true,
+        "forced_receiver": true,
+        "source_ip": true,
+        "root_owned": true,
+        "group_or_other_writable": false
+      },
+      "receiver_cannot_write_vault": true,
+      "credential_mode": "0o600",
+      "storage_bytes": {
+        "local": 266444298,
+        "vault": 65590814
+      },
+      "disk_free_bytes": 77255184384,
+      "protected_unchanged": {
+        "units": true,
+        "containers": true,
+        "configs": true,
+        "tcp_listeners": true
+      },
+      "health": null
+    },
+    {
+      "host": "justhost",
+      "backup": {
+        "state": "ok",
+        "run": "20261030T034935Z-fda66c92",
+        "last_success": "2026-10-30T03:49:35.247638+00:00",
+        "completed_utc": "2026-10-30T03:50:59.532219+00:00",
+        "encryption": true,
+        "offsite": true,
+        "ciphertext_checksums": true
+      },
+      "artifacts": 7,
+      "latest_bytes": 21830088,
+      "integrity": {
+        "host": "justhost",
+        "checked_utc": "2026-10-30T05:37:43.305246+00:00",
+        "state": "ok",
+        "files": 12,
+        "free_bytes": 15523442688
+      },
+      "ssh_restricted": {
+        "restrict": true,
+        "forced_receiver": true,
+        "source_ip": true,
+        "root_owned": true,
+        "group_or_other_writable": false
+      },
+      "receiver_cannot_write_vault": true,
+      "credential_mode": "0o600",
+      "storage_bytes": {
+        "local": 87195861,
+        "vault": 266442908
+      },
+      "disk_free_bytes": 15523377152,
+      "protected_unchanged": {
+        "units": true,
+        "containers": true,
+        "configs": true,
+        "tcp_listeners": true
+      },
+      "health": {
+        "checked_utc": "2026-10-30T05:39:08.377437+00:00",
+        "errors": {},
+        "delivery": null
+      }
+    }
+  ],
+  "notes": [
+    "No row values, row hashes, user identifiers, keys or connection URLs in this evidence.",
+    "Restore applies to pinned 29 October runs; nightly 30 October runs passed automated ciphertext integrity/offsite checks.",
+    "No archive pruning or paid services enabled.",
+    "Actual outage notifications were tested with mocks; existing Monitor token and owner target were reused by independent backup observer."
+  ]
+}
