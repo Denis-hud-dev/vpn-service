@@ -1,5 +1,19 @@
 # KudaVPN — текущая передача состояния
 
+## Автоматическое резервирование работает; повтор реального restore ожидается — 30 октября2026
+
+[Операционный отчёт/DR/ограничения](automatic-backup-20261029.md). Не повторять аудит/внедрение. Owner key успешно создан encrypted вне Git; значения не читать/не запрашивать. Daily backups обоих VPS установлены, Mirror SSH upload-only/root sealed vault, age1.3.2, encrypted credentials, verify15min/retry1h/owner-health15min/isolated-lab cleanup45min. Старые backups НЕ удалялись. Рабочие units/PID/config hashes/TCP listeners unchanged, bots ready200, internal site/ready true; внешний ready401 — штатный owner gate. Monitor/core/PG/Xray/UUID/Happ/платежи не менялись.
+
+Свежий зафиксированный restore-набор Mac copies/index.json: DO20261029T204347Z-3ceff808 (5 artifacts66,629,144B), JH20261029T204348Z-cd3d3e00 (7 artifacts21,830,086B). Все cipher SHA/размеры PASS. Nightly уже самостоятельно сработал30 октября: DO03:19UTC→run20261030T031907Z-c3ca4879, JH03:49→20261030T034935Z-fda66c92, обаok/offsite. Integrity12files/hostok05:22; health errors={}05:24. Next31 октября03:15–03:20/03:45–03:50UTC. Не скачивать новые файлы ради повторения прежнего теста.
+
+Owner запустил verify-backup-restore.command: live PASS; pilot loaded/counts+hash PASS, затем false mismatch текста CHECK premium_notice_kind; lab69f465d02af4 был удалён, production unchanged. /Users/gr/Documents/KudaVPN-private/backups/restore-result.json passed=false пока! Schema-only диагностика без user rows подтвердила1/8 отличийCHECK DDL pilot/website. Исправлен только restore_lab.py наDO: PostgreSQL canonical reparse в lab-only ROLLBACK, columns/indexes/names/validated/FK checks не ослаблены; CHECK(false) rejected. Оба schema-only regression PASS.
+
+Owner helper обновлён наMac (команда та же), error stage/code безопасные, старые reports сохраняются. Через request_user_input_async дан повторный запуск. **Ждать ownerГотово; не просить пароль/ключ в чат.** Потом прочитать safe local restore-result.json и remote lab receipt, подтвердить passed=true/all3DB/config auth/lab_removed/working_unchanged. Еслиошибка — теперь stage/code точные; исправлять толькоlab/helper, не production.
+
+50 профильных testsPASS + py_compile/sh-n. Общий CI проверить после Git публикации. Source новые файлы должны быть сохранены в существующем PR29, без нового PR/merge. Новые default source configs передавались через приватный local driver, в Git только generic tooling/docs/tests; архива/ключей/реальныхrecordов в Git нет.
+
+Ограничения: no pruning (явный запрет); quota2GiB, configured disk reserve20%/2GiB. Config tar~64/21MiB/day, примерно месяц до2GiB дляDO-версий — заранее согласовать retention; не удалять самому. Mac third copy вручную, private key offline owner custody. Полный cold-start runtime/image/DNS recovery не репетировался; только PostgreSQL restore ожидает подтверждения. Rollback: sh /usr/local/lib/kudavpn-backup/pause-backups.sh — только новые timers, архивы/рабочие службы сохраняются. Не возвращаться к YooKassa/Stars/миграцииDO.
+
 ## Автоматическое резервирование разрешено; ожидается owner recovery key — 29 октября2026
 
 [Этап/инструкция/точное продолжение](backup-key-setup-20261029.md). Предыдущий аудит не повторять. Владелец разрешил бесплатные dumps/timers/encryption/cross-VPS/restore-lab/backup monitoring, но **удаление старых копий, paid services и перезапуски рабочих служб запрещены**. Серверы пока не менялись; новые backups/timers/receivers/restore НЕ установлены.
