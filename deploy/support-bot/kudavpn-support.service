@@ -1,0 +1,37 @@
+# Template only. Not installed or enabled by this change.
+[Unit]
+Description=KudaVPN Support (independent support-only application)
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=kudavpn_support
+Group=kudavpn_support
+WorkingDirectory=/opt/kudavpn-support/app
+EnvironmentFile=/etc/kudavpn-support/support.env
+ExecStart=/opt/kudavpn-support/venv/bin/python -m support_bot.main
+Restart=on-failure
+RestartSec=10
+StateDirectory=kudavpn-support
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+ReadWritePaths=/var/lib/kudavpn-support
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
