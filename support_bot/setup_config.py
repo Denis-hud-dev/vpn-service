@@ -35,6 +35,7 @@ def main():
             'SUPPORT_DB_PATH':'/var/lib/kudavpn-support/support.sqlite3',
             'SUPPORT_CUSTOM_EMOJI':'0',
         }
+        values['SUPPORT_TEST_USER_IDS'] = values['SUPPORT_OPERATOR_IDS']
         Config.from_env(values)
         fd = os.open(parent/output.name,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
         with os.fdopen(fd,'w') as file:

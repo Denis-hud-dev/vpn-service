@@ -87,10 +87,10 @@ class Application:
                 and event.forward_origin is None and event.via_bot is None
                 and event.external_reply is None and event.is_automatic_forward is not True)
 
-    @staticmethod
-    def private(message, user):
+    def private(self, message, user):
         return (message.chat.type == 'private' and user is not None and not user.is_bot
-                and message.chat.id == user.id and user.id > 0)
+                and message.chat.id == user.id and user.id > 0
+                and (self.config.test_user_ids is None or user.id in self.config.test_user_ids))
 
     async def navigate(self, bot, owner, key, text, markup):
         state = await dbcall(self.store.session,owner)
