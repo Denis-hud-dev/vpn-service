@@ -1,6 +1,17 @@
 # KudaVPN — текущая передача состояния
 
 
+## Прямые ссылки установлены в TEST — 31 октября 2026
+
+[Отчёт и откат](social-links-20261031.md), [результаты](social-links-20261031.json). Этап завершён, повторное развёртывание не нужно. Добавлен только `99-social-links.conf`: канал `https://t.me/KudaVPN_official`, сообщество `https://t.me/KudaVPN_community`. Сайт, меню, иконки и runtime `app-menu-links-ab72c76b9e4c` прежние. Только один restart `kudavpn-telegram-pilot-bot.service`, PID 843525, применено 08:20:16 UTC / 01:20:16 PDT.
+
+Зашифрованная копия: `/var/backups/kudavpn-telegram-pilot/social-links-20261031`, 5 561 864 байта, SHA проверен, archive 0600 / directory 0700. `rollback.sh` удаляет только свой drop-in и перезапускает только TEST-бот. Базы не восстанавливать. Установщик и прежние helper/guard в `/var/lib/kudavpn-ui-rollouts/` сохранить.
+
+28 целевых тестов прошли, 0 пропущено. В Telegram Mac проверены `/start` и повторный `/start`: три URL-кнопки, без повторного баннера. Точные адреса проверены в effective markup; API подтвердил публичные канал и supergroup. Нажатия inline-ссылок инструментом не проверялись. Финальная проверка журналов: новых ошибок 0. Остальные службы, конфигурации, порты и исходники неизменны; production, DO, SQL, Xray, UUID, Happ, платежи, Monitor и автоматическое резервирование не затронуты.
+
+**Worktree PR #29:** `/Users/gr/Documents/KudaVPN-social-links`, ветка `codex/standalone-site-v1-20261026`. Неутверждённые шесть эмодзи сохранены на отдельной локальной ветке `codex/community-emoji-review-20261030`, коммит `ab4fb33`, в `/Users/gr/Documents/KudaVPN-preview`: не публиковать без одобрения. Скриншот вне Git: `/Users/gr/Documents/KudaVPN-private/social-links-20261031/menu.jpg`. После отчёта остановиться.
+
+
 ## Три кнопки ab72c76 развёрнуты в TEST и приняты владельцем — 30 октября2026
 
 [Итог, файлы, backup/rollback](public-menu-rollout-20261030.md). Не повторять обновление. Только TEST-бот: новыйruntime /opt/kudavpn-telegram-pilot/app-menu-links-ab72c76b9e4c, PID554830, служба kudavpn-telegram-pilot-bot.service, прежний user/health18081. Точный feature diff ab72c76 поверх рабочего707e130,9файлов. Весь PR29 и миграции не запускались. Установлено11:25:57PDT/18:25:57UTC. Один restart только TEST-бота; новая99-public-menu-links.conf лишь WorkingDirectory, старые drop-in и environment прежние.
