@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 from aiogram import Bot, Dispatcher
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.methods import SendMessage, SendPhoto, EditMessageText, EditMessageReplyMarkup
-from aiogram.types import Message, Update, InlineKeyboardMarkup
+from aiogram.types import Message, Update, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from bot.config import Config
 from bot.handlers import create_router
 from bot.navigation import Navigation
@@ -34,9 +34,11 @@ class TelegramHarness:
 
     async def request(self, bot, method, **kwargs):
         self.calls.append(method)
-        if self.fail_custom_emoji and isinstance(method, (SendMessage, EditMessageText)):
+        if self.fail_custom_emoji and isinstance(method, (SendMessage, SendPhoto, EditMessageText)):
             buttons = (method.reply_markup.inline_keyboard if isinstance(method.reply_markup, InlineKeyboardMarkup) else [])
-            if '<tg-emoji ' in method.text or any(button.icon_custom_emoji_id for row in buttons for button in row):
+            if isinstance(method.reply_markup, ReplyKeyboardMarkup):
+                buttons = method.reply_markup.keyboard
+            if '<tg-emoji ' in (getattr(method,'text',None) or getattr(method,'caption',None) or '') or any(button.icon_custom_emoji_id for row in buttons for button in row):
                 raise TelegramBadRequest(method=method, message='Bad Request: custom emoji not allowed')
         if self.fail_button_style and isinstance(method, (SendMessage, EditMessageText)):
             buttons = (method.reply_markup.inline_keyboard if isinstance(method.reply_markup, InlineKeyboardMarkup) else [])

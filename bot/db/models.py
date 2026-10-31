@@ -35,6 +35,116 @@ class User(Record, Base):
                      CheckConstraint("referrer_id IS NULL OR (referrer_id > 0 AND referrer_id != telegram_id)", name="user_valid_referrer"))
 
 
+class WebIdentity(Base):
+    __tablename__ = 'web_identities'
+    subject: Mapped[str] = mapped_column(String(128), primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(ForeignKey('users.id', ondelete='RESTRICT'), unique=True)
+
+
+class WebLoginFlow(Base):
+    __tablename__ = 'web_login_flows'
+    digest: Mapped[str] = mapped_column(String(64), primary_key=True)
+    browser_digest: Mapped[str] = mapped_column(String(64))
+    verifier: Mapped[str] = mapped_column(String(128))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class WebSession(Base):
+    __tablename__ = 'web_sessions'
+    digest: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(ForeignKey('users.id', ondelete='RESTRICT'), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class ReviewSession(Base):
+    """Review auth only; no copied canonical User/Subscription records."""
+    __tablename__ = 'review_sessions'
+    digest: Mapped[str] = mapped_column(String(64), primary_key=True)
+    owner_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    __table_args__ = (CheckConstraint('owner_id > 0', name='review_session_owner'),)
+
+
+class NPDReceipt(Base):
+    """Obligation ledger, never a fabricated fiscal receipt."""
+    __tablename__ = 'npd_receipts'
+    payment_id: Mapped[UUID] = mapped_column(ForeignKey('payments.id', ondelete='RESTRICT'), primary_key=True)
+    environment: Mapped[str] = mapped_column(String(8))
+    state: Mapped[str] = mapped_column(String(24))
+    amount_kopecks: Mapped[int] = mapped_column(Integer)
+    # Opaque private document reference; never returned as a public URL.
+    document_ref: Mapped[str | None] = mapped_column(String(128))
+    error_code: Mapped[str | None] = mapped_column(String(32))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    __table_args__ = (
+        CheckConstraint("environment IN ('test','live')", name='npd_environment'),
+        CheckConstraint("state IN ('test_not_required','pending','issued','delivered','error','void_pending','voided')", name='npd_state'),
+        CheckConstraint('amount_kopecks > 0', name='npd_amount'),
+        CheckConstraint("environment != 'test' OR state = 'test_not_required'", name='npd_no_test_receipt'),
+        CheckConstraint("state NOT IN ('issued','delivered') OR document_ref IS NOT NULL", name='npd_issued_document'),
+    )
+
+
+class NPDReceiptEvent(Base):
+    __tablename__ = 'npd_receipt_events'
+    operation: Mapped[str] = mapped_column(String(128), primary_key=True)
+    payment_id: Mapped[UUID] = mapped_column(ForeignKey('npd_receipts.payment_id', ondelete='RESTRICT'), index=True)
+    state: Mapped[str] = mapped_column(String(24))
+    error_code: Mapped[str | None] = mapped_column(String(32))
+    document_ref: Mapped[str | None] = mapped_column(String(128))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class NPDReceiptJob(Base):
+    """Sandbox dispatcher state, one job per existing receipt obligation."""
+    __tablename__ = 'npd_receipt_jobs'
+    payment_id: Mapped[UUID] = mapped_column(ForeignKey('npd_receipts.payment_id', ondelete='RESTRICT'), primary_key=True)
+    operation_key: Mapped[str] = mapped_column(String(64), unique=True)
+    state: Mapped[str] = mapped_column(String(24), default='queued')
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    lease_token: Mapped[str | None] = mapped_column(String(32))
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    error_code: Mapped[str | None] = mapped_column(String(32))
+    document_ref: Mapped[str | None] = mapped_column(String(128))
+    # Private simulation URL. Never put it in logs or administrator messages.
+    receipt_url: Mapped[str | None] = mapped_column(String(512))
+    __table_args__ = (
+        CheckConstraint("state IN ('queued','processing','retry','simulated','review')", name='npd_job_state'),
+        CheckConstraint('attempts >= 0', name='npd_job_attempts'),
+        CheckConstraint("state != 'processing' OR (lease_token IS NOT NULL AND lease_until IS NOT NULL)", name='npd_job_lease'),
+    )
+
+
+class NPDReceiptHold(Base):
+    """Verified refund intent can precede receipt creation; review is manual."""
+    __tablename__ = 'npd_receipt_holds'
+    refund_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    payment_id: Mapped[UUID] = mapped_column(ForeignKey('payments.id', ondelete='RESTRICT'), index=True)
+    amount_kopecks: Mapped[int] = mapped_column(Integer)
+    state: Mapped[str] = mapped_column(String(16), default='review')
+    __table_args__ = (
+        CheckConstraint('amount_kopecks > 0', name='npd_hold_amount'),
+        CheckConstraint("state = 'review'", name='npd_hold_manual_only'),
+    )
+
+
+class NPDAdminAlert(Base):
+    """Owner-only durable outbox; no payer contacts or receipt URLs."""
+    __tablename__ = 'npd_admin_alerts'
+    event_key: Mapped[str] = mapped_column(String(128), primary_key=True)
+    payment_id: Mapped[UUID] = mapped_column(ForeignKey('payments.id', ondelete='RESTRICT'), index=True)
+    kind: Mapped[str] = mapped_column(String(24))
+    state: Mapped[str] = mapped_column(String(16), default='pending')
+    lease_token: Mapped[str | None] = mapped_column(String(32))
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (
+        CheckConstraint("kind IN ('retry','review','recovered','refund_review')", name='npd_alert_kind'),
+        CheckConstraint("state IN ('pending','sending','sent')", name='npd_alert_state'),
+        CheckConstraint("state != 'sending' OR (lease_token IS NOT NULL AND lease_until IS NOT NULL)", name='npd_alert_lease'),
+    )
+
+
 class Subscription(Record, Base):
     __tablename__ = "subscriptions"
     # One current subscription per user; payment rows retain renewal history.

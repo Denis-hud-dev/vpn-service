@@ -23,12 +23,11 @@ def test_premium_menu_is_compact_with_one_primary_and_true_status():
     snapshot = AccountSnapshot(status='active', tariff_label='1 месяц — 299 ₽',
                                expires_at=utcnow() + timedelta(days=3))
     screen = home(premium_account=True, snapshot=snapshot)
-    assert 'Свобода подключения. Простота управления.' in screen.text
-    assert 'Подписка: <b>Активна</b>' in screen.text
+    assert 'Свобода начинается здесь.' in screen.text
+    assert '🟢 Подписка: активна' in screen.text
     assert [[button.callback_data for button in row] for row in screen.keyboard.inline_keyboard] == [
-        ['nav:connect'], ['nav:account', 'nav:tariffs'],
-        ['nav:smart', 'nav:devices'], ['nav:invite', 'nav:help']]
-    assert [button.callback_data for button in buttons(screen) if button.style == 'primary'] == ['nav:connect']
+        ['nav:tariffs'], ['nav:account', 'nav:connect'], ['nav:support', 'nav:info']]
+    assert [button.callback_data for button in buttons(screen) if button.style == 'primary'] == ['nav:tariffs']
     assert all(len(button.text) <= 30 and len(button.callback_data.encode()) <= 64
                for button in buttons(screen))
     assert all(sum(len(button.text) for button in row) <= 30
@@ -65,11 +64,11 @@ def test_premium_navigation_keeps_one_screen_and_does_not_delete_start():
             await app.text('/start')
             message_id = app.navigation.views[123].message_id
             for route, expected in (
-                ('nav:smart', 'в разработке'), ('nav:home', 'Свобода подключения.'),
-                ('nav:devices', 'пока недоступны'), ('nav:home', 'Свобода подключения.'),
-                ('nav:invite', 'не запущены'), ('nav:home', 'Свобода подключения.'),
+                ('nav:smart', 'в разработке'), ('nav:home', 'Свобода начинается здесь.'),
+                ('nav:devices', 'пока недоступны'), ('nav:home', 'Свобода начинается здесь.'),
+                ('nav:invite', 'не запущены'), ('nav:home', 'Свобода начинается здесь.'),
                 ('nav:help', 'Как подключиться?'), ('nav:account', 'Kuda Status'),
-                ('nav:tariffs', 'Выберите срок доступа'), ('nav:home', 'Свобода подключения.'),
+                ('nav:tariffs', 'Выберите срок доступа'), ('nav:home', 'Свобода начинается здесь.'),
             ):
                 acknowledged = sum(isinstance(call, AnswerCallbackQuery) for call in app.calls)
                 await app.callback(route)
@@ -97,7 +96,7 @@ def test_start_brings_hidden_premium_menu_to_recent_chat_position():
             assert app.navigation.views[123].message_id != original
             assert sum(isinstance(call, SendMessage) for call in app.calls) == 2
             assert (123, original) not in app.messages
-            assert 'Свобода подключения.' in app.navigation.views[123].screen.text
+            assert 'Свобода начинается здесь.' in app.navigation.views[123].screen.text
         finally:
             await app.close()
     asyncio.run(run())
@@ -132,14 +131,14 @@ def test_home_degrades_without_database_and_production_stays_plain():
         app = TelegramHarness(services=services)
         try:
             await app.text('/start')
-            assert 'Статус подписки — в личном кабинете' in app.navigation.views[123].screen.text
+            assert 'Статус подписки временно недоступен' in app.navigation.views[123].screen.text
             assert 'Активна' not in app.navigation.views[123].screen.text
         finally:
             await app.close()
     asyncio.run(run())
 
     plain = home()
-    assert 'Свобода подключения.' not in plain.text
+    assert 'Свобода начинается здесь.' not in plain.text
     assert not any(button.style for button in buttons(plain))
     assert 'nav:smart' not in {button.callback_data for button in buttons(plain)}
 
@@ -196,7 +195,7 @@ def test_emoji_and_style_rejection_both_fall_back_to_readable_text():
             assert app.navigation.button_styles is False
             assert sum(isinstance(call, SendMessage) for call in app.calls) == 3
             screen = app.navigation.views[123].screen
-            assert 'Свобода подключения.' in screen.text
+            assert 'Свобода начинается здесь.' in screen.text
             assert not any(button.style or button.icon_custom_emoji_id for button in buttons(screen))
         finally:
             await app.close()

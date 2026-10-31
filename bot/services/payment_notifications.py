@@ -8,7 +8,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 
-from bot.db.models import Payment
+from bot.db.models import Payment, SubscriptionHistory
 from bot.services.subscriptions import SubscriptionService
 from bot.services.yookassa_verification import (
     PaymentLookup, YooKassaPaymentVerifier, confirmed_from_lookup,
@@ -17,10 +17,11 @@ from bot.services.yookassa_verification import (
 
 
 class PaymentNotificationProcessor:
-    def __init__(self, sessions, lookup: PaymentLookup):
+    def __init__(self, sessions, lookup: PaymentLookup, *, refund_reviews=None):
         self.sessions = sessions
         self.lookup = lookup
         self.lifecycle = SubscriptionService(sessions, YooKassaPaymentVerifier(lookup))
+        self.refund_reviews = refund_reviews
 
     async def process(self, provider_payment_id: str) -> str:
         """Return ``succeeded``, ``canceled`` or ``pending`` after provider GET.
@@ -39,11 +40,21 @@ class PaymentNotificationProcessor:
                 Payment.provider_payment_id == provider_payment_id))
         if known is None:
             raise ValueError("Платёж не найден")
+        if self.refund_reviews is not None and self.refund_reviews.pending(known):
+            async with self.sessions() as session:
+                applied = await session.scalar(select(SubscriptionHistory.id).where(
+                    SubscriptionHistory.payment_id == known, SubscriptionHistory.reason == 'payment'))
+            if applied is None:
+                raise ValueError("Возврат требует ручного разбора до активации")
         data = await self.lookup.fetch(provider_payment_id)
         try:
             order_id = UUID(data['metadata']['order_id'])
         except (KeyError, TypeError, ValueError, AttributeError):
             raise ValueError("Провайдер не подтвердил параметры оплаты") from None
+        if order_id != known:
+            # A provider response must describe the exact locally bound order,
+            # never another pending order that happens to have the same amount.
+            raise ValueError("Провайдер не подтвердил параметры оплаты")
         identity = identity_from_lookup(order_id, data)
         if identity.provider_id != provider_payment_id:
             raise ValueError("Провайдер не подтвердил параметры оплаты")

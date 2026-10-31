@@ -9,5 +9,7 @@ def tariffs_keyboard(*, pilot: bool = False):
         for row in keyboard.inline_keyboard:
             for button in row:
                 if (button.callback_data or "").startswith("tariff:"):
-                    button.style = "success" if button.callback_data == "tariff:pilot_month_199" else "primary"
+                    button.style = "success" if button.callback_data == "tariff:pilot_quarter_499" else "primary"
+                    if button.callback_data == "tariff:pilot_quarter_499":
+                        button.text += " · Рекомендуем"
     return keyboard

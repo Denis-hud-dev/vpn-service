@@ -4,7 +4,7 @@ from aiohttp import web
 from bot.services.yookassa_api import PaymentProviderUnavailable, PROVIDER_ID
 
 
-def install_test_payment_webhook(app: web.Application, processor, *, refund_processor=None) -> None:
+def install_test_payment_webhook(app: web.Application, processor, *, refund_processor=None, inbox=None) -> None:
     async def notification(request: web.Request) -> web.Response:
         try:
             body = await request.json()
@@ -24,6 +24,11 @@ def install_test_payment_webhook(app: web.Application, processor, *, refund_proc
         if refund and (not isinstance(parent, str) or not PROVIDER_ID.fullmatch(parent)):
             return web.Response(status=400)
         try:
+            if inbox is not None:
+                # Opt-in durable acknowledgment. Persist only IDs, never trust
+                # the claimed status/amount. The worker independently GETs it.
+                await inbox.accept_hint('refunds' if refund else 'payments', payment_id, parent)
+                return web.Response(status=200)
             # The event body is not passed to the processor. It must first find
             # a locally bound order, then independently GET its provider state.
             if refund:

@@ -19,8 +19,8 @@ def test_pilot_catalog_and_native_styles_do_not_change_legacy_catalog():
     screen = screens.tariffs(premium_account=True, test_payment=True)
     buttons = [b for row in screen.keyboard.inline_keyboard for b in row]
     assert [b.text for b in buttons[:3]] == [
-        '1 месяц — 199 ₽', '3 месяца — 499 ₽', '12 месяцев — 1790 ₽']
-    assert [b.style for b in buttons[:3]] == ['success', 'primary', 'primary']
+        '1 месяц — 199 ₽', '3 месяца — 499 ₽ · Рекомендуем', '12 месяцев — 1790 ₽']
+    assert [b.style for b in buttons[:3]] == ['primary', 'success', 'primary']
     assert '299 ₽' not in screen.text and 'Стартовые' not in screen.text
     assert not any((b.callback_data or '').startswith(('launchplan:', 'nav:launch')) for b in buttons)
     default = screens.tariffs()
@@ -53,7 +53,7 @@ def test_old_tariff_buttons_cannot_create_old_price_order_in_premium():
             services.test_checkout.create_for_user.assert_not_awaited()
             await app.callback('paytest:pilot_month_199')
             services.test_checkout.create_for_user.assert_not_awaited()
-            assert 'Stars' in app.navigation.views[123].screen.text
+            assert 'Оплата в этом боте' in app.navigation.views[123].screen.text
             assert not any(b.url for row in app.navigation.views[123].screen.keyboard.inline_keyboard for b in row)
             await app.callback('nav:tariffs')
             assert 'Тарифы' in app.navigation.views[123].screen.text
@@ -76,7 +76,7 @@ def test_tariffs_keep_navigation_when_telegram_rejects_styles():
             assert '199 ₽' in screen.text
             assert not any(b.style for row in screen.keyboard.inline_keyboard for b in row)
             await app.callback('nav:home')
-            assert 'Свобода подключения' in app.navigation.views[123].screen.text
+            assert 'Свобода начинается здесь' in app.navigation.views[123].screen.text
         finally:
             await app.close()
     asyncio.run(run())

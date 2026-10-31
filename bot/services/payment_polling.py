@@ -35,10 +35,19 @@ class TestPaymentPoller:
                 logger.warning('test_payment_poll outcome=retry error=%s', type(exc).__name__)
 
 
-async def run_test_payment_poller(poller: TestPaymentPoller) -> None:
+async def run_test_payment_poller(poller: TestPaymentPoller, *, reconciler=None) -> None:
     while True:
         try:
             await poller.tick()
         except Exception as exc:
             logger.warning('test_payment_poll outcome=retry error=%s', type(exc).__name__)
+        if reconciler is not None:
+            try:
+                outcome = await reconciler.tick()
+                if outcome.get('discovery_errors'):
+                    logger.warning('test_payment_reconcile outcome=discovery_retry')
+                if outcome.get('review'):
+                    logger.warning('test_payment_reconcile outcome=review_required')
+            except Exception:
+                logger.warning('test_payment_reconcile outcome=retry')
         await asyncio.sleep(30)

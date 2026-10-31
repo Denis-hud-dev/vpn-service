@@ -1,36 +1,41 @@
 import logging
 import asyncio
 import sqlite3
-from pathlib import Path
 from aiogram import F, Router
-from aiogram.exceptions import TelegramAPIError
+from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 from aiogram.filters import CommandStart, CommandObject
-from aiogram.types import CallbackQuery, Message, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import CallbackQuery, Message, FSInputFile
 from sqlalchemy.exc import SQLAlchemyError
 from bot.navigation import Navigation
 from bot.screens import home
 from bot import screens
-from bot.keyboards.reply import CONNECT, ACCOUNT, INFO, premium_reply_keyboard
+from bot.keyboards.reply import (CONNECT, ACCOUNT, INFO, CONNECT_COMMANDS, ACCOUNT_COMMANDS,
+                                 INFO_COMMANDS, BUY_COMMANDS, REPLY_COMMANDS, premium_reply_keyboard)
+from bot.premium_emoji import decorate_reply
 from bot.handlers.instructions import connect_for_user
 from bot.handlers.subscription import account_for_user
 from bot.config import Config
 from bot.services import Services, parse_referrer
+from bot.branding import WELCOME_BANNER
 
 logger = logging.getLogger(__name__)
-BANNER = Path(__file__).resolve().parents[1] / "assets" / "welcome-premium.png"
-WELCOME = ("<b>Добро пожаловать в KudaVPN.</b>\n\n"
-           "<b>Свобода быть на связи.</b>\n\n"
-           "Твоё пространство в интернете — без лишних границ и сложных настроек.\n\n"
-           "Один доступ. Твои устройства. Подключение за несколько шагов.\n\n"
-           "<i>KudaVPN Premium — технологии, которые работают для тебя</i>")
+BANNER = WELCOME_BANNER
 
 
-async def install_reply_keyboard(bot, user_id: int, services: Services) -> None:
+async def install_reply_keyboard(bot, user_id: int, services: Services, *, custom_emoji: bool = False) -> None:
     if not services.pilot_welcome_enabled or services.onboarding is None:
         return
     try:
-        sent = await bot.send_message(user_id, "◆ Навигация KudaVPN доступна внизу чата.",
-                                      reply_markup=premium_reply_keyboard())
+        greeting = await home_for_user(services, user_id)
+        plain = premium_reply_keyboard()
+        keyboard = decorate_reply(plain) if custom_emoji else plain
+        try:
+            sent = await bot.send_message(user_id, greeting.text, parse_mode="HTML", reply_markup=keyboard)
+        except TelegramBadRequest as exc:
+            if not custom_emoji or not Navigation._emoji_rejection(exc.message.lower()):
+                raise
+            # Server-side capability rejection: retain the original Unicode labels.
+            sent = await bot.send_message(user_id, greeting.text, parse_mode="HTML", reply_markup=plain)
         try:
             previous = await services.onboarding.record_keyboard_message(user_id, sent.message_id)
         except (OSError, sqlite3.Error) as exc:
@@ -55,7 +60,7 @@ async def home_for_user(services: Services, user_id: int):
         # Navigation stays available without presenting an unverified status.
         snapshot = None
     return home(premium_account=True, snapshot=snapshot,
-                reply_navigation=services.pilot_welcome_enabled)
+                reply_navigation=services.pilot_welcome_enabled, menu_links=services.menu_links)
 
 
 async def start(message: Message, command: CommandObject, services: Services, navigation: Navigation):
@@ -75,21 +80,37 @@ async def start(message: Message, command: CommandObject, services: Services, na
             # Preserve /start even if the isolated onboarding ledger is unavailable.
             logger.warning("Pilot onboarding state unavailable: %s", type(exc).__name__)
             first = False
+        welcomed = False
         if first:
             try:
-                sent = await message.bot.send_photo(message.chat.id, FSInputFile(BANNER),
-                    caption=WELCOME, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(
-                        inline_keyboard=[[InlineKeyboardButton(
-                            text="🚀 Начать пользоваться", callback_data="pilot:begin")]]))
+                # Preserve the original banner as history. The immediately following
+                # tracked text screen holds the inline main actions.
+                keyboard = premium_reply_keyboard()
+                try:
+                    sent = await message.bot.send_photo(message.chat.id, FSInputFile(BANNER),
+                        caption=screens.first_welcome_text(), parse_mode="HTML",
+                        reply_markup=decorate_reply(keyboard) if navigation.custom_emoji else keyboard)
+                except TelegramBadRequest as exc:
+                    if not navigation.custom_emoji or not Navigation._emoji_rejection(exc.message.lower()):
+                        raise
+                    sent = await message.bot.send_photo(message.chat.id, FSInputFile(BANNER),
+                        caption=screens.first_welcome_text(), parse_mode="HTML", reply_markup=keyboard)
                 await services.onboarding.record_welcome(user_id, sent.message_id)
-                return
+                welcomed = True
             except (TelegramAPIError, OSError):
                 logger.warning("Pilot welcome unavailable; showing navigation")
-        await install_reply_keyboard(message.bot, user_id, services)
-    # Always ask Telegram: a cached home screen may have been manually deleted.
-    await navigation.message(message, await home_for_user(
-        services, message.from_user.id if message.from_user else message.chat.id), verify=True,
-        bring_forward=services.premium_account_enabled)
+        if not welcomed:
+            await install_reply_keyboard(message.bot, user_id, services, custom_emoji=navigation.custom_emoji)
+    screen = (screens.main_actions(menu_links=services.menu_links) if pilot
+              else await home_for_user(services, user_id))
+    if pilot:
+        # A meaningful greeting carries ReplyKeyboard; this message carries inline actions.
+        await navigation.show(message.bot, message.chat.id, screen,
+                              verify=True, bring_forward=True)
+    else:
+        # A cached home screen may have been manually deleted.
+        await navigation.message(message, screen, verify=True,
+                                 bring_forward=services.premium_account_enabled)
     if not services.premium_account_enabled:
         try:
             await message.delete()
@@ -102,7 +123,8 @@ async def back(callback: CallbackQuery, navigation: Navigation, services: Servic
 
 
 async def begin(callback: CallbackQuery, navigation: Navigation, services: Services):
-    await install_reply_keyboard(callback.bot, callback.from_user.id, services)
+    await install_reply_keyboard(callback.bot, callback.from_user.id, services,
+                                 custom_emoji=navigation.custom_emoji)
     await navigation.show(callback.bot, callback.from_user.id,
                           await home_for_user(services, callback.from_user.id))
 
@@ -117,7 +139,7 @@ async def remove_reply_command(message: Message, services: Services) -> None:
     sender = message.from_user
     if (not services.pilot_welcome_enabled or message.chat.type != "private"
             or sender is None or sender.is_bot or message.chat.id != sender.id
-            or message.text not in (CONNECT, ACCOUNT, INFO)
+            or message.text not in REPLY_COMMANDS
             or message.forward_origin is not None or message.sender_chat is not None
             or message.via_bot is not None):
         return
@@ -126,6 +148,16 @@ async def remove_reply_command(message: Message, services: Services) -> None:
     except (TelegramAPIError, TimeoutError) as exc:
         # Deletion is cosmetic; keep navigating even when Telegram refuses it.
         logger.debug("Pilot reply command retained: %s", type(exc).__name__)
+
+
+async def reply_buy(message: Message, navigation: Navigation, services: Services):
+    if services.pilot_welcome_enabled:
+        await remove_reply_command(message, services)
+        await navigation.show(message.bot, message.chat.id,
+                              screens.tariffs(premium_account=True), new_message=True)
+    else:
+        await navigation.show(message.bot, message.chat.id,
+                              await home_for_user(services, message.from_user.id))
 
 
 async def reply_connect(message: Message, navigation: Navigation, services: Services):
@@ -158,12 +190,27 @@ async def reply_info(message: Message, navigation: Navigation, services: Service
                               await home_for_user(services, message.from_user.id))
 
 
+async def information(callback: CallbackQuery, navigation: Navigation, config: Config):
+    await navigation.callback(callback, screens.information(config.support_username))
+
+
+async def public_destination(callback: CallbackQuery, navigation: Navigation, services: Services):
+    if not services.premium_account_enabled or services.menu_links is None:
+        await navigation.callback(callback, await home_for_user(services, callback.from_user.id))
+        return
+    await navigation.callback(callback, screens.public_destination(
+        callback.data.removeprefix("nav:"), services.menu_links))
+
+
 def create_router() -> Router:
     router = Router(name="start")
     router.message.register(start, CommandStart())
-    router.message.register(reply_connect, F.text == CONNECT)
-    router.message.register(reply_account, F.text == ACCOUNT)
-    router.message.register(reply_info, F.text == INFO)
+    router.message.register(reply_buy, F.text.in_(BUY_COMMANDS))
+    router.message.register(reply_connect, F.text.in_(CONNECT_COMMANDS))
+    router.message.register(reply_account, F.text.in_(ACCOUNT_COMMANDS))
+    router.message.register(reply_info, F.text.in_(INFO_COMMANDS))
+    router.callback_query.register(information, F.data == "nav:info")
+    router.callback_query.register(public_destination, F.data.in_({"nav:channel", "nav:community"}))
     router.callback_query.register(back, F.data.in_({"nav:home", "menu"}))
     router.callback_query.register(begin, F.data == "pilot:begin")
     return router

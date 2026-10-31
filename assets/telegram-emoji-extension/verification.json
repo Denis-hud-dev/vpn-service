@@ -1,0 +1,314 @@
+{
+  "passed": 18,
+  "new": 16,
+  "reused": 2,
+  "results": [
+    {
+      "filename": "buy_vpn.webm",
+      "bytes": 6308,
+      "codec": "vp9",
+      "size": [
+        100,
+        100
+      ],
+      "fps": 24,
+      "duration_seconds": 2,
+      "frames": 48,
+      "audio": false,
+      "alpha_verified": true,
+      "moving_frames": 48,
+      "loop_seam_ratio": 1.251,
+      "reused": true
+    },
+    {
+      "filename": "info.webm",
+      "bytes": 6352,
+      "codec": "vp9",
+      "size": [
+        100,
+        100
+      ],
+      "fps": 24,
+      "duration_seconds": 2,
+      "frames": 48,
+      "audio": false,
+      "alpha_verified": true,
+      "moving_frames": 48,
+      "loop_seam_ratio": 1.278,
+      "reused": false
+    },
+    {
+      "filename": "settings.webm",
+      "bytes": 6724,
+      "codec": "vp9",
+      "size": [
+        100,
+        100
+      ],
+      "fps": 24,
+      "duration_seconds": 2,
+      "frames": 48,
+      "audio": false,
+      "alpha_verified": true,
+      "moving_frames": 48,
+      "loop_seam_ratio": 1.252,
+      "reused": false
+    },
+    {
+      "filename": "apple.webm",
+      "bytes": 6173,
+      "codec": "vp9",
+      "size": [
+        100,
+        100
+      ],
+      "fps": 24,
+      "duration_seconds": 2,
+      "frames": 48,
+      "audio": false,
+      "alpha_verified": true,
+      "moving_frames": 48,
+      "loop_seam_ratio": 1.303,
+      "reused": false
+    },
+    {
+      "filename": "windows.webm",
+      "bytes": 6372,
+      "codec": "vp9",
+      "size": [
+        100,
+        100
+      ],
+      "fps": 24,
+      "duration_seconds": 2,
+      "frames": 48,
+      "audio": false,
+      "alpha_verified": true,
+      "moving_frames": 48,
+      "loop_seam_ratio": 1.278,
+      "reused": false
+    },
+    {
+      "filename": "android.webm",
+      "bytes": 6552,
+      "codec": "vp9",
+      "size": [
+        100,
+        100
+      ],
+      "fps": 24,
+      "duration_seconds": 2,
+      "frames": 48,
+      "audio": false,
+      "alpha_verified": true,
+      "moving_frames": 48,
+      "loop_seam_ratio": 1.259,
+      "reused": false
+    },
+    {
+      "filename": "linux.webm",
+      "bytes": 6479,
+      "codec": "vp9",
+      "size": [
+        100,
+        100
+      ],
+      "fps": 24,
+      "duration_seconds": 2,
+      "frames": 48,
+      "audio": false,
+      "alpha_verified": true,
+      "moving_frames": 48,
+      "loop_seam_ratio": 1.182,
+      "reused": false
+    },
+    {
+      "filename": "ios.webm",
+      "bytes": 6340,
+      "codec": "vp9",
+      "size": [
+        100,
+        100
+      ],
+      "fps": 24,
+      "duration_seconds": 2,
+      "frames": 48,
+      "audio": false,
+      "alpha_verified": true,
+      "moving_frames": 48,
+      "loop_seam_ratio": 1.248,
+      "reused": false
+    },
+    {
+      "filename": "macos.webm",
+      "bytes": 6319,
+      "codec": "vp9",
+      "size": [
+        100,
+        100
+      ],
+      "fps": 24,
+      "duration_seconds": 2,
+      "frames": 48,
+      "audio": false,
+      "alpha_verified": true,
+      "moving_frames": 48,
+      "loop_seam_ratio": 1.25,
+      "reused": false
+    },
+    {
+      "filename": "smart_tv.webm",
+      "bytes": 6324,
+      "codec": "vp9",
+      "size": [
+        100,
+        100
+      ],
+      "fps": 24,
+      "duration_seconds": 2,
+      "frames": 48,
+      "audio": false,
+      "alpha_verified": true,
+      "moving_frames": 48,
+      "loop_seam_ratio": 1.237,
+      "reused": false
+    },
+    {
+      "filename": "promo.webm",
+      "bytes": 6302,
+      "codec": "vp9",
+      "size": [
+        100,
+        100
+      ],
+      "fps": 24,
+      "duration_seconds": 2,
+      "frames": 48,
+      "audio": false,
+      "alpha_verified": true,
+      "moving_frames": 48,
+      "loop_seam_ratio": 1.311,
+      "reused": false
+    },
+    {
+      "filename": "referral.webm",
+      "bytes": 6255,
+      "codec": "vp9",
+      "size": [
+        100,
+        100
+      ],
+      "fps": 24,
+      "duration_seconds": 2,
+      "frames": 48,
+      "audio": false,
+      "alpha_verified": true,
+      "moving_frames": 48,
+      "loop_seam_ratio": 1.251,
+      "reused": false
+    },
+    {
+      "filename": "channel.webm",
+      "bytes": 6616,
+      "codec": "vp9",
+      "size": [
+        100,
+        100
+      ],
+      "fps": 24,
+      "duration_seconds": 2,
+      "frames": 48,
+      "audio": false,
+      "alpha_verified": true,
+      "moving_frames": 48,
+      "loop_seam_ratio": 1.181,
+      "reused": false
+    },
+    {
+      "filename": "community.webm",
+      "bytes": 6553,
+      "codec": "vp9",
+      "size": [
+        100,
+        100
+      ],
+      "fps": 24,
+      "duration_seconds": 2,
+      "frames": 48,
+      "audio": false,
+      "alpha_verified": true,
+      "moving_frames": 48,
+      "loop_seam_ratio": 1.193,
+      "reused": false
+    },
+    {
+      "filename": "faq.webm",
+      "bytes": 6227,
+      "codec": "vp9",
+      "size": [
+        100,
+        100
+      ],
+      "fps": 24,
+      "duration_seconds": 2,
+      "frames": 48,
+      "audio": false,
+      "alpha_verified": true,
+      "moving_frames": 48,
+      "loop_seam_ratio": 1.242,
+      "reused": true
+    },
+    {
+      "filename": "notification.webm",
+      "bytes": 6173,
+      "codec": "vp9",
+      "size": [
+        100,
+        100
+      ],
+      "fps": 24,
+      "duration_seconds": 2,
+      "frames": 48,
+      "audio": false,
+      "alpha_verified": true,
+      "moving_frames": 48,
+      "loop_seam_ratio": 1.274,
+      "reused": false
+    },
+    {
+      "filename": "back.webm",
+      "bytes": 5999,
+      "codec": "vp9",
+      "size": [
+        100,
+        100
+      ],
+      "fps": 24,
+      "duration_seconds": 2,
+      "frames": 48,
+      "audio": false,
+      "alpha_verified": true,
+      "moving_frames": 48,
+      "loop_seam_ratio": 1.187,
+      "reused": false
+    },
+    {
+      "filename": "home.webm",
+      "bytes": 6323,
+      "codec": "vp9",
+      "size": [
+        100,
+        100
+      ],
+      "fps": 24,
+      "duration_seconds": 2,
+      "frames": 48,
+      "audio": false,
+      "alpha_verified": true,
+      "moving_frames": 48,
+      "loop_seam_ratio": 1.205,
+      "reused": false
+    }
+  ],
+  "telegram_requirements": "https://core.telegram.org/stickers/webm-vp9-encoding"
+}

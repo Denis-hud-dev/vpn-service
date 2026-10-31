@@ -1,0 +1,391 @@
+{
+  "reviewed_revision": "293df02e33ebcf99bb981c028fafd90b9cd81a44",
+  "deployed_release": "/opt/kudavpn-monitor/releases/293df02",
+  "previous_release": "/opt/kudavpn-monitor/releases/74f9a3f",
+  "backup_directory_each_host": "/opt/kudavpn-monitor/backups/update-293df02-20261030",
+  "delivery": {
+    "accepted_at": 1793343934,
+    "message_ids": [
+      30
+    ],
+    "owner_only": true,
+    "scheduled_slot_unchanged": true
+  },
+  "next_full_utc": "2026-10-30T08:00:00+00:00",
+  "actual_previous_window_replay": {
+    "start_utc": "2026-10-30T00:00:40Z",
+    "end_utc": "2026-10-30T04:00:40Z",
+    "old_word_markers": 18,
+    "new_events": 6,
+    "telegram_api": 5,
+    "network": 1,
+    "application": 0,
+    "last_event_utc": "2026-10-30T01:20:18.499191Z"
+  },
+  "guarded_rollback": {
+    "performed": true,
+    "cause": "systemd socket file descriptor number changed after daemon-reload; port, owner PID and service starts unchanged",
+    "guard_correction": "Ignore only volatile fd number; preserve listener address, port and process owner PID comparison",
+    "worker_and_collector_runtime_source_changed_after_review": false
+  },
+  "hosts": {
+    "justhost": {
+      "verified_at_utc": "2026-10-30T07:06:41+00:00",
+      "worker_active": "active",
+      "worker_enabled": "enabled",
+      "worker_nrestarts": 0,
+      "collector_timer_active": "active",
+      "collector_timer_enabled": "enabled",
+      "collector_last_trigger": "Fri 2026-10-30 07:06:02 UTC",
+      "metric_age_seconds": 35,
+      "heartbeat_age_seconds": 34,
+      "protected_processes_unchanged": true,
+      "listener_addresses_and_owner_pids_unchanged": true,
+      "other_unit_files_including_backup_unchanged": true,
+      "token_and_credentials_unchanged": true,
+      "reviewed_source_hashes_verified": true,
+      "full_report_slot_preserved": true,
+      "checks": [
+        {
+          "id": "collector",
+          "status": "ok",
+          "code": "measured",
+          "value": null,
+          "critical": false
+        },
+        {
+          "id": "cpu",
+          "status": "ok",
+          "code": "measured",
+          "value": 1.7,
+          "critical": false
+        },
+        {
+          "id": "memory",
+          "status": "ok",
+          "code": "measured",
+          "value": 71.9,
+          "critical": false
+        },
+        {
+          "id": "disk",
+          "status": "ok",
+          "code": "measured",
+          "value": 25.0,
+          "critical": false
+        },
+        {
+          "id": "unit:xray.service",
+          "status": "ok",
+          "code": "active",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "unit:kudavpn-xray-alt8443.service",
+          "status": "ok",
+          "code": "active",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "unit:kudavpn-pilot-node.service",
+          "status": "ok",
+          "code": "active",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "unit:kudavpn-pilot-two-node.service",
+          "status": "ok",
+          "code": "active",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "unit:kudavpn-telegram-pilot-feed.service",
+          "status": "ok",
+          "code": "active",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "unit:kudavpn-telegram-pilot-bot.service",
+          "status": "ok",
+          "code": "active",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "unit:kudavpn-test-checkout.service",
+          "status": "ok",
+          "code": "active",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "unit:postgresql@16-main.service",
+          "status": "ok",
+          "code": "active",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "unit:kudavpn-pilot-control.service",
+          "status": "retired",
+          "code": "decommissioned",
+          "value": null,
+          "critical": false
+        },
+        {
+          "id": "tcp:443",
+          "status": "ok",
+          "code": "reachable",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "tcp:8443",
+          "status": "ok",
+          "code": "reachable",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "tcp:9443",
+          "status": "ok",
+          "code": "reachable",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "tcp:10443",
+          "status": "ok",
+          "code": "reachable",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "tcp:18443",
+          "status": "ok",
+          "code": "reachable",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "tcp:18543",
+          "status": "ok",
+          "code": "reachable",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "test_bot_ready",
+          "status": "ok",
+          "code": "reachable",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "checkout_ready",
+          "status": "ok",
+          "code": "reachable",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "postgres",
+          "status": "ok",
+          "code": "reachable",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "node_health",
+          "status": "ok",
+          "code": "healthy",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "https_feed",
+          "status": "ok",
+          "code": "http_status",
+          "value": 200,
+          "critical": true
+        },
+        {
+          "id": "tls",
+          "status": "ok",
+          "code": "measured",
+          "value": 79,
+          "critical": false
+        },
+        {
+          "id": "feed_content",
+          "status": "ok",
+          "code": "measured",
+          "value": 1,
+          "critical": false
+        },
+        {
+          "id": "vpn_data_path",
+          "status": "unknown",
+          "code": "not_probed",
+          "value": null,
+          "critical": false
+        },
+        {
+          "id": "service_errors",
+          "status": "ok",
+          "code": "event_history",
+          "value": 0,
+          "critical": false
+        }
+      ]
+    },
+    "digitalocean": {
+      "verified_at_utc": "2026-10-30T07:06:41+00:00",
+      "worker_active": "active",
+      "worker_enabled": "enabled",
+      "worker_nrestarts": 0,
+      "collector_timer_active": "active",
+      "collector_timer_enabled": "enabled",
+      "collector_last_trigger": "Fri 2026-10-30 07:06:02 UTC",
+      "metric_age_seconds": 34,
+      "heartbeat_age_seconds": 22,
+      "protected_processes_unchanged": true,
+      "listener_addresses_and_owner_pids_unchanged": true,
+      "other_unit_files_including_backup_unchanged": true,
+      "token_and_credentials_unchanged": true,
+      "reviewed_source_hashes_verified": true,
+      "full_report_slot_preserved": true,
+      "checks": [
+        {
+          "id": "collector",
+          "status": "ok",
+          "code": "measured",
+          "value": null,
+          "critical": false
+        },
+        {
+          "id": "cpu",
+          "status": "ok",
+          "code": "measured",
+          "value": 28.4,
+          "critical": false
+        },
+        {
+          "id": "memory",
+          "status": "ok",
+          "code": "measured",
+          "value": 22.3,
+          "critical": false
+        },
+        {
+          "id": "disk",
+          "status": "ok",
+          "code": "measured",
+          "value": 5.9,
+          "critical": false
+        },
+        {
+          "id": "container:kudavpn-premium-bot-1",
+          "status": "ok",
+          "code": "healthy",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "container:kudavpn-premium-postgres-1",
+          "status": "ok",
+          "code": "healthy",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "container:kudavpn-xray-xray-1",
+          "status": "ok",
+          "code": "healthy",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "tcp:443",
+          "status": "ok",
+          "code": "reachable",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "bot_ready",
+          "status": "ok",
+          "code": "reachable",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "postgres",
+          "status": "ok",
+          "code": "reachable",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "bot_errors",
+          "status": "ok",
+          "code": "event_history",
+          "value": 0,
+          "critical": false,
+          "stats": {
+            "complete": true,
+            "counts": {
+              "telegram_api": 0,
+              "network": 0,
+              "application": 0,
+              "unclassified": 0
+            },
+            "last_event": null,
+            "window_start": 1793329565,
+            "window_end": 1793343965
+          }
+        },
+        {
+          "id": "bot_api",
+          "status": "ok",
+          "code": "reachable",
+          "value": null,
+          "critical": true
+        },
+        {
+          "id": "https_feed",
+          "status": "ok",
+          "code": "http_status",
+          "value": 200,
+          "critical": true
+        },
+        {
+          "id": "tls",
+          "status": "ok",
+          "code": "measured",
+          "value": 79,
+          "critical": false
+        },
+        {
+          "id": "vpn_data_path",
+          "status": "unknown",
+          "code": "not_probed",
+          "value": null,
+          "critical": false
+        },
+        {
+          "id": "service_errors",
+          "status": "ok",
+          "code": "event_history",
+          "value": 0,
+          "critical": false
+        }
+      ]
+    }
+  }
+}

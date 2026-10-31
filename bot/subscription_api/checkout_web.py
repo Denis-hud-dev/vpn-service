@@ -11,6 +11,7 @@ from aiohttp import web
 
 from bot.services.web_checkout import OrderUnavailable
 from bot.services.yookassa_api import PaymentProviderUnavailable
+from bot.branding import BRAND_IMAGES, brand_image
 
 ASSETS = Path(__file__).with_name('static')
 COOKIE = 'kuda_test_checkout'
@@ -20,7 +21,7 @@ CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self';
 
 
 def create_checkout_app(service, sessions, public_origin: str, *, local_demo=False,
-                        refund_processor=None, enable_webhook=False):
+                        refund_processor=None, enable_webhook=False, webhook_inbox=None):
     parsed = urlsplit(public_origin)
     if (parsed.path not in ('', '/') or parsed.query or parsed.fragment or parsed.username or parsed.password
             or not parsed.hostname or (parsed.scheme != 'https' and not
@@ -84,8 +85,9 @@ def create_checkout_app(service, sessions, public_origin: str, *, local_demo=Fal
 
     async def asset(request):
         name = request.match_info['name']
-        if name == 'logo.png':
-            return web.Response(body=(ASSETS / 'kudavpn-orbit-emblem.png').read_bytes(), content_type='image/png')
+        if name in BRAND_IMAGES:
+            path, mime = brand_image(name)
+            return web.Response(body=path.read_bytes(), content_type=mime)
         if name not in ('checkout.css', 'checkout.js'):
             raise web.HTTPNotFound()
         return web.Response(body=(ASSETS / name).read_bytes(),
@@ -152,5 +154,5 @@ def create_checkout_app(service, sessions, public_origin: str, *, local_demo=Fal
     app.router.add_post('/checkout/api/orders/{order}/refresh', refresh)
     if enable_webhook:
         from bot.subscription_api.payment_webhook import install_test_payment_webhook
-        install_test_payment_webhook(app, service.processor, refund_processor=refund_processor)
+        install_test_payment_webhook(app, service.processor, refund_processor=refund_processor, inbox=webhook_inbox)
     return app

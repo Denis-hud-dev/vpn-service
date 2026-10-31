@@ -1,8 +1,11 @@
 """Fail-closed HTTP adapter for an isolated YooKassa *test* shop only."""
 from decimal import Decimal
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from uuid import UUID
+from urllib.parse import urlencode
+import json
 import re
 
 import aiohttp
@@ -12,6 +15,7 @@ from bot.services.yookassa_verification import identity_from_lookup
 
 API_ORIGIN = 'https://api.yookassa.ru'
 PROVIDER_ID = re.compile(r'[A-Za-z0-9-]{1,128}\Z')
+MAX_RESPONSE_BYTES = 256 * 1024
 
 
 class PaymentProviderUnavailable(RuntimeError):
@@ -25,6 +29,10 @@ class YooKassaTestClient:
             raise ValueError('Неверные параметры тестового магазина')
         if payment_method not in {'smart', 'sbp'}:
             raise ValueError('Неподдерживаемый способ тестовой оплаты')
+        # YooKassa sandbox supports cards/YooMoney, not SBP. Keep the payload
+        # contract available to injected offline fixtures, never real HTTP.
+        if payment_method == 'sbp' and transport is None:
+            raise ValueError('СБП недоступна в тестовом магазине ЮKassa')
         self.shop_id, self._secret_key = shop_id, secret_key
         self._transport = transport
         self.payment_method = payment_method
@@ -52,8 +60,15 @@ class YooKassaTestClient:
                                                headers=headers, allow_redirects=False) as response:
                         if response.status != 200:
                             raise PaymentProviderUnavailable('Тестовый провайдер временно недоступен')
-                        data = await response.json(content_type='application/json')
-            except (aiohttp.ClientError, TimeoutError, ValueError) as exc:
+                        if response.content_type != 'application/json':
+                            raise PaymentProviderUnavailable('Тестовый провайдер временно недоступен')
+                        body = bytearray()
+                        async for chunk in response.content.iter_chunked(8192):
+                            if len(body) + len(chunk) > MAX_RESPONSE_BYTES:
+                                raise PaymentProviderUnavailable('Тестовый провайдер временно недоступен')
+                            body.extend(chunk)
+                        data = json.loads(body.decode('utf-8'))
+            except (aiohttp.ClientError, TimeoutError, ValueError, RecursionError):
                 raise PaymentProviderUnavailable('Тестовый провайдер временно недоступен') from None
         if not isinstance(data, dict) or (payment_object and data.get('test') is not True):
             raise PaymentProviderUnavailable('Ответ не относится к тестовому магазину')
@@ -69,6 +84,38 @@ class YooKassaTestClient:
             raise PaymentProviderUnavailable('Провайдер вернул другой возврат')
         await self.fetch(data.get('payment_id'))
         return data
+
+    async def list_page(self, kind: str, start: datetime, end: datetime, cursor=None):
+        """Authenticated, bounded discovery only; every item needs a fresh GET.
+
+        Fixed UTC creation bounds must be reused on subsequent cursor pages.
+        Refunds have no test flag: their parent is checked by fetch_refund.
+        """
+        if (kind not in {'payments', 'refunds'} or not isinstance(start, datetime)
+                or not isinstance(end, datetime) or start.tzinfo is None
+                or end.tzinfo is None or start > end
+                or cursor is not None and (not isinstance(cursor, str) or not 1 <= len(cursor) <= 512
+                    or any(ord(c) < 32 or ord(c) == 127 for c in cursor))):
+            raise ValueError('Invalid reconciliation window')
+        params = {'created_at.gte': start.astimezone(timezone.utc).isoformat(),
+                  'created_at.lte': end.astimezone(timezone.utc).isoformat(), 'limit': 10}
+        if cursor is not None:
+            params['cursor'] = cursor
+        data = await self._request('GET', '/v3/' + kind + '?' + urlencode(params), payment_object=False)
+        items, next_cursor = data.get('items'), data.get('next_cursor')
+        if (data.get('type') != 'list' or not isinstance(items, list) or len(items) > 10
+                or next_cursor is not None and (not isinstance(next_cursor, str)
+                    or not 1 <= len(next_cursor) <= 512
+                    or any(ord(c) < 32 or ord(c) == 127 for c in next_cursor))):
+            raise PaymentProviderUnavailable('Invalid reconciliation page')
+        for item in items:
+            if (not isinstance(item, dict) or not isinstance(item.get('id'), str)
+                    or not PROVIDER_ID.fullmatch(item['id'])
+                    or kind == 'payments' and item.get('test') is not True
+                    or kind == 'refunds' and (not isinstance(item.get('payment_id'), str)
+                        or not PROVIDER_ID.fullmatch(item['payment_id']))):
+                raise PaymentProviderUnavailable('Invalid reconciliation page')
+        return items, next_cursor
 
     async def create(self, *, amount_kopecks: int, currency: str,
                      idempotency_key: UUID, order_id: UUID, return_url: str) -> PaymentIntent:

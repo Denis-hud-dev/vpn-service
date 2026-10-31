@@ -1,0 +1,40 @@
+[Unit]
+Description=KudaVPN owner-only Unix sandbox payment bridge
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kudavpn_site_payments
+Group=kudavpn_site_payments
+SupplementaryGroups=kudavpn_website_test
+WorkingDirectory=/opt/kudavpn-website-review/current
+Environment=KUDAVPN_PAYMENT_BRIDGE_MODE=owner-sandbox
+Environment=PYTHONDONTWRITEBYTECODE=1
+LoadCredential=payments.json:/etc/kudavpn-site-payments/payments.json
+ExecStart=/opt/kudavpn-website-review/venv/bin/python -m bot.subscription_api.payment_bridge
+RuntimeDirectory=kudavpn-site-payments
+RuntimeDirectoryMode=0750
+UMask=0007
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHome=yes
+ProtectSystem=strict
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectProc=invisible
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_INET AF_UNIX
+CapabilityBoundingSet=
+InaccessiblePaths=/opt/kudavpn-telegram-pilot /etc/kudavpn-telegram-pilot /etc/kudavpn-website-review /root
+MemoryMax=256M
+CPUQuota=50%
+TasksMax=32
+TimeoutStartSec=90
+
+[Install]
+WantedBy=multi-user.target

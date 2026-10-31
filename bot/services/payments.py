@@ -64,9 +64,9 @@ class PaymentRepository:
             rows = (await session.scalars(select(Payment).where(
                 Payment.user_id == user.id, Payment.tariff_id == tariff.id,
                 Payment.provider == 'yookassa', Payment.status == 'pending')
-                .order_by(Payment.created_at.desc()).limit(1))).all()
+                .order_by(Payment.provider_payment_id.is_(None).desc(), Payment.created_at.desc()).limit(1))).all()
             recent = rows[0] if rows else None
-            if recent and recent.created_at and as_utc(recent.created_at) > utcnow() - timedelta(minutes=30):
+            if recent and (not recent.provider_payment_id or recent.created_at and as_utc(recent.created_at) > utcnow() - timedelta(minutes=30)):
                 return recent
             payment = Payment(user_id=user.id, tariff_id=tariff.id,
                               amount_kopecks=tariff.price_rub * 100,
@@ -147,6 +147,12 @@ class PaymentCheckoutService:
     async def _start(self, payment: Payment) -> PaymentIntent:
         if payment.status != "pending":
             raise ValueError("Заказ больше не ожидает оплату")
+        # An unbound order can mean the provider accepted POST but our DB bind
+        # failed. Never replace its idempotency key or replay after YooKassa's
+        # 24h retention window: an operator must reconcile that uncertain order.
+        if (payment.created_at
+                and as_utc(payment.created_at) <= utcnow() - timedelta(hours=23)):
+            raise ValueError("Заказ требует сверки с провайдером")
         intent = await self.gateway.create(
             amount_kopecks=payment.amount_kopecks, currency=payment.currency,
             idempotency_key=payment.idempotency_key, order_id=payment.id,

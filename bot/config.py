@@ -2,6 +2,7 @@
 import os
 import re
 from dataclasses import dataclass
+from bot.menu_links import MenuLinks
 
 
 @dataclass(frozen=True)
@@ -22,6 +23,7 @@ class Config:
     pilot_custom_emoji_enabled: bool = False
     pilot_welcome_enabled: bool = False
     pilot_welcome_state_file: str = ""
+    pilot_menu_links: MenuLinks | None = None
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -60,8 +62,12 @@ class Config:
                               or database_url.rsplit('/', 1)[-1] != 'kudavpn_telegram_pilot'
                               or return_url != 'https://t.me/KudaVPN_Test_Bot'):
             raise ValueError('Тестовые платежи требуют изолированный бот, владельца и файлы тестового магазина')
+        menu_links = (MenuLinks(
+            website=os.getenv('PILOT_MENU_WEBSITE_URL', '').strip() or MenuLinks().website,
+            channel=os.getenv('PILOT_MENU_CHANNEL_URL', '').strip(),
+            community=os.getenv('PILOT_MENU_COMMUNITY_URL', '').strip()) if premium_account else None)
         return cls(token, support, port, database_url, public_url,
                    link_secret, trial_owner, connect_page, test_payments,
                    shop_file if test_payments else '', secret_file if test_payments else '',
                    return_url if test_payments else '', premium_account, custom_emoji,
-                   welcome, welcome_state if welcome else '')
+                   welcome, welcome_state if welcome else '', menu_links)

@@ -30,7 +30,7 @@ async def select_tariff(callback: CallbackQuery, services: Services, navigation:
 async def create_test_order(callback: CallbackQuery, services: Services, navigation: Navigation):
     # Retire old callback data without creating an external-provider order.
     await navigation.callback(callback, screens.panel('💳 Оплата в Telegram',
-        '◆ Для цифровых подписок Telegram требует Stars.\n'
+        '◆ Оплата в этом боте не принимается.\n'
         '╰ Покупка в боте пока не включена; внешний платёж здесь не создаётся.',
         screens.back_keyboard(back='nav:tariffs')))
 
@@ -115,6 +115,7 @@ def create_router() -> Router:
     router.callback_query.register(buy, (F.data == "nav:launch_tariffs") | F.data.startswith("launchplan:"))
     router.callback_query.register(select_tariff, F.data.startswith("tariff:"))
     router.callback_query.register(create_test_order, F.data.startswith("paytest:"))
+    router.callback_query.register(create_test_order, F.data.startswith("paymentpreview:") | F.data.startswith("paymentinfo:"))
     router.callback_query.register(subscription, F.data == "nav:account")
     router.callback_query.register(management, F.data == "nav:manage")
     router.callback_query.register(subscription_details, F.data == "nav:subscription")

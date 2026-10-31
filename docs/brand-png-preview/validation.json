@@ -1,0 +1,105 @@
+{
+  "desktop": {
+    "images": [
+      {
+        "fit": "contain",
+        "h": 72,
+        "loaded": true,
+        "src": "/assets/logo-small.png",
+        "w": 72
+      },
+      {
+        "fit": "contain",
+        "h": 403.6875,
+        "loaded": true,
+        "src": "/assets/logo.png",
+        "w": 479.5625
+      },
+      {
+        "fit": "contain",
+        "h": 72,
+        "loaded": true,
+        "src": "/assets/logo-small.png",
+        "w": 72
+      }
+    ],
+    "scroll": 1440,
+    "width": 1440
+  },
+  "login390": {
+    "images": [
+      {
+        "fit": "contain",
+        "h": 202.03125,
+        "loaded": true,
+        "src": "/auth/assets/logo.png",
+        "w": 240
+      }
+    ],
+    "scroll": 390,
+    "width": 390
+  },
+  "site390": {
+    "images": [
+      {
+        "fit": "contain",
+        "h": 56,
+        "loaded": true,
+        "src": "/assets/logo-small.png",
+        "w": 56
+      },
+      {
+        "fit": "contain",
+        "h": 277.7890625,
+        "loaded": true,
+        "src": "/assets/logo.png",
+        "w": 330
+      },
+      {
+        "fit": "contain",
+        "h": 56,
+        "loaded": true,
+        "src": "/assets/logo-small.png",
+        "w": 56
+      }
+    ],
+    "scroll": 390,
+    "width": 390
+  },
+  "account375": {
+    "broken": 0,
+    "scroll": 375,
+    "width": 375
+  },
+  "connect375": {
+    "images": [
+      {
+        "h": 52,
+        "loaded": true,
+        "src": "/assets/logo-small.png",
+        "w": 52
+      },
+      {
+        "h": 246.21875,
+        "loaded": true,
+        "src": "/assets/logo.png",
+        "w": 292.5
+      }
+    ],
+    "qrSvgCount": 1,
+    "qrVisible": true,
+    "scroll": 375,
+    "width": 375
+  },
+  "site320": {
+    "broken": 0,
+    "scroll": 320,
+    "width": 320
+  },
+  "source_sha256": "ea8160b3667452aceac8b3939308046dcf2585c57fd4f78d98f47bf84d5547d4",
+  "automated_tests_passed": 158,
+  "native_devices_tested": false,
+  "telegram_api_called": false,
+  "deployed": false,
+  "fixture_data_only": true
+}

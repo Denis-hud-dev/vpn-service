@@ -59,12 +59,21 @@ def build():
     if not client._secret_key.startswith('test_'):
         raise ValueError('Only a test API secret is allowed')
     checkout = PaymentCheckoutService(db.sessions, client, origin + '/checkout', tariffs=PILOT_TARIFFS)
-    processor = PaymentNotificationProcessor(db.sessions, client)
+    processor = PaymentNotificationProcessor(db.sessions, client, refund_reviews=reviews)
     happ = HappService(db.sessions, os.environ['SUBSCRIPTION_PUBLIC_URL'],
                        link_key=os.environ['HAPP_LINK_SECRET'], trial_owner_id=owner, trial_node_port=10443)
     service = WebCheckout(db.sessions, checkout, processor, happ, owner, reviews=reviews)
+    refund_processor = TestRefundProcessor(db.sessions, client, reviews)
+    reconcile_mode = os.getenv('CHECKOUT_RECONCILIATION', '0')
+    if reconcile_mode not in {'0', '1'}:
+        raise ValueError('Explicit reconciliation switch required')
+    reconciler = None
+    if reconcile_mode == '1':
+        from bot.services.payment_reconciliation import ReconciliationJournal, TestPaymentReconciler
+        journal = ReconciliationJournal(os.environ['CHECKOUT_RECONCILIATION_FILE'])
+        reconciler = TestPaymentReconciler(db.sessions, client, processor, refund_processor, journal, enabled=True)
     app = create_checkout_app(service, sessions, origin,
-                             refund_processor=TestRefundProcessor(db.sessions, client, reviews))
+                             refund_processor=refund_processor)
 
     async def readiness(request):
         try:
@@ -77,7 +86,7 @@ def build():
     async def lifecycle(app):
         await db.check()
         poller = TestPaymentPoller(db.sessions, client)
-        task = asyncio.create_task(run_test_payment_poller(poller))
+        task = asyncio.create_task(run_test_payment_poller(poller, reconciler=reconciler))
         try:
             yield
         finally:

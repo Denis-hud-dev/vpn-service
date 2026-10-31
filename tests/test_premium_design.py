@@ -13,11 +13,16 @@ def test_premium_screens_share_decorative_hierarchy_and_keep_actions():
         tariffs(test_payment=True), help_center(''), happ(),
         tariff_details('pilot_month_199', pilot=True),
     )
-    for screen in screens:
+    for index, screen in enumerate(screens):
         assert 'KudaVPN Premium' in screen.text
-        assert '◆' in screen.text
-        assert any(mark in screen.text for mark in ('┃', '├', '╰'))
+        if index:  # The new compact greeting deliberately omits panel dividers.
+            assert '◆' in screen.text
+            assert any(mark in screen.text for mark in ('┃', '├', '╰'))
         assert screen.keyboard.inline_keyboard
+    # Home deliberately uses the approved compact feature/status layout.
+    greeting = home(premium_account=True, snapshot=snapshot)
+    assert all(label in greeting.text for label in ("KudaVPN Premium", "Свобода начинается здесь", "🔒", "⚡", "🌍"))
+    assert len(greeting.text) < 350 and greeting.keyboard.inline_keyboard
     account_screen = screens[1]
     assert 'Действует до: 21.11.2026 · UTC' in account_screen.text
     assert [button.callback_data for row in account_screen.keyboard.inline_keyboard

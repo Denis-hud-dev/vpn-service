@@ -1,5 +1,6 @@
 """Compact inline navigation; callback data stays well below 64 bytes."""
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from bot.menu_links import MenuLinks
 
 CONNECT = "🚀 Подключить VPN"
 SUBSCRIPTION = "👤 Личный кабинет"
@@ -18,18 +19,24 @@ def button(text: str, destination: str, *, primary: bool = False) -> InlineKeybo
 
 
 def main_menu(*, premium_account: bool = False,
-              reply_navigation: bool = False) -> InlineKeyboardMarkup:
+              reply_navigation: bool = False, menu_links: MenuLinks | None = None) -> InlineKeyboardMarkup:
     if premium_account:
-        rows = ([
-            [button(BUY, "nav:tariffs")],
-        ] if reply_navigation else [
-            [button(CONNECT, "nav:connect", primary=True)],
-            [button(SUBSCRIPTION, "nav:account"), button(BUY, "nav:tariffs")],
-        ])
-        rows.extend([
-            [button("◈ Smart · скоро", "nav:smart"), button("📱 Устройства", "nav:devices")],
-            [button("🎁 Пригласить", "nav:invite"), button("🎧 Поддержка", "nav:help")],
-        ])
+        # Catalog only: no external-provider purchase is initiated in Telegram.
+        rows = [
+            [button("💎 Купить VPN", "nav:tariffs", primary=True)],
+            [button("👤 Моя подписка", "nav:account"),
+             button("🚀 Подключиться", "nav:connect")],
+            [button("💬 Поддержка", "nav:support"),
+             button("ℹ️ Информация", "nav:info")],
+        ]
+        if menu_links is not None:
+            rows.extend([
+                [InlineKeyboardButton(text="🌐 Наш сайт", url=menu_links.website)],
+                [InlineKeyboardButton(text="📢 Наш канал", **(
+                    {"url": menu_links.channel} if menu_links.channel else {"callback_data": "nav:channel"}))],
+                [InlineKeyboardButton(text="💬 Наше сообщество", **(
+                    {"url": menu_links.community} if menu_links.community else {"callback_data": "nav:community"}))],
+            ])
         return InlineKeyboardMarkup(inline_keyboard=rows)
     return InlineKeyboardMarkup(inline_keyboard=[
         [button(CONNECT, "nav:connect")],

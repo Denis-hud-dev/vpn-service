@@ -25,6 +25,10 @@ def test_smart_screen_only_in_premium_pilot_and_never_activates_a_mode():
         app = TelegramHarness(services=services)
         try:
             await app.text('/start')
+            assert 'nav:smart' not in routes(app.navigation.views[123].screen)
+            await app.callback('nav:account')
+            assert 'nav:manage' in routes(app.navigation.views[123].screen)
+            await app.callback('nav:manage')
             assert 'nav:smart' in routes(app.navigation.views[123].screen)
             await app.callback('nav:smart')
             screen = app.navigation.views[123].screen
@@ -33,6 +37,8 @@ def test_smart_screen_only_in_premium_pilot_and_never_activates_a_mode():
             assert 'Автоматическое переключение при обрыве пока не подтверждено' in screen.text
             assert routes(screen) == {'nav:connect', 'nav:home'}
             await app.callback('nav:home')
+            assert 'nav:smart' not in routes(app.navigation.views[123].screen)
+            await app.callback('nav:manage')
             assert 'nav:smart' in routes(app.navigation.views[123].screen)
         finally:
             await app.close()
@@ -68,7 +74,12 @@ def test_smart_screen_mobile_payload_is_readable_and_has_no_mode_controls():
         buttons = [button for row in screen.keyboard.inline_keyboard for button in row]
         assert [button.callback_data for button in buttons] == ['nav:connect', 'nav:home']
         assert buttons[0].text in {'🚀 Подключить VPN', 'Подключить VPN'}
-        assert buttons[1].text == '⬅️ Назад'
+        if buttons[1].icon_custom_emoji_id:
+            from bot.premium_emoji import EMOJI
+            assert buttons[1].text == 'Назад'
+            assert buttons[1].icon_custom_emoji_id == EMOJI['back'].id
+        else:
+            assert buttons[1].text == '⬅️ Назад'
         assert all(button.url is None and len(button.text) <= 32
                    and len(button.callback_data.encode()) <= 64 for button in buttons)
 
@@ -85,12 +96,12 @@ def test_smart_navigation_back_connect_and_home_keep_one_message():
             original_message = app.navigation.views[123].message_id
             for route, expected in (
                 ('nav:smart', 'режимы не включаются'),
-                ('nav:home', 'Свобода подключения. Простота управления.'),
+                ('nav:home', 'Свобода начинается здесь.'),
                 ('nav:smart', 'режимы не включаются'),
                 ('nav:connect', 'Подключение через'),
                 ('nav:happ', 'Android и iPhone'),
                 ('nav:connect', 'Подключение через'),
-                ('nav:home', 'Свобода подключения. Простота управления.'),
+                ('nav:home', 'Свобода начинается здесь.'),
             ):
                 acknowledged = sum(isinstance(call, AnswerCallbackQuery) for call in app.calls)
                 await app.callback(route)

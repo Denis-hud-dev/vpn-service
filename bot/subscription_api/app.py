@@ -1,4 +1,5 @@
 from aiohttp import web
+from bot.branding import BRAND_IMAGES, brand_image
 from pathlib import Path
 from bot.services.happ import AccessDenied
 from bot.subscription_api.connect_page import render_connection_page
@@ -49,12 +50,12 @@ def create_app(service, *, test_payment_processor=None):
 
     async def asset(request):
         name = request.match_info['name']
-        if name not in ('connect.css', 'connect.js', 'kudavpn-original-logo.jpeg',
-                        'kudavpn-orbit-emblem.png'):
+        if name in BRAND_IMAGES:
+            path, mime = brand_image(name)
+            return web.Response(body=path.read_bytes(), content_type=mime)
+        if name not in ('connect.css', 'connect.js'):
             raise web.HTTPNotFound()
-        content_type = ('text/css' if name.endswith('.css') else
-                        'application/javascript' if name.endswith('.js') else
-                        'image/png' if name.endswith('.png') else 'image/jpeg')
+        content_type = 'text/css' if name.endswith('.css') else 'application/javascript'
         return web.Response(body=(ASSETS / name).read_bytes(), content_type=content_type)
     app.router.add_get('/assets/{name}', asset)
     return app

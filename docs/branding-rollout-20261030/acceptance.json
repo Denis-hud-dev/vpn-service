@@ -1,0 +1,68 @@
+{
+  "date": "2026-10-30",
+  "approved_visual_source": "ca0d10ece2f3026a69c08c36f5759ed3fa0d1220",
+  "rollout_fix": "36b3e32",
+  "stages": {
+    "website": {
+      "accepted_utc": "13:48:53",
+      "encrypted_backup_bytes": 7047032,
+      "restart": true
+    },
+    "feed_original": {
+      "accepted_utc": "13:51:26",
+      "encrypted_backup_bytes": 1260024,
+      "rolled_back": true,
+      "cause": "new_public_asset_parent_0700"
+    },
+    "feed_retry": {
+      "accepted_utc": "17:19:18",
+      "encrypted_backup_bytes": 1260024,
+      "restart": true,
+      "all_9_artwork_hashes_verified": true
+    },
+    "checkout": {
+      "accepted_utc": "17:08:57",
+      "encrypted_backup_bytes": 5858904,
+      "restart": false
+    },
+    "bot": {
+      "accepted_utc": "17:10:25",
+      "encrypted_backup_bytes": 5889624,
+      "restart": false
+    }
+  },
+  "telegram_preview_message_id": 206,
+  "test_bot_identity_verified": true,
+  "owner_only_delivery": true,
+  "protected_services_configs_listeners_unchanged": true,
+  "canonical_digest_equal_during_each_apply": true,
+  "full_row_digest_equal_after_interactive_start": false,
+  "reason": "users.updated_at refreshed by normal /start; financial/subscription/token rows not changed since rollout",
+  "business_rows_changed_since_rollout": {
+    "subscriptions": 0,
+    "payments": 0,
+    "subscription_history": 0,
+    "subscription_tokens": 0
+  },
+  "feed_https_status": 200,
+  "feed_profile_count": 1,
+  "feed_test_port_10443": true,
+  "feed_connect_https_status": 200,
+  "checkout_ready_status": 200,
+  "checkout_logo_hash_verified": true,
+  "owner_login_and_session_navigation_verified": true,
+  "unauthenticated_root_and_account": 401,
+  "public_login_logo_status": 200,
+  "site_readiness_loopback_only": true,
+  "qr_show_hide": true,
+  "platform_tabs": [
+    "Android",
+    "iOS",
+    "Windows",
+    "macOS"
+  ],
+  "javascript_warnings_errors": 0,
+  "profile_tests_passed": 46,
+  "profile_tests_skipped": 0,
+  "physical_mobile_vpn_test": false
+}

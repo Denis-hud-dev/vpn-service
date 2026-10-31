@@ -57,7 +57,7 @@ jobs:
           python -m pip install -r bot/requirements.txt -r bot/requirements-dev.txt
           python -m pip check
       - name: Check Python syntax
-        run: python -m compileall -q bot migrations tests scripts
+        run: python -m compileall -q bot support_bot migrations tests scripts
       - name: Run offline smoke test
         run: python tests/smoke.py
       - name: Run tests and disposable PostgreSQL migrations

@@ -20,3 +20,7 @@ backups/
 *.p12
 *.pfx
 node-private/
+
+# Local-only visual preview environment (no secrets or runtime data).
+.preview-venv/
+.preview-deps/

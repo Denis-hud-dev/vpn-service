@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-31",
+  "accepted_utc": "2026-10-31T08:20:16Z",
+  "service": "kudavpn-telegram-pilot-bot.service",
+  "pid": 843525,
+  "configuration_only": true,
+  "application_files_changed": 0,
+  "channel": "https://t.me/KudaVPN_official",
+  "community": "https://t.me/KudaVPN_community",
+  "website": "https://r1276248.s2578.vm.mydomain.zone:20443",
+  "all_three_url_only": true,
+  "public_chats_resolved": true,
+  "live_start_and_repeat_verified": true,
+  "native_inline_clicks_verified": false,
+  "protected_services_unchanged": true,
+  "source_hashes_unchanged": true,
+  "new_error_records": 0,
+  "encrypted_backup_bytes": 5561864,
+  "backup_hash_verified": true,
+  "tests_passed": 28,
+  "tests_skipped": 0
+}
